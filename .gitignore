@@ -1,0 +1,45 @@
+# Pastas geradas pelo Unity
+[Ll]ibrary/
+[Tt]emp/
+[Oo]bj/
+[Bb]uild/
+[Bb]uilds/
+[Ll]ogs/
+[Uu]ser[Ss]ettings/
+[Mm]emoryCaptures/
+Packages_dst/
+
+# Cena de recuperação automática do Unity
+Assets/_Recovery/
+Assets/_Recovery.meta
+
+# Unity Version Control (Plastic SCM)
+.plastic/
+ignore.conf
+
+# IDEs
+.vs/
+.vscode/
+.idea/
+*.csproj
+*.sln
+*.slnx
+*.suo
+*.user
+*.pidb
+*.booproj
+
+# Builds e arquivos gerados
+*.apk
+*.aab
+*.app
+
+# Pacotes e zips de origem (já extraídos, e acima do limite do GitHub)
+*.unitypackage
+*.unitypackage.meta
+*.zip
+*.zip.meta
+
+# Sistema operacional
+.DS_Store
+Thumbs.db
