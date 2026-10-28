@@ -6,11 +6,15 @@ using UnityEngine;
 //   Float   "Speed"       -> Blend Tree de locomoção (0 idle, 0.5 walk, 1 run)
 //   Trigger "Jump"        -> state de pulo
 //   Trigger "Roll"        -> state de esquiva/rolagem
-//   Trigger "AttackLight" -> state de ataque leve (Mouse esquerdo)
-//   Trigger "AttackHeavy" -> state de ataque pesado (Mouse direito)
+//   Trigger "AttackLight" -> state de ataque leve (usado só se não houver combo)
+//   Trigger "AttackHeavy" -> state de ataque pesado (usado só se não houver combo)
 //   Bool    "Block"       -> true enquanto o jogador segura Q (bloqueio)
 //   Bool    "Grounded"    -> true quando o personagem está tocando o chão
 //   Bool    "Rolling"     -> true enquanto a rolagem está em andamento
+//
+// COMBO: se o Animator tiver os states "attack", "attack_2" e "attack_3"
+// (o menu Pinglu > 5. Animações do cavaleiro cria eles), cada clique do
+// mouse esquerdo durante um golpe encadeia o próximo golpe do combo.
 [RequireComponent(typeof(CharacterController))]
 public class PlayerLocomotion : MonoBehaviour
 {
@@ -33,6 +37,15 @@ public class PlayerLocomotion : MonoBehaviour
     [SerializeField] private float rollDuration = 0.5f;
     [SerializeField] private float rollCooldown = 0.8f;
 
+    [Header("Combo de ataques")]
+    [SerializeField] private string[] estadosCombo = { "attack", "attack_2", "attack_3" };
+    [SerializeField] private string estadoAtaquePesado = "attack_heavy";
+    [Tooltip("A partir de quanto da animação (0 a 1) o próximo golpe pode sair")]
+    [SerializeField, Range(0.2f, 0.95f)] private float pontoEncadear = 0.55f;
+    [SerializeField] private float transicaoEntreGolpes = 0.12f;
+    [Tooltip("Velocidade de movimento durante o golpe (fração da velocidade de andar)")]
+    [SerializeField, Range(0f, 1f)] private float movimentoDuranteGolpe = 0.2f;
+
     private CharacterController controller;
     private Animator animator;
 
@@ -45,10 +58,36 @@ public class PlayerLocomotion : MonoBehaviour
 
     private bool isBlocking;
 
+    // estado do combo
+    private int golpesDisponiveis;     // quantos states de combo existem no Animator
+    private bool temAtaquePesado;
+    private bool atacando;
+    private int golpeAtual = -1;
+    private string estadoAtual;
+    private bool proximoNaFila;
+    private float tempoNoGolpe;
+
     private void Awake()
     {
         controller = GetComponent<CharacterController>();
         animator = GetComponent<Animator>();
+        if (animator == null) animator = GetComponentInChildren<Animator>(); // o modelo pode estar num filho virado
+
+        golpesDisponiveis = 0;
+        if (animator != null)
+        {
+            foreach (string e in estadosCombo)
+            {
+                if (!TemEstado(e)) break;
+                golpesDisponiveis++;
+            }
+            temAtaquePesado = TemEstado(estadoAtaquePesado);
+        }
+    }
+
+    private bool TemEstado(string nome)
+    {
+        return animator.HasState(0, Animator.StringToHash(nome)) || animator.HasState(0, Animator.StringToHash("Base Layer." + nome));
     }
 
     private void Update()
@@ -63,12 +102,14 @@ public class PlayerLocomotion : MonoBehaviour
 
         // Direção de movimento relativa à câmera principal (se houver)
         Vector3 moveDir;
+        Vector3 frenteCamera = transform.forward;
         Camera cam = Camera.main;
         if (cam != null)
         {
             Vector3 camForward = cam.transform.forward; camForward.y = 0f; camForward.Normalize();
             Vector3 camRight = cam.transform.right; camRight.y = 0f; camRight.Normalize();
             moveDir = camForward * v + camRight * h;
+            frenteCamera = camForward;
         }
         else
         {
@@ -76,51 +117,46 @@ public class PlayerLocomotion : MonoBehaviour
         }
         if (moveDir.sqrMagnitude > 0.001f) moveDir.Normalize();
 
-        // --- Rolagem (Esquiva) ---
+        // --- Rolagem (Esquiva) --- (cancela o combo)
         if (rollCooldownTimer > 0f) rollCooldownTimer -= Time.deltaTime;
 
         if (Input.GetKeyDown(KeyCode.LeftControl) && !isRolling && rollCooldownTimer <= 0f)
         {
             // Rola na direção que o jogador está segurando (WASD); se não estiver segurando nada, rola pra frente
             rollDirection = moveDir.sqrMagnitude > 0.001f ? moveDir : transform.forward;
+            TerminarCombo();
             StartCoroutine(DoRoll());
         }
 
         // --- Pulo ---
-        if (Input.GetKeyDown(KeyCode.Space) && controller.isGrounded && !isRolling)
+        if (Input.GetKeyDown(KeyCode.Space) && controller.isGrounded && !isRolling && !atacando)
         {
             verticalVelocity = Mathf.Sqrt(jumpHeight * -2f * gravity);
             if (animator != null) animator.SetTrigger("Jump");
         }
 
         // --- Bloqueio (Q segurando) ---
-        isBlocking = Input.GetKey(KeyCode.Q) && !isRolling;
+        isBlocking = Input.GetKey(KeyCode.Q) && !isRolling && !atacando;
         if (animator != null) animator.SetBool("Block", isBlocking);
 
-        // --- Ataques (Mouse esquerdo = leve, Mouse direito = pesado) ---
-        // Não permite atacar durante rolagem ou bloqueio
-        if (!isRolling && !isBlocking)
-        {
-            if (Input.GetMouseButtonDown(0)) // Botão esquerdo
-            {
-                if (animator != null) animator.SetTrigger("AttackLight");
-            }
-            else if (Input.GetMouseButtonDown(1)) // Botão direito
-            {
-                if (animator != null) animator.SetTrigger("AttackHeavy");
-            }
-        }
+        // --- Ataques ---
+        AtualizarAtaques(moveDir, frenteCamera);
 
         // --- Velocidade enviada pro Animator (Blend Tree) ---
-        float targetAnimSpeed = inputMagnitude * (isRunning ? 1f : 0.5f);
+        bool correndo = isRunning && !atacando && !isBlocking;
+        float targetAnimSpeed = atacando ? 0f : inputMagnitude * (correndo ? 1f : 0.5f);
         currentAnimSpeed = Mathf.Lerp(currentAnimSpeed, targetAnimSpeed, Time.deltaTime / speedSmoothTime);
         if (animator != null) animator.SetFloat("Speed", currentAnimSpeed);
 
-        // --- Rotação na direção do movimento (só fora da rolagem) ---
-        if (!isRolling && moveDir.sqrMagnitude > 0.001f)
+        // --- Rotação ---
+        if (!isRolling && !atacando)
         {
-            Quaternion targetRotation = Quaternion.LookRotation(moveDir, Vector3.up);
-            transform.rotation = Quaternion.Slerp(transform.rotation, targetRotation, rotationSpeed * Time.deltaTime);
+            Vector3 olhar = isBlocking ? frenteCamera : moveDir;   // bloqueando, fica de frente para onde a câmera olha
+            if (olhar.sqrMagnitude > 0.001f)
+            {
+                Quaternion targetRotation = Quaternion.LookRotation(olhar, Vector3.up);
+                transform.rotation = Quaternion.Slerp(transform.rotation, targetRotation, rotationSpeed * Time.deltaTime);
+            }
         }
 
         // --- Gravidade ---
@@ -134,7 +170,9 @@ public class PlayerLocomotion : MonoBehaviour
         }
 
         // --- Movimento final ---
-        float targetMoveSpeed = inputMagnitude * (isRunning ? runSpeed : walkSpeed);
+        float targetMoveSpeed = inputMagnitude * (correndo ? runSpeed : walkSpeed);
+        if (atacando) targetMoveSpeed = inputMagnitude * walkSpeed * movimentoDuranteGolpe;
+        else if (isBlocking) targetMoveSpeed = inputMagnitude * walkSpeed * 0.5f;
         Vector3 finalMove = isRolling ? rollDirection * rollSpeed : moveDir * targetMoveSpeed;
         finalMove.y = verticalVelocity;
 
@@ -143,6 +181,73 @@ public class PlayerLocomotion : MonoBehaviour
         // --- Avisa o Animator se o personagem está no chão, DEPOIS do Move() ---
         // (precisa ser depois do Move, senão ele ainda reflete o chão do frame anterior)
         if (animator != null) animator.SetBool("Grounded", controller.isGrounded);
+    }
+
+    // ------------------------------------------------------------------
+    //  Combo de ataques
+    // ------------------------------------------------------------------
+    private void AtualizarAtaques(Vector3 moveDir, Vector3 frenteCamera)
+    {
+        if (animator == null) return;
+
+        // Sem os states de combo no Animator: comportamento antigo (um golpe por clique)
+        if (golpesDisponiveis == 0)
+        {
+            if (!isRolling && !isBlocking)
+            {
+                if (Input.GetMouseButtonDown(0)) animator.SetTrigger("AttackLight");
+                else if (Input.GetMouseButtonDown(1)) animator.SetTrigger("AttackHeavy");
+            }
+            return;
+        }
+
+        AnimatorStateInfo info = animator.GetCurrentAnimatorStateInfo(0);
+        bool emTransicao = animator.IsInTransition(0);
+
+        // o golpe acabou? (o Animator já voltou para a locomoção)
+        if (atacando)
+        {
+            tempoNoGolpe += Time.deltaTime;
+            bool noGolpe = info.IsName(estadoAtual) || (emTransicao && animator.GetNextAnimatorStateInfo(0).IsName(estadoAtual));
+            if (!noGolpe && tempoNoGolpe > 0.25f) TerminarCombo();
+        }
+
+        bool podeAtacar = !isRolling && !isBlocking && controller.isGrounded;
+        Vector3 direcaoGolpe = moveDir.sqrMagnitude > 0.001f ? moveDir : frenteCamera;
+
+        if (podeAtacar && Input.GetMouseButtonDown(0))
+        {
+            if (!atacando) Golpe(0, direcaoGolpe);
+            else if (golpeAtual >= 0 && golpeAtual < golpesDisponiveis - 1) proximoNaFila = true;
+        }
+        if (podeAtacar && !atacando && Input.GetMouseButtonDown(1))
+        {
+            if (temAtaquePesado) Golpe(-1, direcaoGolpe);
+            else animator.SetTrigger("AttackHeavy");
+        }
+
+        // encadeia o próximo golpe quando o atual passa do ponto certo
+        if (atacando && proximoNaFila && !emTransicao && info.IsName(estadoAtual) && info.normalizedTime >= pontoEncadear)
+            Golpe(golpeAtual + 1, direcaoGolpe);
+    }
+
+    // indice -1 = ataque pesado
+    private void Golpe(int indice, Vector3 direcao)
+    {
+        golpeAtual = indice;
+        estadoAtual = indice < 0 ? estadoAtaquePesado : estadosCombo[indice];
+        proximoNaFila = false;
+        atacando = true;
+        tempoNoGolpe = 0f;
+        if (direcao.sqrMagnitude > 0.001f) transform.rotation = Quaternion.LookRotation(direcao, Vector3.up);
+        animator.CrossFadeInFixedTime(estadoAtual, transicaoEntreGolpes, 0, 0f);
+    }
+
+    private void TerminarCombo()
+    {
+        atacando = false;
+        golpeAtual = -1;
+        proximoNaFila = false;
     }
 
     private IEnumerator DoRoll()
