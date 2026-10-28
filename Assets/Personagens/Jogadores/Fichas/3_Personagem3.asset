@@ -1,0 +1,21 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 45772ae0587a59f2abfe47e73b6fe1b9, type: 3}
+  m_Name: 3_Personagem3
+  m_EditorClassIdentifier: Assembly-CSharp::FichaPersonagem
+  nome: Personagem 3
+  descricao: "Personagem ainda em cria\xE7\xE3o."
+  habilidades: []
+  corDestaque: {r: 0.8, g: 0.6, b: 0.25, a: 1}
+  retrato: {fileID: 0}
+  prefabJogador: {fileID: 0}
+  disponivel: 0

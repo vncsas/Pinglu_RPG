@@ -100,7 +100,7 @@ public class HUDJogador : MonoBehaviour
         }
         if (combate != null) especialMostrado = Mathf.MoveTowards(especialMostrado, combate.EspecialFracao, Time.unscaledDeltaTime * 2f);
 
-        if (vida != null && vida.Morto && Input.GetKeyDown(KeyCode.R))
+        if (vida != null && vida.Morto && !SessaoDeJogo.Online && Input.GetKeyDown(KeyCode.R))
         {
             Time.timeScale = 1f;
             SceneManager.LoadScene(SceneManager.GetActiveScene().name);

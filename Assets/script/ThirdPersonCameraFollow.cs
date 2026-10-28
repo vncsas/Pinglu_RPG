@@ -59,8 +59,20 @@ public class ThirdPersonCameraFollow : MonoBehaviour
         if (prenderCursor) PrenderCursor(true);
     }
 
+    // troca quem a câmera segue (usado pelo multiplayer)
+    public void DefinirAlvo(Transform novo)
+    {
+        target = novo;
+        if (target == null) return;
+        yaw = target.eulerAngles.y;
+        pivoAtual = target.position + Vector3.up * alturaDoPivo;
+        velocidadePivo = Vector3.zero;
+        distanciaAtual = distancia;
+    }
+
     private void Update()
     {
+        if (SessaoDeJogo.MenuAberto) return;
         if (!prenderCursor) return;
         if (Input.GetKeyDown(KeyCode.Escape)) PrenderCursor(false);
         else if (Cursor.lockState != CursorLockMode.Locked && Input.GetMouseButtonDown(0)) PrenderCursor(true);
@@ -77,7 +89,7 @@ public class ThirdPersonCameraFollow : MonoBehaviour
         if (target == null) return;
 
         // --- Mouse gira a câmera ---
-        bool controlando = !prenderCursor || Cursor.lockState == CursorLockMode.Locked;
+        bool controlando = !SessaoDeJogo.MenuAberto && (!prenderCursor || Cursor.lockState == CursorLockMode.Locked);
         if (controlando)
         {
             yaw += Input.GetAxis("Mouse X") * sensibilidadeX;

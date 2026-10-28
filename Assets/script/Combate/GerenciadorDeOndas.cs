@@ -42,12 +42,26 @@ public class GerenciadorDeOndas : MonoBehaviour
     {
         PlayerLocomotion p = FindFirstObjectByType<PlayerLocomotion>();
         if (p != null) { jogador = p.transform; vidaJogador = p.GetComponent<Vida>(); }
-        HUDJogador.Mostrar("Vá até o cemitério para começar a horda (ou aperte " + teclaIrAteAqui + ")", 6f);
+        if (!SessaoDeJogo.MenuAberto) HUDJogador.Mostrar("Vá até o cemitério para começar a horda (ou aperte " + teclaIrAteAqui + ")", 6f);
     }
+
+    private bool avisouOnline;
 
     private void Update()
     {
-        if (jogador == null) return;
+        if (SessaoDeJogo.MenuAberto) return;
+        if (SessaoDeJogo.Online)
+        {
+            // o combate em rede chega na Parte 2 do multiplayer
+            if (!avisouOnline) { avisouOnline = true; HUDJogador.Mostrar("Hordas no modo online: em breve!", 4f); }
+            return;
+        }
+        if (jogador == null)
+        {
+            PlayerLocomotion p = FindFirstObjectByType<PlayerLocomotion>();
+            if (p == null) return;
+            jogador = p.transform; vidaJogador = p.GetComponent<Vida>();
+        }
         if (Input.GetKeyDown(teclaIrAteAqui) && !Ativo) LevarJogadorAteAqui();
         if (!Ativo && Vector3.Distance(jogador.position, transform.position) < distanciaParaComecar)
         {

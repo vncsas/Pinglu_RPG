@@ -1,0 +1,25 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 45772ae0587a59f2abfe47e73b6fe1b9, type: 3}
+  m_Name: 1_Cavaleiro
+  m_EditorClassIdentifier: Assembly-CSharp::FichaPersonagem
+  nome: Cavaleiro
+  descricao: "Guerreiro de armadura pesada, com espada e escudo. (Personagem provis\xF3rio: ser\xE1 trocado pelo cavaleiro definitivo.)"
+  habilidades:
+  - Combo de 3 golpes de espada (clique esquerdo)
+  - Golpe pesado (clique direito)
+  - Bloqueio com escudo (Q)
+  - Rolamento sem levar dano (Ctrl)
+  corDestaque: {r: 0.85, g: 0.6, b: 0.25, a: 1}
+  retrato: {fileID: 0}
+  prefabJogador: {fileID: 8959231126796434193, guid: e60109c0b37b2c84ea19ac209cf1e1e1, type: 3}
+  disponivel: 1
