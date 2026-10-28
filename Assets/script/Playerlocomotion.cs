@@ -8,7 +8,7 @@ using UnityEngine;
 //   Trigger "Roll"        -> state de esquiva/rolagem
 //   Trigger "AttackLight" -> state de ataque leve (usado só se não houver combo)
 //   Trigger "AttackHeavy" -> state de ataque pesado (usado só se não houver combo)
-//   Bool    "Block"       -> true enquanto o jogador segura Q (bloqueio)
+//   Bool    "Block"       -> true enquanto o jogador segura o botão direito (ou Q) para defender
 //   Bool    "Grounded"    -> true quando o personagem está tocando o chão
 //   Bool    "Rolling"     -> true enquanto a rolagem está em andamento
 //
@@ -155,8 +155,15 @@ public class PlayerLocomotion : MonoBehaviour
             if (animator != null) animator.SetTrigger("Jump");
         }
 
-        // --- Bloqueio (Q segurando) ---
-        isBlocking = Input.GetKey(KeyCode.Q) && !isRolling && !atacando;
+        // --- Defesa com escudo (botão direito ou Q, segurando) ---
+        bool querDefender = Input.GetMouseButton(1) || Input.GetKey(KeyCode.Q);
+        if (querDefender && atacando && !isRolling)
+        {
+            // cancela o golpe para defender na hora
+            TerminarCombo();
+            if (animator != null && TemEstado("Blend Tree")) animator.CrossFadeInFixedTime("Blend Tree", 0.08f, 0, 0f);
+        }
+        isBlocking = querDefender && !isRolling && !atacando;
         if (animator != null) animator.SetBool("Block", isBlocking);
 
         // --- Ataques ---
@@ -215,11 +222,7 @@ public class PlayerLocomotion : MonoBehaviour
         // Sem os states de combo no Animator: comportamento antigo (um golpe por clique)
         if (golpesDisponiveis == 0)
         {
-            if (!isRolling && !isBlocking)
-            {
-                if (Input.GetMouseButtonDown(0)) animator.SetTrigger("AttackLight");
-                else if (Input.GetMouseButtonDown(1)) animator.SetTrigger("AttackHeavy");
-            }
+            if (!isRolling && !isBlocking && Input.GetMouseButtonDown(0)) animator.SetTrigger("AttackLight");
             return;
         }
 
@@ -241,11 +244,6 @@ public class PlayerLocomotion : MonoBehaviour
         {
             if (!atacando) Golpe(0, direcaoGolpe);
             else if (golpeAtual >= 0 && golpeAtual < golpesDisponiveis - 1) proximoNaFila = true;
-        }
-        if (podeAtacar && !atacando && Input.GetMouseButtonDown(1))
-        {
-            if (temAtaquePesado) Golpe(-1, direcaoGolpe);
-            else animator.SetTrigger("AttackHeavy");
         }
 
         // encadeia o próximo golpe quando o atual passa do ponto certo
@@ -271,7 +269,13 @@ public class PlayerLocomotion : MonoBehaviour
     {
         Vector3 dir = transform.position - origem; dir.y = 0f;
         if (dir.sqrMagnitude > 0.001f) empurrao = dir.normalized * (bloqueado ? 2.5f : 4f);
-        if (bloqueado || animator == null) return;
+        if (bloqueado)
+        {
+            EscudoAnimacao escudo = GetComponent<EscudoAnimacao>();
+            if (escudo != null) escudo.Impacto();
+            return;
+        }
+        if (animator == null) return;
         TerminarCombo();
         if (TemEstado("hit")) { animator.CrossFadeInFixedTime("hit", 0.08f, 0, 0f); atordoadoAte = Time.time + 0.35f; }
     }

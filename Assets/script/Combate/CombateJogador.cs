@@ -19,9 +19,12 @@ public class CombateJogador : MonoBehaviour
     [SerializeField, Range(0f, 1f)] private float inicioDoDano = 0.25f;
     [SerializeField, Range(0f, 1f)] private float fimDoDano = 0.6f;
 
-    [Header("Defesa")]
-    [Tooltip("Quanto do dano o escudo segura (0.85 = segura 85%)")]
-    [SerializeField, Range(0f, 1f)] private float bloqueio = 0.85f;
+    [Header("Defesa com escudo (botão direito)")]
+    [Tooltip("Quanto do dano o escudo segura (1 = não toma dano nenhum)")]
+    [SerializeField, Range(0f, 1f)] private float bloqueio = 1f;
+    [Tooltip("Se marcado, o escudo só protege de golpes vindos da frente")]
+    [SerializeField] private bool defendeSoDeFrente = false;
+    [SerializeField] private float ganhoAoDefender = 6f;
 
     [Header("Especial (para os ataques especiais que virão)")]
     [SerializeField] private float especialMaximo = 100f;
@@ -69,9 +72,14 @@ public class CombateJogador : MonoBehaviour
         ultimoFoiBloqueado = false;
         if (loco.Rolando) return 0f; // rolando não toma dano
         Vector3 paraOrigem = origem - transform.position; paraOrigem.y = 0f;
-        if (loco.Bloqueando && Vector3.Dot(transform.forward, paraOrigem.normalized) > 0.2f)
+        bool deFrente = paraOrigem.sqrMagnitude < 0.0001f || Vector3.Dot(transform.forward, paraOrigem.normalized) > 0.2f;
+        if (loco.Bloqueando && (deFrente || !defendeSoDeFrente))
         {
             ultimoFoiBloqueado = true;
+            // reação de "golpe no escudo": empurrãozinho, tremor leve e energia de especial
+            loco.ReagirAoDano(origem, true);
+            ThirdPersonCameraFollow.Tremer(0.05f, 0.15f);
+            GanharEspecial(ganhoAoDefender);
             return dano * (1f - bloqueio);
         }
         return dano;
@@ -79,9 +87,10 @@ public class CombateJogador : MonoBehaviour
 
     private void AoLevarDano(float dano, Vector3 origem)
     {
-        loco.ReagirAoDano(origem, ultimoFoiBloqueado);
+        if (ultimoFoiBloqueado) return; // a reação de defesa já foi feita
+        loco.ReagirAoDano(origem, false);
         GanharEspecial(ganhoAoLevarDano);
-        ThirdPersonCameraFollow.Tremer(ultimoFoiBloqueado ? 0.06f : 0.15f, 0.2f);
+        ThirdPersonCameraFollow.Tremer(0.15f, 0.2f);
     }
 
     private void AoIniciarGolpe(int indice)
