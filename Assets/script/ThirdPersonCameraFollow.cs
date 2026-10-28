@@ -34,6 +34,14 @@ public class ThirdPersonCameraFollow : MonoBehaviour
     [Header("Cursor")]
     [SerializeField] private bool prenderCursor = true;
 
+    // tremor da câmera (golpes, dano)
+    private static float forcaTremor, fimTremor, duracaoTremor;
+    public static void Tremer(float forca, float duracao)
+    {
+        if (Time.unscaledTime < fimTremor && forca < forcaTremor) return;
+        forcaTremor = forca; duracaoTremor = Mathf.Max(0.01f, duracao); fimTremor = Time.unscaledTime + duracao;
+    }
+
     private float yaw;
     private float pitch = 12f;
     private float distanciaAtual;
@@ -106,5 +114,11 @@ public class ThirdPersonCameraFollow : MonoBehaviour
 
         transform.position = pivoAtual + dir * distanciaAtual;
         transform.rotation = rotacao;
+
+        if (Time.unscaledTime < fimTremor)
+        {
+            float f = forcaTremor * ((fimTremor - Time.unscaledTime) / duracaoTremor);
+            transform.position += Random.insideUnitSphere * f;
+        }
     }
 }

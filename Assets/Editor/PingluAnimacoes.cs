@@ -30,6 +30,10 @@ public class PingluAnimacoes : EditorWindow
 
     string caminhoFbx;
     List<AnimationClip> clipes = new List<AnimationClip>();
+    List<string> origens = new List<string>();      // arquivo de onde veio cada animação
+    List<string> fontesUAL = new List<string>();    // arquivos que este script configura (Humanoid)
+    const string PASTA_ANIMACOES = "Assets/Personagens/Animacoes";
+    const string PASTA_XBOT = "Assets/Personagens/Sword and Shield Pack";
     string[] nomes = new string[0];
     int[] escolha = new int[ACOES.Length];   // 0 = manter a animação atual (do X Bot)
     Vector2 rolagem;
@@ -54,21 +58,48 @@ public class PingluAnimacoes : EditorWindow
                    "Se o arquivo tiver só alguns bytes, rode 'git lfs pull' na pasta do projeto.";
             return;
         }
-        ConfigurarFbx(caminhoFbx, null);
+        // fontes: o pacote UAL2, outros pacotes na pasta Animacoes (ex.: UAL1) e as animações humanas do X Bot
+        fontesUAL.Clear();
+        fontesUAL.Add(caminhoFbx);
+        if (AssetDatabase.IsValidFolder(PASTA_ANIMACOES))
+            foreach (string g in AssetDatabase.FindAssets("t:Model", new[] { PASTA_ANIMACOES }))
+            {
+                string p = AssetDatabase.GUIDToAssetPath(g);
+                if (!p.ToLower().EndsWith(".fbx") || p.Contains("_RM") || p.ToLower().Contains("mannequin") || fontesUAL.Contains(p)) continue;
+                fontesUAL.Add(p);
+            }
+        foreach (string f in fontesUAL) ConfigurarFbx(f, null);
 
-        clipes.Clear();
-        foreach (Object o in AssetDatabase.LoadAllAssetsAtPath(caminhoFbx))
-        {
-            AnimationClip c = o as AnimationClip;
-            if (c != null && !c.name.StartsWith("__preview__")) clipes.Add(c);
-        }
-        clipes.Sort((a, b) => string.Compare(a.name, b.name, System.StringComparison.OrdinalIgnoreCase));
+        List<string> todas = new List<string>(fontesUAL);
+        if (AssetDatabase.IsValidFolder(PASTA_XBOT))
+            foreach (string g in AssetDatabase.FindAssets("t:Model", new[] { PASTA_XBOT }))
+            {
+                string p = AssetDatabase.GUIDToAssetPath(g);
+                if (p.ToLower().EndsWith(".fbx") && !p.Contains("X Bot")) todas.Add(p);
+            }
+
+        clipes.Clear(); origens.Clear();
+        List<KeyValuePair<AnimationClip, string>> lista = new List<KeyValuePair<AnimationClip, string>>();
+        foreach (string f in todas)
+            foreach (Object o in AssetDatabase.LoadAllAssetsAtPath(f))
+            {
+                AnimationClip c = o as AnimationClip;
+                if (c != null && !c.name.StartsWith("__preview__")) lista.Add(new KeyValuePair<AnimationClip, string>(c, f));
+            }
+        lista.Sort((a, b) => string.Compare(Rotulo(a.Key, a.Value), Rotulo(b.Key, b.Value), System.StringComparison.OrdinalIgnoreCase));
+        foreach (var kv in lista) { clipes.Add(kv.Key); origens.Add(kv.Value); }
         nomes = new string[clipes.Count + 1];
         nomes[0] = "(manter a atual do X Bot)";
-        for (int i = 0; i < clipes.Count; i++) nomes[i + 1] = clipes[i].name;
+        for (int i = 0; i < clipes.Count; i++) nomes[i + 1] = Rotulo(clipes[i], origens[i]);
 
         if (clipes.Count == 0) { erro = "O arquivo foi encontrado, mas não tem animações dentro. O Git LFS baixou ele certo?"; return; }
         EscolherAutomatico();
+    }
+
+    static string Rotulo(AnimationClip c, string arquivo)
+    {
+        string pacote = arquivo.Contains("Sword and Shield") ? "X Bot" : System.IO.Path.GetFileNameWithoutExtension(arquivo);
+        return pacote + " / " + c.name;
     }
 
     static string AcharFbx()
@@ -151,10 +182,10 @@ public class PingluAnimacoes : EditorWindow
     // ------------------------------------------------------------------
     void EscolherAutomatico()
     {
-        string[] ruimGeral = { "crouch", "swim", "pistol", "rifle", "gun", "zombie", "sit", "spell", "bow", "fish", "farm", "dance", "drunk", "carry", "push", "climb", "ladder", "injur", "death", "dead", "hit", "emote", "talk", "wave" };
+        string[] ruimGeral = { "turn", "injured", "limp", "tired", "sneak", "stealth", "crouch", "swim", "pistol", "rifle", "gun", "zombie", "sit", "spell", "bow", "fish", "farm", "dance", "drunk", "carry", "push", "climb", "ladder", "injur", "death", "dead", "hit", "emote", "talk", "wave" };
         string[] direcoes = { "back", "bwd", "left", "right", "strafe", "l", "r" };
 
-        escolha[0] = Melhor(new[] { "idle" }, new[] { "sword", "sword", "shield", "combat", "battle", "guard", "loop" }, Juntar(ruimGeral, new[] { "block" }), -1);
+        escolha[0] = Melhor(new[] { "idle" }, new[] { "breathing", "loop", "neutral", "stand" }, Juntar(ruimGeral, new[] { "block", "sleep" }), -1);
         escolha[1] = Melhor(new[] { "walk" }, new[] { "fwd", "forward", "loop" }, Juntar(ruimGeral, direcoes), -1);
         escolha[2] = Melhor(new[] { "jog", "run" }, new[] { "fwd", "forward", "loop", "jog" }, Juntar(ruimGeral, direcoes), -1);
         if (escolha[2] == 0) escolha[2] = Melhor(new[] { "sprint" }, new[] { "loop" }, Juntar(ruimGeral, direcoes), -1);
@@ -189,13 +220,15 @@ public class PingluAnimacoes : EditorWindow
             bool tem = false;
             foreach (string o in obrigatorio) if (n.Contains(o)) tem = true;
             if (!tem) continue;
+            bool proibido = false;
+            foreach (string r in ruim) if (Tem(n, partes, r)) { proibido = true; break; }
+            if (proibido) continue; // zumbi, ferido, agachado etc. nunca são escolhidos
             float s = 0f;
             foreach (string b in bom) s += Tem(n, partes, b) ? 2f : 0f;
-            foreach (string r in ruim) s -= Tem(n, partes, r) ? 8f : 0f;
             s -= n.Length * 0.02f; // nomes mais simples primeiro
             if (s > nota) { nota = s; melhor = i + 1; }
         }
-        return nota < -5f ? 0 : melhor;
+        return melhor;
     }
 
     static bool Tem(string nome, string[] partes, string palavra)
@@ -252,23 +285,31 @@ public class PingluAnimacoes : EditorWindow
         if (anim == null) { EditorUtility.DisplayDialog("Pinglu", "Não achei o cavaleiro na cena. Abra a SampleScene.", "OK"); return; }
 
         // 1) acerta o loop das animações escolhidas
-        HashSet<string> emLoop = new HashSet<string>();
-        HashSet<string> semLoop = new HashSet<string>();
-        for (int i = 0; i < ACOES.Length; i++)
-            if (escolha[i] > 0) (LOOP[i] ? emLoop : semLoop).Add(clipes[escolha[i] - 1].name);
-        foreach (AnimationClip c in clipes)
-            if (!semLoop.Contains(c.name) && !emLoop.Contains(c.name) && Regex.IsMatch(c.name.ToLower(), "loop|idle|walk|jog|run|sprint")) emLoop.Add(c.name);
         string[] nomesEscolhidos = new string[ACOES.Length];
-        for (int i = 0; i < ACOES.Length; i++) nomesEscolhidos[i] = escolha[i] > 0 ? clipes[escolha[i] - 1].name : null;
-        ConfigurarFbx(caminhoFbx, emLoop);
+        for (int i = 0; i < ACOES.Length; i++) nomesEscolhidos[i] = escolha[i] > 0 ? origens[escolha[i] - 1] + "|" + clipes[escolha[i] - 1].name : null;
+        foreach (string fonte in fontesUAL)
+        {
+            HashSet<string> emLoop = new HashSet<string>();
+            HashSet<string> semLoop = new HashSet<string>();
+            for (int i = 0; i < ACOES.Length; i++)
+                if (escolha[i] > 0 && origens[escolha[i] - 1] == fonte) (LOOP[i] ? emLoop : semLoop).Add(clipes[escolha[i] - 1].name);
+            for (int i = 0; i < clipes.Count; i++)
+            {
+                string nm = clipes[i].name;
+                if (origens[i] == fonte && !semLoop.Contains(nm) && !emLoop.Contains(nm) && Regex.IsMatch(nm.ToLower(), "loop|idle|walk|jog|run|sprint")) emLoop.Add(nm);
+            }
+            ConfigurarFbx(fonte, emLoop);
+        }
 
         // recarrega os clipes depois de reimportar
         Dictionary<string, AnimationClip> porNome = new Dictionary<string, AnimationClip>();
-        foreach (Object o in AssetDatabase.LoadAllAssetsAtPath(caminhoFbx))
-        {
-            AnimationClip c = o as AnimationClip;
-            if (c != null && !c.name.StartsWith("__preview__")) porNome[c.name] = c;
-        }
+        HashSet<string> arquivos = new HashSet<string>(origens);
+        foreach (string arq in arquivos)
+            foreach (Object o in AssetDatabase.LoadAllAssetsAtPath(arq))
+            {
+                AnimationClip c = o as AnimationClip;
+                if (c != null && !c.name.StartsWith("__preview__")) porNome[arq + "|" + c.name] = c;
+            }
 
         // 2) cópia do Animator do X Bot (mesmos parâmetros e transições)
         if (AssetDatabase.LoadAssetAtPath<AnimatorController>(CONTROLADOR_NOVO) != null) AssetDatabase.DeleteAsset(CONTROLADOR_NOVO);

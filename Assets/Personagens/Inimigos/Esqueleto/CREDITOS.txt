@@ -1,0 +1,9 @@
+Modelo: "Skeleton - low tier enemy"
+Autor: CommunicationNode (https://sketchfab.com/Starven38)
+Fonte: https://sketchfab.com/3d-models/skeleton-low-tier-enemy-412e0e9990d5464bae1173972a4fa38b
+Licença: CC-BY-SA 4.0 (http://creativecommons.org/licenses/by-sa/4.0/)
+
+Alterações: convertido de .glb para .fbx, malha simplificada, texturas reduzidas
+e animações renomeadas (walk, attack, idle, hit1, hit2).
+A licença pede crédito ao autor nos créditos do jogo, e que versões modificadas
+deste modelo sejam compartilhadas sob a mesma licença.

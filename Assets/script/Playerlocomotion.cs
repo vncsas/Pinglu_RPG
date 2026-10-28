@@ -67,6 +67,16 @@ public class PlayerLocomotion : MonoBehaviour
     private bool proximoNaFila;
     private float tempoNoGolpe;
 
+    // ---- usado pelo sistema de combate ----
+    public bool Atacando => atacando;
+    public bool Bloqueando => isBlocking;
+    public bool Rolando => isRolling;
+    public int GolpeAtual => golpeAtual;            // 0, 1, 2 = combo ; -1 = pesado
+    public bool Controlavel { get; set; } = true;   // falso quando morto
+    public event System.Action<int> AoIniciarGolpe;
+    private Vector3 empurrao;                       // empurrão ao levar golpe
+    private float atordoadoAte;
+
     private void Awake()
     {
         controller = GetComponent<CharacterController>();
@@ -92,6 +102,16 @@ public class PlayerLocomotion : MonoBehaviour
 
     private void Update()
     {
+        if (!Controlavel || Time.time < atordoadoAte)
+        {
+            // morto ou atordoado: só gravidade e empurrão
+            if (controller.isGrounded && verticalVelocity < 0f) verticalVelocity = -0.5f; else verticalVelocity += gravity * Time.deltaTime;
+            empurrao = Vector3.Lerp(empurrao, Vector3.zero, Time.deltaTime * 8f);
+            controller.Move((empurrao + Vector3.up * verticalVelocity) * Time.deltaTime);
+            if (animator != null) { animator.SetFloat("Speed", 0f); animator.SetBool("Block", false); }
+            return;
+        }
+
         // --- Input de movimento ---
         float h = Input.GetAxis("Horizontal"); // A/D ou setas
         float v = Input.GetAxis("Vertical");   // W/S ou setas
@@ -174,6 +194,8 @@ public class PlayerLocomotion : MonoBehaviour
         if (atacando) targetMoveSpeed = inputMagnitude * walkSpeed * movimentoDuranteGolpe;
         else if (isBlocking) targetMoveSpeed = inputMagnitude * walkSpeed * 0.5f;
         Vector3 finalMove = isRolling ? rollDirection * rollSpeed : moveDir * targetMoveSpeed;
+        empurrao = Vector3.Lerp(empurrao, Vector3.zero, Time.deltaTime * 8f);
+        finalMove += empurrao;
         finalMove.y = verticalVelocity;
 
         controller.Move(finalMove * Time.deltaTime);
@@ -241,6 +263,24 @@ public class PlayerLocomotion : MonoBehaviour
         tempoNoGolpe = 0f;
         if (direcao.sqrMagnitude > 0.001f) transform.rotation = Quaternion.LookRotation(direcao, Vector3.up);
         animator.CrossFadeInFixedTime(estadoAtual, transicaoEntreGolpes, 0, 0f);
+        AoIniciarGolpe?.Invoke(indice);
+    }
+
+    // chamado pelo combate quando o jogador leva um golpe
+    public void ReagirAoDano(Vector3 origem, bool bloqueado)
+    {
+        Vector3 dir = transform.position - origem; dir.y = 0f;
+        if (dir.sqrMagnitude > 0.001f) empurrao = dir.normalized * (bloqueado ? 2.5f : 4f);
+        if (bloqueado || animator == null) return;
+        TerminarCombo();
+        if (TemEstado("hit")) { animator.CrossFadeInFixedTime("hit", 0.08f, 0, 0f); atordoadoAte = Time.time + 0.35f; }
+    }
+
+    public void Morrer()
+    {
+        Controlavel = false;
+        TerminarCombo();
+        if (animator != null && TemEstado("death")) animator.CrossFadeInFixedTime("death", 0.15f, 0, 0f);
     }
 
     private void TerminarCombo()

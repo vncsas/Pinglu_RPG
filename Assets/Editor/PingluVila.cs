@@ -20,7 +20,7 @@ using UnityEditor;
 using UnityEditor.SceneManagement;
 using UnityEngine;
 
-public static class PingluVila
+public static partial class PingluVila
 {
     // ------------------------------------------------------------------
     //  AJUSTES
@@ -101,7 +101,7 @@ public static class PingluVila
             "Pode construir", "Cancelar")) return;
 
         avisos.Clear(); formas.Clear(); luzesCriadas = 0; contadorMalhas = 0; temTreino = false;
-        malhaProp = new Mesh[8]; matsProp = new Material[8][];
+        malhaProp = new Mesh[8]; matsProp = new Material[8][]; pastaMalhas = PASTA_MALHAS; prefixoOculto = PREFIXO_OCULTO;
         rng = new System.Random(SEMENTE);
 
         try
@@ -661,7 +661,7 @@ public static class PingluVila
             if (!ocultar) foreach (Forma f in formas) if (Distancia(f, p) < f.raio + 1.5f) { ocultar = true; break; }
             if (!ocultar) continue;
             Undo.RecordObject(t.gameObject, "Construir vila");
-            t.gameObject.name = PREFIXO_OCULTO + t.gameObject.name;
+            t.gameObject.name = prefixoOculto + t.gameObject.name;
             t.gameObject.SetActive(false);
         }
     }
@@ -1396,6 +1396,8 @@ public static class PingluVila
     //  objetos repetidos (a malha é criada uma vez e reaproveitada)
     //  0 barril, 1 caixote, 2 feno, 3 baú, 4 escudo, 5 suporte de armas, 6 boneco de treino, 7 alvo
     // ------------------------------------------------------------------
+    static string pastaMalhas = PASTA_MALHAS;   // o script do mapa usa outra pasta
+    static string prefixoOculto = PREFIXO_OCULTO;
     static Mesh[] malhaProp = new Mesh[8];
     static Material[][] matsProp = new Material[8][];
     static readonly string[] nomesProp = { "Barril", "Caixote", "Feno", "Bau", "Escudo", "Suporte de Armas", "Boneco de Treino", "Alvo" };
@@ -1732,7 +1734,7 @@ public static class PingluVila
         {
             mesh = m.Gerar(nome + "_" + (++contadorMalhas).ToString("000"));
             ms = m.Materiais(mats);
-            AssetDatabase.CreateAsset(mesh, PASTA_MALHAS + "/" + mesh.name + ".asset");
+            AssetDatabase.CreateAsset(mesh, pastaMalhas + "/" + mesh.name + ".asset");
         }
         GameObject g = new GameObject(nome);
         g.transform.SetParent(pai, false);
