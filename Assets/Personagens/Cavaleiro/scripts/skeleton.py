@@ -1,0 +1,32 @@
+# Humanoid skeleton (Blender coords: character faces -Y, left side = +X, meters)
+J = {
+ 'Hips':        ((0.01,0.13,0.93),(0.01,0.13,1.04)),
+ 'Spine':       ((0.01,0.13,1.04),(0.01,0.13,1.17)),
+ 'Chest':       ((0.01,0.13,1.17),(0.01,0.14,1.31)),
+ 'UpperChest':  ((0.01,0.14,1.31),(0.01,0.15,1.47)),
+ 'Neck':        ((0.01,0.15,1.47),(0.01,0.15,1.56)),
+ 'Head':        ((0.01,0.15,1.56),(0.01,0.15,1.78)),
+ 'LeftShoulder':((0.06,0.15,1.43),(0.25,0.16,1.40)),
+ 'LeftUpperArm':((0.25,0.16,1.40),(0.40,0.12,1.10)),
+ 'LeftLowerArm':((0.40,0.12,1.10),(0.44,0.04,0.95)),
+ 'LeftHand':    ((0.44,0.04,0.95),(0.46,0.01,0.85)),
+ 'RightShoulder':((-0.04,0.15,1.43),(-0.23,0.18,1.40)),
+ 'RightUpperArm':((-0.23,0.18,1.40),(-0.32,0.22,1.10)),
+ 'RightLowerArm':((-0.32,0.22,1.10),(-0.39,0.22,0.92)),
+ 'RightHand':   ((-0.39,0.22,0.92),(-0.43,0.25,0.81)),
+ 'LeftUpperLeg':((0.13,0.12,0.92),(0.26,0.11,0.52)),
+ 'LeftLowerLeg':((0.26,0.11,0.52),(0.29,0.19,0.12)),
+ 'LeftFoot':    ((0.29,0.19,0.12),(0.33,0.0,0.03)),
+ 'LeftToes':    ((0.33,0.0,0.03),(0.34,-0.08,0.03)),
+ 'RightUpperLeg':((-0.11,0.13,0.92),(-0.17,0.17,0.52)),
+ 'RightLowerLeg':((-0.17,0.17,0.52),(-0.20,0.24,0.12)),
+ 'RightFoot':   ((-0.20,0.24,0.12),(-0.24,0.05,0.03)),
+ 'RightToes':   ((-0.24,0.05,0.03),(-0.25,-0.03,0.03)),
+}
+PARENT = {'Spine':'Hips','Chest':'Spine','UpperChest':'Chest','Neck':'UpperChest','Head':'Neck',
+ 'LeftShoulder':'UpperChest','LeftUpperArm':'LeftShoulder','LeftLowerArm':'LeftUpperArm','LeftHand':'LeftLowerArm',
+ 'RightShoulder':'UpperChest','RightUpperArm':'RightShoulder','RightLowerArm':'RightUpperArm','RightHand':'RightLowerArm',
+ 'LeftUpperLeg':'Hips','LeftLowerLeg':'LeftUpperLeg','LeftFoot':'LeftLowerLeg','LeftToes':'LeftFoot',
+ 'RightUpperLeg':'Hips','RightLowerLeg':'RightUpperLeg','RightFoot':'RightLowerLeg','RightToes':'RightFoot'}
+CONNECT = {'Spine','Chest','UpperChest','Neck','Head','LeftUpperArm','LeftLowerArm','LeftHand','RightUpperArm','RightLowerArm','RightHand',
+ 'LeftLowerLeg','LeftFoot','LeftToes','RightLowerLeg','RightFoot','RightToes'}

@@ -1,0 +1,216 @@
+CAVALEIRO - PACOTE PARA ANIMACAO (rig v2)
+=========================================
+
+ARQUIVOS  (para usar no Unity, siga a secao IMPORTAR NO UNITY logo abaixo)
+- cavaleiro_rigged.fbx  -> modelo + esqueleto + pesos, texturas embutidas (Unity, Maya, 3ds Max, Blender...)
+- cavaleiro_rig.blend   -> mesma coisa no Blender 5.2, COM controles de animacao (IK) - use este se for animar no Blender
+
+ESPECIFICACOES
+- Altura: 1,8 m, escala 1:1 (metros). Pes no chao.
+- Pose de repouso: T-POSE (bracos na horizontal), com joelhos e cotovelos levemente dobrados (~7 graus)
+  de proposito: isso deixa o IK estavel. O Unity aceita normalmente.
+- Malha: ~72 mil triangulos (Body 50k, Shield 16k, Sword 6k), 1 material, texturas 2048.
+- Pesos: no maximo 4 ossos por vertice (padrao Unity).
+- Sem ossos de dedos: as maos sao punhos fechados esculpidos.
+
+IMPORTAR NO UNITY - PASSO A PASSO (faca nesta ordem)
+  Antes: tenha o Git LFS instalado (veja o README do projeto) e abra o projeto no Unity 6000.6.1f1.
+  Os arquivos .fbx e .png vem pelo LFS; sem ele o boneco aparece quebrado.
+
+  0. Arquivos .meta (so UMA pessoa faz, uma vez)
+     A pasta subiu sem os arquivos .meta. O Unity cria eles sozinho ao abrir o projeto.
+     Combine para que so uma pessoa abra primeiro e de commit dos .meta gerados
+     (git add Assets/Personagens/Cavaleiro + commit + push). Os outros so dao git pull depois.
+     Se duas pessoas gerarem ao mesmo tempo, os IDs ficam diferentes e da conflito.
+
+  1. Esqueleto (Humanoid)
+     - No painel Project, clique UMA vez em Personagens/Cavaleiro/cavaleiro_rigged.
+     - Inspector (direita) > aba Rig > Animation Type: Humanoid
+       > Avatar Definition: Create From This Model > Apply.
+     - Clique em Configure...: todos os ossos devem aparecer VERDES.
+       Os ossos extras (*_Twist, Tabard_*, SwordSheath, ShieldBack, RightHandWeapon,
+       LeftForearmShield) ficam fora do mapeamento; isso e o certo.
+       As abas Left Hand/Right Hand ficam vazias (o modelo nao tem dedos).
+       Se aparecer algo vermelho: Pose > Enforce T-Pose. Depois Apply > Done.
+
+  2. Texturas e material (senao o boneco fica todo BRANCO)
+     As texturas vao embutidas no FBX, mas o Unity nao liga elas no material sozinho.
+     a) Clique em texturas_unity/cavaleiro_Normal > Texture Type: "Normal map" > Apply.
+     b) Clique em texturas_unity/cavaleiro_MetallicSmoothness > desmarque "sRGB (Color Texture)"
+        > Apply.
+     c) Clique no cavaleiro_rigged > aba Materials > "Extract Materials..." > escolha a pasta
+        Cavaleiro. Aparece o material tripo_mat_d442e7cc (bolinha).
+     d) Clique no material e, no Inspector, arraste cada imagem para o quadradinho que fica na
+        ponta esquerda de cada linha (ou clique na bolinha (o) da linha e escolha na lista):
+           cavaleiro_BaseColor          -> Base Map  (deixe a cor ao lado em branco)
+           cavaleiro_MetallicSmoothness -> Metallic Map  (Source: Metallic Alpha)
+           cavaleiro_Normal             -> Normal Map  (se pedir, clique em "Fix Now")
+        Se a armadura ficar fosca demais, suba o Smoothness para ~1.
+     Corpo, espada e escudo usam o mesmo material: isso arruma tudo de uma vez.
+     (cavaleiro_MetallicSmoothness = metal no RGB + lisura no alfa, gerada do Roughness
+     original invertido, que e o formato que o URP espera.)
+
+  3. Colocar na cena
+     - Arraste o cavaleiro_rigged do Project para a Scene (ou para a Hierarchy).
+     - Confira: ~1,8 m de altura, textura escura com linhas azuis, espada na mao direita e
+       escudo no braco esquerdo. Na Hierarchy as armas ficam dentro dos ossos:
+       ... > RightHand > RightHandWeapon > Sword   e   ... > LeftLowerArm > LeftForearmShield > Shield
+     - O cavaleiro olha para o eixo +Z. Com a camera padrao (Z = -10) ele aparece de costas.
+
+  4. Testar uma animacao (sem precisar do Mixamo)
+     a) Clique em exemplo/teste_caminhada > aba Rig > Animation Type: Humanoid
+        > Avatar Definition: Copy From Other Avatar > Source: cavaleiro_riggedAvatar > Apply.
+     b) Aba Animation > marque Loop Time > Apply.
+     c) Project > botao direito > Create > Animator Controller. De dois cliques nele e arraste
+        para a area quadriculada o clipe da caminhada (o triangulo dentro do teste_caminhada;
+        o nome dele e "Scene"). Ele vira um quadrado laranja ligado ao Entry.
+     d) Selecione o cavaleiro na cena > componente Animator > campo Controller: arraste o
+        Animator Controller. De Play: ele anda no lugar.
+
+  5. (Opcional) Guardar/sacar as armas
+     Crie um script TrocaArmas.cs com o codigo abaixo e adicione no cavaleiro. No Play, marque
+     "Guardado" no Inspector: a espada vai para a cintura e o escudo para as costas.
+
+       using UnityEngine;
+       public class TrocaArmas : MonoBehaviour
+       {
+           public bool guardado;
+           public Transform sword, shield, rightHandWeapon, leftForearmShield, swordSheath, shieldBack;
+           bool aplicado;
+           void Reset()
+           {
+               sword = Achar("Sword"); shield = Achar("Shield");
+               rightHandWeapon = Achar("RightHandWeapon"); leftForearmShield = Achar("LeftForearmShield");
+               swordSheath = Achar("SwordSheath"); shieldBack = Achar("ShieldBack");
+           }
+           Transform Achar(string nome)
+           {
+               foreach (var t in GetComponentsInChildren<Transform>(true)) if (t.name == nome) return t;
+               return null;
+           }
+           void Update()
+           {
+               if (guardado == aplicado) return;
+               sword.SetParent(guardado ? swordSheath : rightHandWeapon, false);
+               shield.SetParent(guardado ? shieldBack : leftForearmShield, false);
+               aplicado = guardado;
+           }
+       }
+
+  Avisos
+  - Os arquivos .blend desta pasta (cavaleiro_rig.blend e exemplo/teste_caminhada.blend) sao para
+    quem anima no Blender. O Unity tenta importar .blend usando o Blender: quem nao tem Blender
+    instalado ve um aviso de importacao desses dois arquivos. Pode ignorar; o Unity usa o .fbx.
+  - Os scripts .py da pasta scripts/ sao ferramentas do Blender, nao do Unity. O Unity so mostra
+    eles como texto.
+
+ESQUELETO (nomes no padrao Humanoid do Unity - NAO renomear)
+  Hips
+   +- Spine > Chest > UpperChest > Neck > Head
+   |                  UpperChest > ShieldBack                      (encaixe: escudo nas costas)
+   |                  UpperChest > LeftShoulder  > LeftUpperArm  > LeftLowerArm  > LeftHand
+   |                                                               LeftLowerArm  > LeftLowerArm_Twist  (torcao)
+   |                                                               LeftLowerArm  > LeftForearmShield   (encaixe: escudo no braco)
+   |                  UpperChest > RightShoulder > RightUpperArm > RightLowerArm > RightHand > RightHandWeapon (encaixe: espada na mao)
+   |                                                               RightLowerArm > RightLowerArm_Twist (torcao)
+   +- LeftUpperLeg  > LeftLowerLeg  > LeftFoot  > LeftToes
+   +- RightUpperLeg > RightLowerLeg > RightFoot > RightToes
+   +- Tabard_1 > Tabard_2 > Tabard_3        (aba de pano da frente)
+   +- SwordSheath                            (encaixe: espada na cintura esquerda)
+
+ESPADA E ESCUDO (PROPS)
+- Sword e Shield sao objetos rigidos (MeshRenderer), filhos dos ossos de encaixe:
+    Sword  -> RightHandWeapon      Shield -> LeftForearmShield
+- Os encaixes tem a mesma orientacao relativa, entao para trocar de lugar no Unity basta:
+    sword.transform.SetParent(swordSheath, false);   // espada na cintura
+    shield.transform.SetParent(shieldBack, false);   // escudo nas costas
+  (e o inverso para sacar). Com "false" a posicao local fica zerada e a arma encaixa certinho.
+- Para esconder uma arma: desative o GameObject Sword ou Shield.
+
+OSSOS EXTRAS (nao fazem parte do Humanoid - deixe "None" no mapeamento se o Unity tentar usar)
+- *_Twist: dividem a torcao do pulso pelo antebraco. No Blender ja giram sozinhos (metade da mao).
+  No Unity, para funcionar com animacoes Humanoid, adicione em cada um um "Rotation Constraint"
+  com fonte = osso Hand do mesmo lado, peso 0.5 (eixo Y). Sem isso eles so acompanham o antebraco.
+- Tabard_1..3: aba de pano. Podem ser animados a mao ou receber fisica (spring bones,
+  Magica Cloth, Dynamic Bone etc.) no Unity.
+
+COMO ANIMAR
+Opcao A - Animacoes prontas (Mixamo / Asset Store) no Unity:
+  1. Baixe as animacoes do Mixamo em "FBX for Unity", Skin: "Without Skin".
+  2. No Unity, em cada FBX de animacao e no cavaleiro: Rig > Animation Type: Humanoid > Apply.
+  3. No cavaleiro, clique em Configure... e confira o mapeamento (ossos verdes).
+  4. Use as animacoes num Animator Controller aplicado ao cavaleiro.
+  Obs.: NAO subir o cavaleiro no auto-rigger do Mixamo (ele refaz o esqueleto e perde as armas presas).
+
+Opcao B - Animar no Blender (cavaleiro_rig.blend):
+  Controles (colecao de ossos "Controles", com formas de arame):
+   - CTRL_Root (circulo grande no chao): move o personagem inteiro.
+   - IK_Foot_Left/Right (caixas nos pes): movem/giram o pe; a perna segue (IK).
+       RF_Ball_*  -> gire em X positivo para levantar o calcanhar (pivo na base dos dedos)
+       RF_Toe_*   -> gire em X positivo para ficar na ponta do pe (pivo na ponta)
+   - POLE_Knee_* (esferas na frente dos joelhos): direcao do joelho.
+   - IK_Hand_Left/Right (caixas nas maos) + POLE_Elbow_* (esferas atras dos cotovelos).
+   - Hips: mover o quadril (abaixar/agachar) com os pes presos no chao.
+  Chaves IK/FK: selecione CTRL_Root > painel N (Item) ou aba Bone > Custom Properties:
+       ik_perna_Left / ik_perna_Right  (padrao 1 = IK)
+       ik_braco_Left / ik_braco_Right  (padrao 0 = FK: gire os ossos do braco direto)
+  Colecoes de ossos: Deform, Controles, Encaixes, Mecanismo (oculta - nao mexer).
+
+  Passo a passo para criar uma animacao nova:
+    1. Abra cavaleiro_rig.blend e salve uma copia com o nome da animacao (ex.: anim_ataque.blend).
+    2. Selecione Armature > Pose Mode (Ctrl+Tab). Mexa nos controles e insira chaves (tecla I).
+    3. De um nome para a Action (Dope Sheet > Action Editor), ex.: "Ataque_01".
+    4. Rode a checagem do escudo (secao ESCUDO abaixo).
+    5. Exporte (File > Export > FBX), selecionando Armature + Body + Sword + Shield:
+       - Limit to: Selected Objects
+       - Object Types: Armature e Mesh  (RECOMENDADO incluir a malha: o arquivo leva a pose de
+         repouso exata do personagem; so com o esqueleto tambem funciona)
+       - Transform > Apply Scalings: "FBX All"
+       - Armature: "Only Deform Bones" LIGADO, "Add Leaf Bones" DESLIGADO
+       - Bake Animation LIGADO, "NLA Strips" e "All Actions" DESLIGADOS, Sampling Rate 1
+    Os controles NAO vao para o FBX (nao deformam); o movimento deles e "assado" nos ossos.
+    Obs.: se reimportar o FBX no Blender, o clipe aparece comecando no quadro 2 em vez do 1.
+    E so o importador do Blender; no Unity o clipe comeca no primeiro quadro normalmente.
+
+  Exemplo pronto: exemplo/teste_caminhada.blend (ciclo de caminhada feito so com os controles)
+  e exemplo/teste_caminhada.fbx (exportado com as configuracoes acima). Use como referencia.
+
+  No Unity, para clipes feitos no Blender: selecione o FBX da animacao > Rig > Humanoid >
+  Avatar Definition: "Copy From Other Avatar" > escolha o Avatar do cavaleiro > Apply.
+  (Para clipes do Mixamo use "Create From This Model", como na Opcao A.)
+
+TESTE DE PONTA A PONTA (ja feito com este rig)
+  Animacao feita no Blender so com os controles -> exportada como acima -> reimportada e
+  comparada com a original: mesmos 31 ossos, mesmos nomes do personagem, movimento identico
+  quadro a quadro (diferenca < 0,1 mm), pose de repouso identica. Para repetir com outra animacao:
+    blender -b -P scripts/anim_verify.py -- cavaleiro_rigged.fbx minha_animacao.fbx minha_animacao.blend
+
+ESCUDO ATRAVESSANDO O CORPO (IMPORTANTE)
+  O escudo e enorme (1,4 m) e fica preso no antebraco esquerdo. Se o braco esquerdo fechar demais
+  (cotovelo colado no corpo, antebraco na frente da barriga, braco cruzando o peito), o escudo
+  atravessa o tronco e as coxas. O rig nao impede isso: e a pose que precisa respeitar o escudo.
+  Regras praticas para o braco esquerdo:
+   - Mantenha o braco um pouco aberto para fora (cotovelo afastado do corpo).
+   - Para "defender", leve o braco PARA FRENTE e para fora, nao cruzando o peito.
+   - Em giros do tronco, abra mais o braco esquerdo no lado para onde ele gira.
+   - Animacoes prontas (Mixamo etc.) nao sabem do escudo: quase sempre precisam abrir o braco
+     esquerdo. No Unity da para corrigir com uma Animation Layer (Additive, mascara so do braco
+     esquerdo) ou ajustar o clipe no Blender.
+  Checagem automatica (Blender): mostra os quadros em que o escudo atravessa o corpo.
+    blender -b minha_animacao.blend -P scripts/check_escudo.py --
+    blender -b minha_animacao.blend -P scripts/check_escudo.py -- 1 60 --limite 20
+  Encostar no braco esquerdo e normal e e ignorado. Pequenos toques (ate 20 triangulos) sao tolerados.
+  Na pose de repouso (T-pose) a ponta de cima do escudo ja encosta na ombreira: vem do modelo
+  original (as pecas eram fundidas) e nao aparece com o braco animado.
+
+VALIDACAO (para quem cuida dos rigs)
+  blender -b -P scripts/validate.py -- arquivo.fbx
+  Confere: ossos obrigatorios do Humanoid e hierarquia, sem leaf bones, sem ossos de controle,
+  todos os vertices com peso, max. 4 ossos por vertice, pesos normalizados, T-pose, escala,
+  pes no chao e total de triangulos. Sai com erro se algo reprovar.
+
+CUIDADOS
+- Escudo: veja a secao "ESCUDO ATRAVESSANDO O CORPO".
+- A parte de dentro do antebraco esquerdo (que ficava escondida pelo escudo) tem textura
+  avermelhada do proprio modelo original; so aparece quando o escudo sai do braco.
+- Em poses muito extremas a armadura dobra um pouco nas juntas (modelo esculpido em peca unica).
