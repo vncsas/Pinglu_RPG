@@ -23,8 +23,8 @@ public static class MontarCavaleiroSombrio
     // senao a espada "pula" quando troca de lugar.
     static void VerificarTroca(string nome, float tempoNormalizado)
     {
-        var go = (GameObject)PrefabUtility.InstantiatePrefab(AssetDatabase.LoadAssetAtPath<GameObject>(Modelo));
-        var anim = go.GetComponent<Animator>();
+        // the character of the test scene just built (a loose prefab instance is not animated by the graph)
+        var go = GameObject.Find("CavaleiroSombrio"); var anim = go.GetComponent<Animator>();
         var clip = AssetDatabase.LoadAllAssetsAtPath($"{Raiz}/animacoes/cavaleiro_sombrio@{nome}.fbx").OfType<AnimationClip>().First(a => !a.name.StartsWith("__preview__"));
         var grafo = PlayableGraph.Create("verificar"); var saida = AnimationPlayableOutput.Create(grafo, "a", anim);
         var cp = AnimationClipPlayable.Create(grafo, clip); cp.SetApplyFootIK(false); saida.SetSourcePlayable(cp);
@@ -33,7 +33,7 @@ public static class MontarCavaleiroSombrio
         var m = A("RightHandWeapon"); var c = A("SwordBack");
         Debug.Log($"[CavaleiroSombrio] troca em {nome}: distancia mao/costas = {Vector3.Distance(m.position, c.position) * 100:0.0} cm, " +
                   $"diferenca de angulo = {Quaternion.Angle(m.rotation, c.rotation):0.0} graus");
-        grafo.Destroy(); Object.DestroyImmediate(go);
+        grafo.Destroy();
     }
 
     [MenuItem("Cavaleiro Sombrio/Abrir cena de teste")]
