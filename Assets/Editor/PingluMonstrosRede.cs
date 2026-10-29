@@ -53,6 +53,7 @@ public static class PingluMonstrosRede
             EditorUtility.SetDirty(lista);
         }
         AssetDatabase.SaveAssets();
+        PingluCodigosDeRede.Consertar(); // grava o código de rede do esqueleto (senão cada PC calcula o seu)
         EditorSceneManager.MarkSceneDirty(g.gameObject.scene);
         EditorUtility.DisplayDialog("Pinglu", ok
             ? "Esqueletos prontos para o multiplayer!\n\n- O host comanda as hordas; todos veem os mesmos monstros\n- Qualquer jogador perto do cemitério começa a horda (ou F2)\n- Morreu? Aperte R para renascer\n\nSalve (Ctrl + S) e mande para o GitHub: os dois PCs precisam desta versão."

@@ -422,7 +422,7 @@ public class MenuRede : MonoBehaviour
         if (!string.IsNullOrEmpty(msg))
         {
             GUIStyle st = new GUIStyle(texto); st.normal.textColor = new Color(1f, 0.5f, 0.4f);
-            GUI.Label(new Rect(bx, by - 52f * e, bw * 3 + gap * 2, 40f * e), msg, st);
+            GUI.Label(new Rect(bx, by + bh + 44f * e, bw * 3 + gap * 2, 40f * e), msg, st); // embaixo das opções, sem cobrir as cartas
         }
     }
 
