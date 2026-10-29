@@ -125,8 +125,22 @@ public class PlayerLocomotion : MonoBehaviour
         return animator.HasState(0, Animator.StringToHash(nome)) || animator.HasState(0, Animator.StringToHash("Base Layer." + nome));
     }
 
+    // proteção: se o personagem atravessar o chão, volta para cima do terreno
+    private void ProtegerContraQueda()
+    {
+        Terrain t = Terrain.activeTerrain;
+        if (t == null) return;
+        float chao = t.SampleHeight(transform.position) + t.transform.position.y;
+        if (transform.position.y > chao - 6f) return;
+        controller.enabled = false;
+        transform.position = new Vector3(transform.position.x, chao + 0.5f, transform.position.z);
+        controller.enabled = true;
+        verticalVelocity = 0f;
+    }
+
     private void Update()
     {
+        ProtegerContraQueda();
         if (!Controlavel || SessaoDeJogo.MenuAberto || Time.time < atordoadoAte)
         {
             // morto ou atordoado: só gravidade e empurrão

@@ -147,6 +147,7 @@ public class PalcoSelecao : MonoBehaviour
         {
             if (f == null || !f.disponivel || f.modeloVisual == null || retratos.ContainsKey(f)) continue;
             GameObject m = Instantiate(f.modeloVisual, LUGAR, Quaternion.Euler(0f, 20f, 0f));
+            m.AddComponent<ReceptorDoPalco>();
             Animator a = m.GetComponentInChildren<Animator>();
             PlayableGraph g = default(PlayableGraph);
             if (a != null && f.animacaoParado != null)
@@ -199,6 +200,7 @@ public class PalcoSelecao : MonoBehaviour
 
         modelo = Instantiate(f.modeloVisual, LUGAR, Quaternion.Euler(0f, -12f, 0f));
         modelo.transform.SetParent(raiz, true);
+        modelo.AddComponent<ReceptorDoPalco>();
         Animator a = modelo.GetComponentInChildren<Animator>();
         if (a == null || f.animacaoParado == null) return;
         a.applyRootMotion = false;
@@ -254,4 +256,23 @@ public class PalcoSelecao : MonoBehaviour
     }
 
     private void OnDestroy() { if (grafo.IsValid()) grafo.Destroy(); }
+}
+
+// Recebe os eventos das animações no palco (feitiços, espada...) para não dar
+// aviso no Console. O relâmpago do cajado aparece de verdade, para enfeitar.
+public class ReceptorDoPalco : MonoBehaviour
+{
+    public void LancarMagia() { }
+    public void GuardarEspada() { }
+    public void SacarEspada() { }
+    public void SoltarRaio()
+    {
+        Transform ponta = null;
+        foreach (Transform t in GetComponentsInChildren<Transform>(true)) if (t.name == "StaffTip") ponta = t;
+        System.Type tipo = System.Type.GetType("Raio");
+        if (ponta == null || tipo == null) return;
+        System.Reflection.MethodInfo criar = tipo.GetMethod("Criar");
+        Vector3 dir = transform.forward * 6f + Vector3.right * 2f;
+        if (criar != null) criar.Invoke(null, new object[] { ponta, dir, new Color(0.62f, 0.32f, 1f), 0.6f });
+    }
 }

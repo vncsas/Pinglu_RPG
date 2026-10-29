@@ -83,6 +83,27 @@ public class MenuRede : MonoBehaviour
         if (ok.Count > 0) Escolher(ok[Random.Range(0, ok.Count)]);
     }
 
+    // cria o personagem escolhido para jogar sozinho, sem as partes de rede
+    private void NascerSozinho(FichaPersonagem f)
+    {
+        // a posição vem ANTES de o personagem começar a funcionar:
+        // o CharacterController guarda onde nasceu e não acompanha uma troca depois
+        Vector3 pos = nascimento;
+        Terrain t = Terrain.activeTerrain;
+        if (t != null) pos.y = t.SampleHeight(pos) + t.transform.position.y + 0.1f;
+        GameObject espera = new GameObject("espera");
+        espera.SetActive(false); // assim os scripts só começam depois de tirarmos a parte de rede
+        GameObject j = Instantiate(f.prefabJogador, pos, rotacaoNascimento, espera.transform);
+        foreach (NetworkBehaviour nb in j.GetComponentsInChildren<NetworkBehaviour>(true)) DestroyImmediate(nb);
+        foreach (NetworkObject no in j.GetComponentsInChildren<NetworkObject>(true)) DestroyImmediate(no);
+        j.transform.SetParent(null, true);
+        Physics.SyncTransforms();
+        j.name = f.nome;
+        Destroy(espera);
+        ThirdPersonCameraFollow cam = FindFirstObjectByType<ThirdPersonCameraFollow>();
+        if (cam != null) cam.DefinirAlvo(j.transform);
+    }
+
     private void SairDoMenu()
     {
         if (palco != null) { palco.Desmontar(); Destroy(palco); palco = null; }
@@ -111,7 +132,11 @@ public class MenuRede : MonoBehaviour
         SessaoDeJogo.MensagemAoVoltar = null;
         SessaoDeJogo.Online = false;
         SessaoDeJogo.MenuAberto = false;
-        if (jogadorDaCena != null) jogadorDaCena.SetActive(true);
+        SessaoDeJogo.PersonagemEscolhido = escolhido;
+        FichaPersonagem f = Ficha(escolhido);
+        // o 1º personagem é o que já está na cena; os outros nascem do prefab dele
+        if (escolhido == 0 || f == null || f.prefabJogador == null) { if (jogadorDaCena != null) jogadorDaCena.SetActive(true); }
+        else NascerSozinho(f);
         tela = Tela.Jogando;
         SairDoMenu();
     }

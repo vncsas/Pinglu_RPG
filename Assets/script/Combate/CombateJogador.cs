@@ -46,7 +46,10 @@ public class CombateJogador : MonoBehaviour
         return true;
     }
 
-    private void GanharEspecial(float quanto) { Especial = Mathf.Min(especialMaximo, Especial + quanto); }
+    public void GanharEspecial(float quanto) { Especial = Mathf.Min(especialMaximo, Especial + quanto); }
+
+    [Tooltip("Desligue para personagens que atacam só com magia/projétil (ex.: a Maga)")]
+    public bool ataqueCorpoACorpo = true;
 
     [Header("Sensação de impacto")]
     [SerializeField] private float pausaNoAcerto = 0.06f;
@@ -133,6 +136,7 @@ public class CombateJogador : MonoBehaviour
 
     private void Acertar(float dano, HashSet<Vida> atingidos)
     {
+        if (!ataqueCorpoACorpo) return;
         Vector3 centro = transform.position + transform.forward * alcance * 0.75f + Vector3.up * 1.0f;
         bool acertou = false;
         foreach (Collider c in Physics.OverlapSphere(centro, raio, ~0, QueryTriggerInteraction.Ignore))
