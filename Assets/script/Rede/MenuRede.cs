@@ -76,7 +76,7 @@ public class MenuRede : MonoBehaviour
         escolhido = i;
         if (tela == Tela.Sala)
         {
-            if (SalaDeEspera.Atual != null) SalaDeEspera.Atual.EscolherRpc(i);
+            if (SalaDeEspera.Atual != null) SalaDeEspera.Atual.Escolher(i);
         }
         else if (palco != null) palco.Mostrar(Ficha(i));
     }
@@ -169,7 +169,6 @@ public class MenuRede : MonoBehaviour
         if (!Preparar()) return;
         NetworkManager nm = NetworkManager.Singleton;
         nm.GetComponent<UnityTransport>().SetConnectionData("127.0.0.1", porta, "0.0.0.0");
-        if (FindFirstObjectByType<SalaDeEspera>() == null) { erro = "Falta a sala de espera na cena. Rode o menu Pinglu > 25."; return; }
         nm.ConnectionApprovalCallback = Aprovar;
         nm.OnClientDisconnectCallback += AoDesconectar;
         SalaDeEspera.EscolhaInicial.Clear();
@@ -177,7 +176,7 @@ public class MenuRede : MonoBehaviour
         SalaDeEspera.LugarDeNascimento = LugarDeNascimento;
         SalaDeEspera.RotacaoDeNascimento = rotacaoNascimento;
         SessaoDeJogo.Online = true; SessaoDeJogo.SouHost = true;
-        if (nm.StartHost()) { tela = Tela.Sala; assinaturaSala = ""; }
+        if (nm.StartHost()) { SalaDeEspera.Abrir(nm); tela = Tela.Sala; assinaturaSala = ""; }
         else { erro = "Não consegui criar a partida. A porta " + porta + " pode estar em uso."; SessaoDeJogo.Online = false; }
     }
 
@@ -190,7 +189,7 @@ public class MenuRede : MonoBehaviour
         nm.OnClientConnectedCallback += AoConectar;
         nm.OnClientDisconnectCallback += AoDesconectar;
         SessaoDeJogo.Online = true; SessaoDeJogo.SouHost = false;
-        if (nm.StartClient()) tela = Tela.Conectando;
+        if (nm.StartClient()) { SalaDeEspera.Abrir(nm); tela = Tela.Conectando; }
         else { erro = "IP inválido."; SessaoDeJogo.Online = false; }
     }
 
@@ -241,7 +240,7 @@ public class MenuRede : MonoBehaviour
     {
         SalaDeEspera sala = SalaDeEspera.Atual;
         if (sala == null) return;
-        if (sala.Comecou.Value)
+        if (sala.Comecou)
         {
             // o host começou: todo mundo vai para o mapa
             tela = Tela.Jogando;

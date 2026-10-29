@@ -31089,6 +31089,88 @@ MeshFilter:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 427003954}
   m_Mesh: {fileID: 4300000, guid: 339f3a649d8351e44924f0e8b2bd1923, type: 2}
+--- !u!1 &427504611
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 427504613}
+  - component: {fileID: 427504612}
+  - component: {fileID: 427504614}
+  m_Layer: 0
+  m_Name: Sala de Espera
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!114 &427504612
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 427504611}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: d5a57f767e5e46a458fc5d3c628d0cbb, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Unity.Netcode.Runtime::Unity.Netcode.NetworkObject
+  GlobalObjectIdHash: 2722102088
+  InScenePlacedSourceGlobalObjectIdHash: 0
+  m_InScenePlacedDisabledByDefault: 0
+  DeferredDespawnTick: 0
+  Ownership: 1
+  AlwaysReplicateAsRoot: 0
+  SynchronizeTransform: 1
+  m_InScenePlaced: 1
+  ActiveSceneSynchronization: 0
+  SceneMigrationSynchronization: 0
+  SpawnWithObservers: 1
+  DontDestroyWithOwner: 0
+  AutoObjectParentSync: 1
+  SyncOwnerTransformWhenParented: 1
+  AllowOwnerToParent: 0
+--- !u!4 &427504613
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 427504611}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 0}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &427504614
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 427504611}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 368a95189dab821af8e05eb8f8ac6d62, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::SalaDeEspera
+  ShowTopMostFoldoutHeaderGroup: 1
+  Vagas:
+    UpdateTraits:
+      MinSecondsBetweenUpdates: 0
+      MaxSecondsBetweenUpdates: 0
+  Comecou:
+    UpdateTraits:
+      MinSecondsBetweenUpdates: 0
+      MaxSecondsBetweenUpdates: 0
+    m_InternalValue: 0
 --- !u!1001 &427689952
 PrefabInstance:
   m_ObjectHideFlags: 0
@@ -41233,6 +41315,9 @@ MonoBehaviour:
   - {fileID: 11400000, guid: 56e358a0a114d6f528cfff657ce4c782, type: 2}
   - {fileID: 11400000, guid: d1c0c5eb080894ec691bfda086740b03, type: 2}
   jogadorDaCena: {fileID: 1393046666}
+  materialFundo: {fileID: 2100000, guid: ace784c106ab78ce7b9f5d3a43ae1b55, type: 2}
+  materialChao: {fileID: 2100000, guid: 53aa8c22dc8adaf378c520610b44d73d, type: 2}
+  materialParticula: {fileID: 2100000, guid: e823cd5b5d27c0f4b8256e7c12ee3e6d, type: 2}
   porta: 7777
   maximoDeJogadores: 4
   teclaSair: 291
@@ -54469,6 +54554,7 @@ MonoBehaviour:
   especialMaximo: 100
   ganhoPorAcerto: 8
   ganhoAoLevarDano: 4
+  ataqueCorpoACorpo: 1
   pausaNoAcerto: 0.06
 --- !u!114 &724293856
 MonoBehaviour:
@@ -67212,6 +67298,62 @@ MeshCollider:
   m_Convex: 0
   m_CookingOptions: 30
   m_Mesh: {fileID: 8913356539514567998, guid: 7eea887dd135f38438297beecb26b6da, type: 3}
+--- !u!1 &845867557
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 845867559}
+  - component: {fileID: 845867558}
+  m_Layer: 0
+  m_Name: Mapa do Mundo
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!114 &845867558
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 845867557}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: bc91bbd64939a85bd99c9cf84515d313, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::MapaDoMundo
+  miniMapa: {fileID: 1066660207}
+  materialNuvens: {fileID: 2100000, guid: 11a943bef7d875d4f83d2cb818285623, type: 2}
+  pino: {fileID: 2800000, guid: 3ea1bdd75a1a2ad95b5919e3ef2639f1, type: 3}
+  pulso: {fileID: 2800000, guid: def6a3ab68e5d123d8d579083bb57940, type: 3}
+  distanciaMinima: 45
+  distanciaMaxima: 950
+  distanciaInicial: 380
+  duracaoDoVoo: 0.8
+  alturaDasNuvens: 14
+  tecla: 109
+  teclaAba: 9
+  teclaCentralizar: 102
+--- !u!4 &845867559
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 845867557}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 0}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!1001 &846077289
 PrefabInstance:
   m_ObjectHideFlags: 0
@@ -83866,6 +84008,7 @@ MonoBehaviour:
   distanciaParaVerInimigos: 70
   usarNevoa: 1
   raioRevelado: 50
+  abrirComTecla: 0
   teclaMapaCompleto: 109
   teclaAproximar: 61
   teclaAfastar: 45
@@ -109283,6 +109426,7 @@ MonoBehaviour:
   especialMaximo: 100
   ganhoPorAcerto: 8
   ganhoAoLevarDano: 4
+  ataqueCorpoACorpo: 1
   pausaNoAcerto: 0.06
 --- !u!114 &1393046677
 MonoBehaviour:
@@ -164362,3 +164506,5 @@ SceneRoots:
   - {fileID: 1393046665}
   - {fileID: 1066660208}
   - {fileID: 1061455117}
+  - {fileID: 845867559}
+  - {fileID: 427504613}
