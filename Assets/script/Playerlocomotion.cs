@@ -81,6 +81,8 @@ public class PlayerLocomotion : MonoBehaviour
     public int GolpeAtual => golpeAtual;            // 0, 1, 2 = combo ; -1 = pesado
     public bool Controlavel { get; set; } = true;   // falso quando morto
     public event System.Action<int> AoIniciarGolpe;
+    // ações que o multiplayer repete nos outros PCs: 1 pulo, 2 rolagem, 3 levou golpe, 4 morreu
+    public event System.Action<int> AoAcao;
     private Vector3 empurrao;                       // empurrão ao levar golpe
     private float atordoadoAte;
 
@@ -192,6 +194,7 @@ public class PlayerLocomotion : MonoBehaviour
         {
             verticalVelocity = Mathf.Sqrt(jumpHeight * -2f * gravity);
             if (animator != null) animator.SetTrigger("Jump");
+            AoAcao?.Invoke(1);
         }
 
         // --- Guardar/sacar a espada ---
@@ -364,6 +367,7 @@ public class PlayerLocomotion : MonoBehaviour
         if (animator == null) return;
         TerminarCombo();
         if (TemEstado("hit")) { animator.CrossFadeInFixedTime("hit", 0.08f, 0, 0f); atordoadoAte = Time.time + 0.35f; }
+        AoAcao?.Invoke(3);
     }
 
     public void Morrer()
@@ -371,6 +375,38 @@ public class PlayerLocomotion : MonoBehaviour
         Controlavel = false;
         TerminarCombo();
         if (animator != null && TemEstado("death")) animator.CrossFadeInFixedTime("death", 0.15f, 0, 0f);
+        AoAcao?.Invoke(4);
+    }
+
+    // ------------------------------------------------------------------
+    //  multiplayer: repete no personagem de outro jogador o que ele fez no PC dele
+    // ------------------------------------------------------------------
+    public void Reviver()
+    {
+        Controlavel = true;
+        TerminarCombo();
+        atordoadoAte = 0f;
+        if (animator == null) return;
+        if (usaBainha) { armado = true; animator.SetBool("Armado", true); }
+        if (TemEstado("Blend Tree")) animator.CrossFadeInFixedTime("Blend Tree", 0.2f, 0, 0f);
+    }
+
+    public void TocarGolpeRemoto(int indice)
+    {
+        if (animator == null) return;
+        string estado = indice < 0 ? estadoAtaquePesado : estadosCombo[Mathf.Clamp(indice, 0, estadosCombo.Length - 1)];
+        if (!TemEstado(estado)) return;
+        animator.CrossFadeInFixedTime(estado, transicaoEntreGolpes, 0, 0f);
+        AoIniciarGolpe?.Invoke(indice);
+    }
+
+    public void TocarAcaoRemota(int codigo)
+    {
+        if (animator == null) return;
+        if (codigo == 1) animator.SetTrigger("Jump");
+        else if (codigo == 2) animator.SetTrigger("Roll");
+        else if (codigo == 3 && TemEstado("hit")) animator.CrossFadeInFixedTime("hit", 0.08f, 0, 0f);
+        else if (codigo == 4 && TemEstado("death")) animator.CrossFadeInFixedTime("death", 0.15f, 0, 0f);
     }
 
     private void TerminarCombo()
@@ -392,6 +428,7 @@ public class PlayerLocomotion : MonoBehaviour
         transform.rotation = Quaternion.LookRotation(rollDirection, Vector3.up);
 
         if (animator != null) animator.SetTrigger("Roll");
+        AoAcao?.Invoke(2);
 
         yield return new WaitForSeconds(rollDuration);
 

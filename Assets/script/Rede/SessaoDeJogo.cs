@@ -7,4 +7,8 @@ public static class SessaoDeJogo
     public static int PersonagemEscolhido;
     public static bool MenuAberto;        // menu inicial na tela (cursor livre, sem controle)
     public static string MensagemAoVoltar;
+
+    // preenchidos pela sala de espera no PC do host (o resto do jogo usa sem precisar saber de rede)
+    public static System.Action<string, float> AvisarTodos;              // mensagem na tela de todos os jogadores
+    public static System.Action<UnityEngine.GameObject> SpawnarNaRede;   // faz um monstro aparecer para todos
 }

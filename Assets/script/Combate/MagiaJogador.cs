@@ -50,10 +50,10 @@ public class MagiaJogador : MonoBehaviour
     // ------------------------------------------------------------------
     public void LancarMagia()
     {
-        if (!Dono()) return;
         Vector3 de = mao != null ? mao.position : transform.position + Vector3.up * 1.3f + transform.forward * 0.5f;
         Vector3 dir = Mira(de, alcanceEsfera);
-        EsferaArcana.Criar(de, dir * velocidadeEsfera, alcanceEsfera / velocidadeEsfera, danoEsfera, this);
+        // nos outros PCs a esfera é só visual (o dano é de quem lançou)
+        EsferaArcana.Criar(de, dir * velocidadeEsfera, alcanceEsfera / velocidadeEsfera, Dono() ? danoEsfera : 0f, this);
     }
 
     public void SoltarRaio()
@@ -103,7 +103,7 @@ public class MagiaJogador : MonoBehaviour
     private Vector3 Mira(Vector3 de, float alcance)
     {
         Camera cam = Camera.main;
-        Vector3 frente = cam != null ? cam.transform.forward : transform.forward;
+        Vector3 frente = cam != null && Dono() ? cam.transform.forward : transform.forward;
         frente.y = Mathf.Clamp(frente.y, -0.2f, 0.25f);
         frente.Normalize();
         Vida melhor = null; float melhorAng = anguloMira;
@@ -200,7 +200,7 @@ public class EsferaArcana : MonoBehaviour
         {
             transform.position = h.point;
             Vida v = h.collider.GetComponentInParent<Vida>();
-            if (v != null && !v.Morto && v.ReceberDano(dano, transform.position - vel.normalized) && dono != null) dono.Acertou();
+            if (dano > 0f && v != null && !v.Morto && v.ReceberDano(dano, transform.position - vel.normalized) && dono != null) dono.Acertou();
             Explodir();
             return;
         }

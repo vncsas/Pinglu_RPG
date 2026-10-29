@@ -112,7 +112,8 @@ public class EfeitoEspada : MonoBehaviour
 
     private void LateUpdate()
     {
-        bool emitindo = loco.Atacando && Time.time >= comecaEm && Time.time <= terminaEm;
+        // (nas cópias dos outros jogadores o Player Locomotion fica desligado: vale só a janela do golpe)
+        bool emitindo = (loco.Atacando || !loco.enabled) && Time.time >= comecaEm && Time.time <= terminaEm;
         float forca = golpe == 2 ? forcaDoFinalizador : 1f;
 
         Vector3 b = mao.TransformPoint(baseDaLamina);

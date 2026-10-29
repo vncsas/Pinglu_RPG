@@ -20,6 +20,10 @@ public class Vida : MonoBehaviour
     // quem estiver controlando pode bloquear/reduzir o dano (ex.: escudo, rolagem)
     public Func<float, Vector3, float> FiltroDeDano;
 
+    // multiplayer: o dano/cura vai pelo rede para o PC que manda neste personagem
+    public Func<float, Vector3, bool> Redirecionar;
+    public Action<float> RedirecionarCura;
+
     private float invulneravelAte;
 
     private void Awake() { Atual = vidaMaxima; }
@@ -32,7 +36,9 @@ public class Vida : MonoBehaviour
 
     public bool ReceberDano(float dano, Vector3 origem)
     {
-        if (Morto || dano <= 0f || Time.time < invulneravelAte) return false;
+        if (Morto || dano <= 0f) return false;
+        if (Redirecionar != null) return Redirecionar(dano, origem);
+        if (Time.time < invulneravelAte) return false;
         if (FiltroDeDano != null) dano = FiltroDeDano(dano, origem);
         if (dano <= 0f) return false;
 
@@ -47,8 +53,26 @@ public class Vida : MonoBehaviour
         return true;
     }
 
+    // multiplayer: cópia de um personagem controlado em outro PC recebe a vida pela rede
+    public void DefinirAtual(float valor)
+    {
+        Atual = Mathf.Clamp(valor, 0f, vidaMaxima);
+        bool morreu = Atual <= 0f && !Morto;
+        if (Atual <= 0f) Morto = true;
+        if (morreu) AoMorrer?.Invoke();
+    }
+
+    // volta a viver com a vida cheia (renascer no multiplayer), com 2 s de proteção
+    public void Reviver()
+    {
+        Morto = false;
+        Atual = vidaMaxima;
+        invulneravelAte = Time.time + 2f;
+    }
+
     public void Curar(float valor)
     {
+        if (RedirecionarCura != null) { RedirecionarCura(valor); return; }
         if (Morto) return;
         Atual = Mathf.Min(vidaMaxima, Atual + valor);
     }

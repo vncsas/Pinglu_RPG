@@ -59,6 +59,11 @@ public class InimigoEsqueleto : MonoBehaviour
     public event System.Action<InimigoEsqueleto> AoMorrer;
     public Vida Vida => vida;
 
+    // multiplayer: nos PCs que não são o host, o esqueleto só mostra o que o host manda
+    [System.NonSerialized] public bool SoVisual;
+    public event System.Action<string> AoTocar;   // o host avisa as animações para os outros PCs
+    private float proximaBusca;
+
     private void Awake()
     {
         cc = GetComponent<CharacterController>();
@@ -70,10 +75,22 @@ public class InimigoEsqueleto : MonoBehaviour
         CriarBarra();
     }
 
-    private void Start()
+    private void Start() { AcharAlvo(); }
+
+    // o jogador vivo mais perto (no multiplayer, qualquer um dos jogadores)
+    private void AcharAlvo()
     {
-        PlayerLocomotion jogador = FindFirstObjectByType<PlayerLocomotion>();
-        if (jogador != null) { alvo = jogador.transform; vidaAlvo = jogador.GetComponent<Vida>(); }
+        float melhor = float.MaxValue;
+        Transform achado = null; Vida vAchada = null;
+        foreach (PlayerLocomotion p in Resources.FindObjectsOfTypeAll<PlayerLocomotion>())
+        {
+            if (p == null || !p.gameObject.scene.IsValid() || !p.gameObject.activeInHierarchy) continue;
+            Vida v = p.GetComponent<Vida>();
+            if (v != null && v.Morto) continue;
+            float d = (p.transform.position - transform.position).sqrMagnitude;
+            if (d < melhor) { melhor = d; achado = p.transform; vAchada = v; }
+        }
+        alvo = achado; vidaAlvo = vAchada;
     }
 
     public void MultiplicarVida(float fator) { vida.DefinirMaxima(vidaMaxima * fator); }
@@ -107,7 +124,8 @@ public class InimigoEsqueleto : MonoBehaviour
     // ------------------------------------------------------------------
     private void Update()
     {
-        if (estado == Estado.Morto || estado == Estado.Surgindo) return;
+        if (SoVisual || estado == Estado.Morto || estado == Estado.Surgindo) return;
+        if (Time.time >= proximaBusca && estado != Estado.Atacando) { proximaBusca = Time.time + 0.5f; AcharAlvo(); }
 
         Vector3 mover = Vector3.zero;
         bool alvoVivo = alvo != null && (vidaAlvo == null || !vidaAlvo.Morto);
@@ -212,6 +230,21 @@ public class InimigoEsqueleto : MonoBehaviour
         if (animAtual == nome && !reiniciar) return;
         animAtual = nome;
         anim.CrossFadeInFixedTime(nome, 0.15f, 0, 0f);
+        AoTocar?.Invoke(nome);
+    }
+
+    // multiplayer: animação mandada pelo host
+    public void TocarRemoto(string nome)
+    {
+        if (anim == null || string.IsNullOrEmpty(nome)) return;
+        animAtual = nome;
+        anim.CrossFadeInFixedTime(nome, 0.15f, 0, 0f);
+    }
+
+    // multiplayer: mostra a barra de vida quando a vida (vinda do host) baixa
+    public void AtualizarVisualDaVida()
+    {
+        if (barra != null && vida.Fracao < 0.999f) barra.gameObject.SetActive(true);
     }
 
     // ------------------------------------------------------------------
@@ -233,7 +266,7 @@ public class InimigoEsqueleto : MonoBehaviour
         cc.enabled = false;
         if (barra != null) Destroy(barra.gameObject);
         AoMorrer?.Invoke(this);
-        Tocar(animMorte, true);
+        if (SoVisual) TocarRemoto(animMorte); else Tocar(animMorte, true);
         StartCoroutine(Afundar());
     }
 
@@ -248,7 +281,7 @@ public class InimigoEsqueleto : MonoBehaviour
             transform.position = inicio - Vector3.up * (1.5f * t);
             yield return null;
         }
-        Destroy(gameObject);
+        if (!SoVisual) Destroy(gameObject); // no multiplayer, só o host apaga (e some para todos)
     }
 
     // ------------------------------------------------------------------

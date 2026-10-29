@@ -33,6 +33,12 @@ public class SalaDeEspera : MonoBehaviour
 
     private const string MSG_ESCOLHA = "Pinglu.Escolha";
     private const string MSG_SALA = "Pinglu.Sala";
+    private const string MSG_POS = "Pinglu.Nascer";
+    private const string MSG_AVISO = "Pinglu.Aviso";
+
+    // lugar de nascimento que o host mandou (se a mensagem chegar antes do personagem)
+    public static Vector3? PosicaoPendente;
+    public static Quaternion RotacaoPendente;
 
     public readonly List<VagaNaSala> Vagas = new List<VagaNaSala>();
     public bool Comecou { get; private set; }
@@ -57,8 +63,16 @@ public class SalaDeEspera : MonoBehaviour
             nm.OnClientConnectedCallback += s.Conectou;
             nm.OnClientDisconnectCallback += s.Saiu;
             foreach (ulong id in nm.ConnectedClientsIds) s.Conectou(id);
+            SessaoDeJogo.AvisarTodos = s.AvisarTodos;
+            SessaoDeJogo.SpawnarNaRede = obj => { NetworkObject no = obj.GetComponent<NetworkObject>(); if (no != null && !no.IsSpawned) no.Spawn(true); };
         }
-        else cm.RegisterNamedMessageHandler(MSG_SALA, s.AoReceberSala);
+        else
+        {
+            cm.RegisterNamedMessageHandler(MSG_SALA, s.AoReceberSala);
+            cm.RegisterNamedMessageHandler(MSG_POS, s.AoReceberPosicao);
+            cm.RegisterNamedMessageHandler(MSG_AVISO, s.AoReceberAviso);
+        }
+        PosicaoPendente = null;
         return s;
     }
 
@@ -74,8 +88,10 @@ public class SalaDeEspera : MonoBehaviour
         if (nm == null) return;
         if (nm.CustomMessagingManager != null)
         {
-            nm.CustomMessagingManager.UnregisterNamedMessageHandler(souHost ? MSG_ESCOLHA : MSG_SALA);
+            if (souHost) nm.CustomMessagingManager.UnregisterNamedMessageHandler(MSG_ESCOLHA);
+            else foreach (string m in new[] { MSG_SALA, MSG_POS, MSG_AVISO }) nm.CustomMessagingManager.UnregisterNamedMessageHandler(m);
         }
+        if (souHost) { SessaoDeJogo.AvisarTodos = null; SessaoDeJogo.SpawnarNaRede = null; }
         if (souHost)
         {
             nm.OnClientConnectedCallback -= Conectou;
@@ -161,6 +177,30 @@ public class SalaDeEspera : MonoBehaviour
         nascidos++;
         GameObject go = Instantiate(prefab, pos, RotacaoDeNascimento);
         go.GetComponent<NetworkObject>().SpawnAsPlayerObject(id, true);
+        // garante o lugar certo no PC do jogador (o controlador de movimento lá pode guardar a posição do molde)
+        if (id != nm.LocalClientId)
+            using (FastBufferWriter w = new FastBufferWriter(32, Allocator.Temp))
+            {
+                w.WriteValueSafe(pos.x); w.WriteValueSafe(pos.y); w.WriteValueSafe(pos.z);
+                w.WriteValueSafe(RotacaoDeNascimento.eulerAngles.y);
+                nm.CustomMessagingManager.SendNamedMessage(MSG_POS, id, w);
+            }
+    }
+
+    // mensagem na tela de todo mundo (ondas, avisos)
+    private void AvisarTodos(string texto, float tempo)
+    {
+        HUDJogador.Mostrar(texto, tempo);
+        if (nm == null || nm.CustomMessagingManager == null) return;
+        List<ulong> outros = new List<ulong>();
+        foreach (ulong id in nm.ConnectedClientsIds) if (id != nm.LocalClientId) outros.Add(id);
+        if (outros.Count == 0) return;
+        using (FastBufferWriter w = new FastBufferWriter(16 + texto.Length * 2 + 8, Allocator.Temp))
+        {
+            w.WriteValueSafe(texto);
+            w.WriteValueSafe(tempo);
+            nm.CustomMessagingManager.SendNamedMessage(MSG_AVISO, outros, w);
+        }
     }
 
     // manda o estado da sala para todos os outros PCs
@@ -187,6 +227,23 @@ public class SalaDeEspera : MonoBehaviour
     // ------------------------------------------------------------------
     //  outros PCs
     // ------------------------------------------------------------------
+    private void AoReceberPosicao(ulong remetente, FastBufferReader leitor)
+    {
+        float x, y, z, ry;
+        leitor.ReadValueSafe(out x); leitor.ReadValueSafe(out y); leitor.ReadValueSafe(out z); leitor.ReadValueSafe(out ry);
+        Vector3 p = new Vector3(x, y, z);
+        Quaternion r = Quaternion.Euler(0f, ry, 0f);
+        if (JogadorRede.Local != null) JogadorRede.Local.Teleportar(p, r);
+        else { PosicaoPendente = p; RotacaoPendente = r; }
+    }
+
+    private void AoReceberAviso(ulong remetente, FastBufferReader leitor)
+    {
+        string texto; float tempo;
+        leitor.ReadValueSafe(out texto);
+        leitor.ReadValueSafe(out tempo);
+        HUDJogador.Mostrar(texto, tempo);
+    }
     private void AoReceberSala(ulong remetente, FastBufferReader leitor)
     {
         bool comecou; int n;
