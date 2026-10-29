@@ -1,0 +1,78 @@
+TANQUE (CRIATURA ALIENIGENA) - PACOTE DO ESQUELETO (RIG)
+=============================================================
+
+ARQUIVOS
+- tanque_rigged.fbx  -> modelo + esqueleto + pesos (Unity, Maya, 3ds Max, Blender...)
+- tanque_rig.blend   -> mesma coisa no Blender 5.2, COM controles de animacao (IK) e material pronto
+- texturas_unity/        -> tanque_BaseColor, _Normal, _MetallicSmoothness, _Emissive (atlas 3072x4096)
+- renders/               -> poses de teste, asas vistas de tras e um teste de caminhada
+- scripts/               -> ferramentas do Blender (validacao, refazer o rig)
+
+O QUE FOI FEITO
+- O modelo original (Character Alien, Oscar Creativo) ja vinha com esqueleto (Character Creator, 95 ossos) e pesos bons. Foi mantido e
+  padronizado igual aos outros personagens:
+  * ossos principais renomeados para os nomes Humanoid do Unity (Hips, Spine, Chest, UpperChest, Neck, Head,
+    LeftUpperArm, LeftHand, LeftIndexProximal, LeftUpperLeg, LeftFoot...). Ossos extras do CC continuam
+    (CC_Base_*Twist*, ShareBone, dedos dos pes, olhos, mandibula, lingua, Breast) e deformam.
+  * T-POSE no repouso (bracos na horizontal, cotovelos levemente dobrados). As pernas ficam como foram
+    esculpidas: ela e DIGITIGRADA (anda na ponta dos pes, joelho/tornozelo de criatura).
+  * ossos de braco/perna do CC paravam no meio (os de torcao cobriam o resto): foram esticados ate a
+    proxima junta, mesma direcao, para o IK funcionar. Os pesos nao mudaram.
+  * osso raiz extra "RL_BoneRoot" removido: Hips e a raiz, como nos outros.
+- ASAS: no original elas estavam presas nos ossos do BRACO (levantar o braco balancava as asas).
+  Agora cada asa tem 3 ossos proprios presos nas costas: Wing_L_1 > Wing_L_2 > Wing_L_3 (e Wing_R_*),
+  ao longo da asa. Pesos refeitos: placa rigida, dobra nas juntas. Bracos e asas sao independentes.
+- MAOS: 4 dedos (polegar, indicador, medio, minimo). No Unity a linha "Ring" fica vazia; e normal.
+- TEXTURAS: o original usa UDIM (12 pedacos de textura 4K), que o Unity nao le. Foram juntadas num
+  atlas so (1024 por pedaco) e as UVs ajustadas. 1 material ("Tanque") com brilho (Emissive).
+- Malha: 80 mil triangulos (o original tinha 120 mil), 12 pecas unidas num objeto "Body".
+- Validacao: 0 FAIL, 0 WARN (APROVADO). Altura 1,83 m (com as asas), pes no chao.
+
+ENCAIXES (ossos sem peso, para efeitos)
+  ShieldCenter               no peito, olhando para a frente: centro da cupula do escudo
+  MagicHand_L / MagicHand_R  na palma de cada mao (eixo Y = para fora da palma)
+
+ANIMACOES (pasta animacoes/, 30 quadros/s, no lugar)
+  Movimento (mocap Quaternius + asas animadas por cima): Parado, Andar, Correr, Levar_Golpe, Morrer
+  ESCUDO (feitas a mao, sobre o Parado): postura defensiva - abaixa o quadril, firma as pernas, cruza os
+    antebracos na frente do rosto e FECHA AS ASAS NA FRENTE DO CORPO como uma casca.
+    Escudo_Erguer (1 vez) > Escudo_Segurar (loop) > Escudo_Impacto (1 vez, absorve um golpe: e empurrado e
+    segura) > Escudo_Baixar (1 vez).
+    Eventos: AtivarEscudo (fim de Escudo_Erguer), ImpactoEscudo (quadro 7 de Escudo_Impacto),
+    DesativarEscudo (inicio de Escudo_Baixar). Use-os para ligar/desligar a reducao de dano no jogo.
+  VOO (feitas a mao): Decolar > Voar (loop, ~60 cm do chao) / Voar_Frente (loop) > Pousar.
+    O corpo sobe um pouco a cada batida de asa; pernas penduradas.
+  Velocidades sem escorregar (aprox.): Andar 1,1 m/s, Correr 2,2 m/s, Voar_Frente 3 m/s.
+  IMPORTANTE (asas no Unity): clipe Humanoid joga fora a animacao de ossos que nao sao do corpo humano
+  (asas). No import de cada clipe use uma Avatar Mask com TODOS os ossos (Mask > Definition > Copy From
+  Other Mask). O menu Tanque > Montar tudo ja faz isso (Tanque_TodosOsOssos.mask).
+
+UNITY - JEITO RAPIDO
+  Com a pasta em Assets/Personagens/Tanque, menu Tanque > Montar tudo: Humanoid, material com brilho, clipes
+  (loop, mascara das asas, eventos do escudo), Animator e a cena Teste_Tanque com botoes. unity/EscudoTanque.cs
+  e um efeito de teste (cupula azul que cresce, pisca no golpe e some).
+
+IMPORTAR NO UNITY
+  0. Arquivos .meta: so UMA pessoa abre primeiro e da commit.
+  1. tanque_rigged > Rig > Animation Type: Humanoid > Create From This Model > Apply > Configure:
+     tudo verde (Wing_*, CC_Base_*, MagicHand_*, HealCenter ficam de fora; certo).
+  2. Texturas: tanque_Normal > Normal map; tanque_MetallicSmoothness > desmarcar sRGB.
+     Extract Materials > material "Tanque": Base Map = BaseColor, Metallic Map = MetallicSmoothness
+     (Source: Metallic Alpha), Normal Map = Normal, marque Emission e coloque Emissive (cor branca).
+  3. Animacoes Humanoid (Mixamo, as da maga/cavaleiros, Quaternius...) tocam nela (testado com uma
+     caminhada). As asas nao tem equivalente no Humanoid: para bater asa no Unity, anime os ossos Wing_*
+     num clipe proprio (Generic) ou numa camada com Avatar Mask das asas.
+
+ANIMAR NO BLENDER (tanque_rig.blend)
+  Controles iguais aos dos outros: CTRL_Root, IK_Foot_* (+ RF_Ball_/RF_Toe_), POLE_Knee_*, IK_Hand_* +
+  POLE_Elbow_*, chaves ik_perna_* (1 = IK) e ik_braco_* (0 = FK) no CTRL_Root.
+  Asas: colecao de ossos "Asas". Para abrir: gire Wing_*_1 (raiz, nas costas); Wing_*_2 e _3 dobram a asa.
+  Dedos: gire no eixo X local.
+  Exportar: Armature + Body, Apply Scalings "FBX All", Only Deform Bones LIGADO, Add Leaf Bones DESLIGADO,
+  Bake Animation LIGADO.
+
+REFAZER DO ZERO
+  blender -b -P scripts/step1_norm.py -- "Character Alien....fbx" norm.blend
+  blender -b norm.blend -P scripts/build.py -- rig_a.blend                (ossos e pesos das asas, 80k tris)
+  python scripts/make_textures.py <pasta textures> texturas_unity          (atlas das texturas UDIM)
+  blender -b rig_a.blend -P scripts/rig_b.py -- texturas_unity <saida>     (T-pose, encaixes, controles, FBX)
