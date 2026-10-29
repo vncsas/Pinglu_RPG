@@ -31161,16 +31161,6 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 368a95189dab821af8e05eb8f8ac6d62, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::SalaDeEspera
-  ShowTopMostFoldoutHeaderGroup: 1
-  Vagas:
-    UpdateTraits:
-      MinSecondsBetweenUpdates: 0
-      MaxSecondsBetweenUpdates: 0
-  Comecou:
-    UpdateTraits:
-      MinSecondsBetweenUpdates: 0
-      MaxSecondsBetweenUpdates: 0
-    m_InternalValue: 0
 --- !u!1001 &427689952
 PrefabInstance:
   m_ObjectHideFlags: 0
