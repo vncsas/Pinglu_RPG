@@ -22,13 +22,18 @@ public class MenuRede : MonoBehaviour
     [SerializeField] private Material materialFundo;
     [SerializeField] private Material materialChao;
     [SerializeField] private Material materialParticula;
+    [SerializeField] private GameObject modeloPortal;
+    [SerializeField] private Quaternion rotacaoPortal = Quaternion.identity;
+    [SerializeField] private Material materialPortal;
+    [SerializeField] private Color corPortal = new Color(0.55f, 0.45f, 1f);
 
     [Header("Rede")]
     [SerializeField] private ushort porta = 7777;
     [SerializeField] private int maximoDeJogadores = 4;
     [SerializeField] private KeyCode teclaSair = KeyCode.F10;
 
-    private enum Tela { Principal, Conectando, Sala, Jogando }
+    private enum Tela { Principal, Conectando, Sala, Portal, Jogando }
+    private float claraoMundo;   // tela branca clareando depois de atravessar o portal
     private Tela tela = Tela.Principal;
     private int escolhido;
     private string ipDigitado = "127.0.0.1";
@@ -55,6 +60,12 @@ public class MenuRede : MonoBehaviour
             rotacaoNascimento = jogadorDaCena.transform.rotation;
             jogadorDaCena.SetActive(false);
         }
+        // os jogadores chegam pelo portal do mundo
+        if (PortalDoMundo.Atual != null)
+        {
+            nascimento = PortalDoMundo.Atual.LugarDeChegada(0);
+            rotacaoNascimento = PortalDoMundo.Atual.RotacaoDeChegada;
+        }
         // esconde qualquer outro personagem que tenha ficado na cena (ex.: o X Bot antigo)
         foreach (PlayerLocomotion p in Resources.FindObjectsOfTypeAll<PlayerLocomotion>())
             if (p != null && p.gameObject.scene.IsValid() && p.gameObject.activeInHierarchy && p.GetComponent<NetworkObject>() == null)
@@ -64,6 +75,7 @@ public class MenuRede : MonoBehaviour
         meusIps = IpsDesteComputador();
         palco = gameObject.AddComponent<PalcoSelecao>();
         palco.materialFundo = materialFundo; palco.materialChao = materialChao; palco.materialParticula = materialParticula;
+        palco.modeloPortal = modeloPortal; palco.rotacaoPortal = rotacaoPortal; palco.materialPortal = materialPortal; palco.corPortal = corPortal;
         palco.Montar(personagens);
         palco.Mostrar(Ficha(escolhido));
         SessaoDeJogo.MenuAberto = true;
@@ -114,8 +126,50 @@ public class MenuRede : MonoBehaviour
         if (palco != null) { palco.Desmontar(); Destroy(palco); palco = null; }
     }
 
+    // ------------------------------------------------------------------
+    //  entrada no portal
+    // ------------------------------------------------------------------
+    private void EntrarSozinho()
+    {
+        if (palco == null) { JogarSozinho(); ChegarNoMundo(); return; }
+        tela = Tela.Portal;
+        palco.EntrarNoPortal(() => { JogarSozinho(); ChegarNoMundo(); });
+    }
+
+    private void ChegarNoMundo()
+    {
+        claraoMundo = 1f;
+        StartCoroutine(EfeitoDeChegada());
+    }
+
+    private System.Collections.IEnumerator EfeitoDeChegada()
+    {
+        // espera o personagem deste PC existir (no online ele nasce pela rede)
+        for (float t = 0f; t < 3f; t += Time.unscaledDeltaTime)
+        {
+            foreach (PlayerLocomotion p in Resources.FindObjectsOfTypeAll<PlayerLocomotion>())
+                if (p != null && p.gameObject.scene.IsValid() && p.gameObject.activeInHierarchy && p.enabled)
+                {
+                    yield return new WaitForSecondsRealtime(0.2f); // no online, deixa a posição de nascimento chegar
+                    PortalDoMundo portal = PortalDoMundo.Atual;
+                    if (portal != null)
+                    {
+                        // sai caminhando do redemoinho, com a câmera de frente para o portal
+                        portal.Clarao();
+                        ThirdPersonCameraFollow cam = FindFirstObjectByType<ThirdPersonCameraFollow>();
+                        if (cam != null) { cam.DefinirAlvo(p.transform); cam.DefinirYaw(Quaternion.LookRotation(-portal.Frente).eulerAngles.y); }
+                        p.CaminharAutomatico(portal.Frente, 2.4f);
+                    }
+                    ChegadaDoPortal.Criar(p.transform.position, materialParticula, corPortal);
+                    yield break;
+                }
+            yield return null;
+        }
+    }
+
     private void Update()
     {
+        if (tela == Tela.Jogando && claraoMundo > 0f) claraoMundo = Mathf.MoveTowards(claraoMundo, 0f, Time.unscaledDeltaTime / 1.4f);
         if (tela == Tela.Sala) AtualizarSala();
         if (tela == Tela.Principal || tela == Tela.Sala)
         {
@@ -141,7 +195,15 @@ public class MenuRede : MonoBehaviour
         SessaoDeJogo.PersonagemEscolhido = escolhido;
         FichaPersonagem f = Ficha(escolhido);
         // o 1º personagem é o que já está na cena; os outros nascem do prefab dele
-        if (escolhido == 0 || f == null || f.prefabJogador == null) { if (jogadorDaCena != null) jogadorDaCena.SetActive(true); }
+        if (escolhido == 0 || f == null || f.prefabJogador == null)
+        {
+            if (jogadorDaCena != null)
+            {
+                // inativo, ainda dá para mover sem confundir o controlador de movimento
+                if (PortalDoMundo.Atual != null) jogadorDaCena.transform.SetPositionAndRotation(nascimento, rotacaoNascimento);
+                jogadorDaCena.SetActive(true);
+            }
+        }
         else NascerSozinho(f);
         tela = Tela.Jogando;
         SairDoMenu();
@@ -229,6 +291,7 @@ public class MenuRede : MonoBehaviour
 
     private Vector3 LugarDeNascimento(int lugar)
     {
+        if (PortalDoMundo.Atual != null) return PortalDoMundo.Atual.LugarDeChegada(lugar);
         Vector3 lado = rotacaoNascimento * Vector3.right;
         Vector3 pos = nascimento + lado * (2.5f * (lugar - 1.5f));
         Terrain t = Terrain.activeTerrain;
@@ -242,10 +305,10 @@ public class MenuRede : MonoBehaviour
         if (sala == null) return;
         if (sala.Comecou)
         {
-            // o host começou: todo mundo vai para o mapa
-            tela = Tela.Jogando;
-            SessaoDeJogo.MenuAberto = false;
-            SairDoMenu();
+            // o host começou: o grupo atravessa o portal e todo mundo vai para o mapa
+            tela = Tela.Portal;
+            System.Action entrar = () => { tela = Tela.Jogando; SessaoDeJogo.MenuAberto = false; SairDoMenu(); ChegarNoMundo(); };
+            if (palco != null) palco.EntrarNoPortal(entrar); else entrar();
             return;
         }
         List<VagaNaSala> vagas = sala.EmOrdem();
@@ -339,6 +402,19 @@ public class MenuRede : MonoBehaviour
         float e = Screen.height / 1080f;
         Vector2 mouse = Event.current.mousePosition;
 
+        // durante a entrada no portal: só a cena (e o clarão no fim)
+        if (tela == Tela.Portal)
+        {
+            float c = palco != null ? palco.Clarao : 1f;
+            if (c > 0f) Retangulo(new Rect(0, 0, Screen.width, Screen.height), new Color(0.94f, 0.92f, 1f, c));
+            return;
+        }
+        if (tela == Tela.Jogando && claraoMundo > 0f)
+        {
+            GUI.depth = -100;
+            Retangulo(new Rect(0, 0, Screen.width, Screen.height), new Color(0.94f, 0.92f, 1f, claraoMundo));
+        }
+
         if (tela == Tela.Jogando)
         {
             if (SessaoDeJogo.Online && !SessaoDeJogo.MenuAberto)
@@ -409,7 +485,7 @@ public class MenuRede : MonoBehaviour
             if (Botao(new Rect(bx + 2 * (bw + gap) + (host ? 60f * e : 0f), by, bw - (host ? 60f * e : 0f), bh), "SAIR DA SALA", mouse, e)) Voltar(null);
             return;
         }
-        if (Botao(new Rect(bx, by, bw, bh), "JOGAR SOZINHO", mouse, e)) JogarSozinho();
+        if (Botao(new Rect(bx, by, bw, bh), "JOGAR SOZINHO", mouse, e)) EntrarSozinho();
         if (Botao(new Rect(bx + bw + gap, by, bw, bh), "CRIAR PARTIDA", mouse, e)) CriarPartida();
         Rect rEntrar = new Rect(bx + 2 * (bw + gap), by, bw, bh);
         if (Botao(rEntrar, "ENTRAR NA PARTIDA", mouse, e)) EntrarNaPartida();

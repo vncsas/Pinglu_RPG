@@ -20,6 +20,8 @@ public static class PingluSelecao
     const string PEDRA_N = "Assets/Cenario/Vila/Texturas/pedra_escura_normal.png";
     const string PARTICULA = "Packages/com.unity.render-pipelines.universal/Runtime/Materials/ParticlesUnlit.mat";
     const string SOMBRIO = "Assets/Personagens/CavaleiroSombrio";
+    const string MAGA = "Assets/Personagens/Maga";
+    const string PORTAL_FBX = "Assets/Personagens/Maps/ancient-stone-gate-ruin-moss-covered/source/Zyklus4_Zeile9/tripo_convert_7554d447-81d6-4be4-8541-ffc25d5d5324.fbx";
 
     [MenuItem("Pinglu/23. Tela de seleção")]
     public static void Preparar()
@@ -52,7 +54,41 @@ public static class PingluSelecao
         so.FindProperty("materialFundo").objectReferenceValue = fundo;
         so.FindProperty("materialChao").objectReferenceValue = chao;
         so.FindProperty("materialParticula").objectReferenceValue = AssetDatabase.LoadAssetAtPath<Material>(PARTICULA);
+
+        // portal: o mesmo portão de pedra da cena ("Portal de Ruina"), com o redemoinho mágico
+        string avisoPortal = "";
+        GameObject portalCena = null;
+        foreach (Transform t in Resources.FindObjectsOfTypeAll<Transform>())
+            if (t != null && t.gameObject.scene.IsValid() && t.name == "Portal de Ruina") { portalCena = t.gameObject; break; }
+        GameObject modeloPortal = null;
+        Quaternion rotPortal = Quaternion.Euler(-90f, 0f, 0f);
+        if (portalCena != null)
+        {
+            modeloPortal = PrefabUtility.GetCorrespondingObjectFromOriginalSource(portalCena);
+            rotPortal = portalCena.transform.rotation;
+        }
+        if (modeloPortal == null) modeloPortal = AssetDatabase.LoadAssetAtPath<GameObject>(PORTAL_FBX);
+        if (modeloPortal == null) avisoPortal = "\n\nNão achei o portão de pedra; o palco fica sem portal.";
+        else if (portalCena == null) avisoPortal = "\n\nNão achei o \"Portal de Ruina\" na cena; usei o modelo com uma rotação padrão (confira no Play).";
+        so.FindProperty("modeloPortal").objectReferenceValue = modeloPortal;
+        so.FindProperty("rotacaoPortal").quaternionValue = rotPortal;
+        Color violeta = new Color(0.55f, 0.45f, 1f);
+        so.FindProperty("materialPortal").objectReferenceValue = MaterialDoPortal(violeta);
+        so.FindProperty("corPortal").colorValue = violeta;
         so.ApplyModifiedProperties();
+
+        // o portão do mundo vira o portal de chegada (os jogadores nascem nele)
+        if (portalCena != null)
+        {
+            PortalDoMundo pm = portalCena.GetComponent<PortalDoMundo>();
+            if (pm == null) pm = Undo.AddComponent<PortalDoMundo>(portalCena);
+            Undo.RecordObject(pm, "Portal do mundo");
+            pm.materialPortal = (Material)so.FindProperty("materialPortal").objectReferenceValue;
+            pm.materialParticula = AssetDatabase.LoadAssetAtPath<Material>(PARTICULA);
+            pm.cor = violeta;
+            EditorUtility.SetDirty(pm);
+            avisoPortal += "\n\nO \"Portal de Ruina\" do mapa agora é o portal de chegada: os jogadores nascem nele.";
+        }
 
         // ficha do Cavaleiro Sombrio
         string resumo = "";
@@ -60,7 +96,13 @@ public static class PingluSelecao
         for (int i = 0; i < lista.arraySize; i++)
         {
             FichaPersonagem f = lista.GetArrayElementAtIndex(i).objectReferenceValue as FichaPersonagem;
+            if (f != null && f.nome.ToLower().Contains("maga"))
+            {
+                f.animacaoAndar = Clipe(MAGA + "/animacoes/maga@Andar.fbx");
+                EditorUtility.SetDirty(f);
+            }
             if (f == null || !f.nome.ToLower().Contains("sombrio")) continue;
+            f.animacaoAndar = Clipe(SOMBRIO + "/animacoes/cavaleiro_sombrio@Andar.fbx");
             f.modeloVisual = AssetDatabase.LoadAssetAtPath<GameObject>(SOMBRIO + "/cavaleiro_sombrio_rigged.fbx");
             f.animacaoParado = Clipe(SOMBRIO + "/animacoes/cavaleiro_sombrio@Parado.fbx");
             f.animacaoEntrada = Clipe(SOMBRIO + "/animacoes/cavaleiro_sombrio@Ataque_Pesado.fbx");
@@ -74,9 +116,20 @@ public static class PingluSelecao
 
         AssetDatabase.SaveAssets();
         EditorSceneManager.MarkSceneDirty(menu.gameObject.scene);
-        EditorUtility.DisplayDialog("Pinglu", "Tela de seleção pronta!" + resumo +
+        EditorUtility.DisplayDialog("Pinglu", "Tela de seleção pronta!" + resumo + avisoPortal +
             "\n\nPara os próximos personagens, preencha na ficha deles: Titulo, Atributos, Modelo Visual (o .fbx), Animacao Parado e Animacao Entrada." +
             "\n\nSalve a cena com Ctrl + S.", "OK");
+    }
+
+    // redemoinho no formato do arco (shader Pinglu/Portal)
+    static Material MaterialDoPortal(Color cor)
+    {
+        Shader sh = Shader.Find("Pinglu/Portal");
+        if (sh == null) return PingluEfeitos.Mat("Portal_Vortice", "portal_vortice", true, new Color(cor.r * 2f, cor.g * 2f, cor.b * 2f, 1f));
+        Material m = Mat(PASTA + "/Portal_Arco.mat", "Pinglu/Portal");
+        m.SetColor("_Cor", cor);
+        EditorUtility.SetDirty(m);
+        return m;
     }
 
     static Material Mat(string caminho, string shader)

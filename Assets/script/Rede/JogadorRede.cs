@@ -53,6 +53,7 @@ public class JogadorRede : NetworkBehaviour
                 vida.RedirecionarCura = v => CurarRpc(v);
             }
             HUDJogador.Mostrar("Um jogador entrou na partida", 3f);
+            if (PortalDoMundo.Atual != null) PortalDoMundo.Atual.Clarao(false);
         }
     }
 

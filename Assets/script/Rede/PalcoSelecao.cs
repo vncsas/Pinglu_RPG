@@ -14,6 +14,11 @@ public class PalcoSelecao : MonoBehaviour
     public Material materialFundo;
     public Material materialChao;
     public Material materialParticula;
+    [Header("Portal")]
+    public GameObject modeloPortal;
+    public Quaternion rotacaoPortal = Quaternion.identity;
+    public Material materialPortal;
+    public Color corPortal = new Color(0.55f, 0.45f, 1f);
 
     // o palco fica bem longe do mapa, para nada do jogo aparecer atrás
     private static readonly Vector3 LUGAR = new Vector3(0f, -3000f, 0f);
@@ -26,6 +31,15 @@ public class PalcoSelecao : MonoBehaviour
     private readonly Dictionary<FichaPersonagem, RenderTexture> retratos = new Dictionary<FichaPersonagem, RenderTexture>();
 
     public bool Pronto { get; private set; }
+
+    // portal
+    private const float PORTAL_X = -0.25f, PORTAL_Z = -7.5f, ALTURA_PORTAL = 6.2f;
+    private Transform vortice;
+    private Material matVortice;
+    private Light luzPortal;
+    private float intensidade = 1f, giro;
+    private bool emTransicao;
+    public float Clarao { get; private set; }   // 0..1: tela branca do fim da entrada no portal
 
     public void Montar(List<FichaPersonagem> fichas)
     {
@@ -63,6 +77,8 @@ public class PalcoSelecao : MonoBehaviour
         chao.transform.localScale = new Vector3(7f, 0.08f, 7f);
         if (materialChao != null) chao.GetComponent<Renderer>().sharedMaterial = materialChao;
 
+        MontarPortal();
+
         // luzes: principal quente, contraluz carmesim, preenchimento frio e brilho no chão
         Luz("Luz Principal", LightType.Spot, new Vector3(-2.5f, 4.5f, 4f), new Color(1f, 0.86f, 0.72f), 9f, 14f, 45f, true);
         Luz("Contraluz", LightType.Spot, new Vector3(2.2f, 3.2f, -3.2f), new Color(1f, 0.16f, 0.12f), 14f, 12f, 60f, false);
@@ -73,6 +89,155 @@ public class PalcoSelecao : MonoBehaviour
         Particulas(false);
 
         StartCoroutine(TirarRetratos(fichas));
+    }
+
+    // ------------------------------------------------------------------
+    //  portão de pedra com o redemoinho mágico
+    // ------------------------------------------------------------------
+    private static Bounds Medir(GameObject g)
+    {
+        Bounds b = new Bounds(g.transform.position, Vector3.zero); bool tem = false;
+        foreach (Renderer r in g.GetComponentsInChildren<Renderer>())
+        {
+            if (r is ParticleSystemRenderer) continue;
+            if (!tem) { b = r.bounds; tem = true; } else b.Encapsulate(r.bounds);
+        }
+        return b;
+    }
+
+    private void MontarPortal()
+    {
+        if (modeloPortal == null) return;
+        GameObject p = Instantiate(modeloPortal, raiz);
+        p.name = "Portal";
+        foreach (Collider c in p.GetComponentsInChildren<Collider>()) Destroy(c);
+        p.transform.localScale = Vector3.one;
+        p.transform.rotation = rotacaoPortal;
+        Bounds b = Medir(p);
+        // o arco precisa ficar "de frente" para a câmera (largo no X, fino no Z)
+        if (b.size.z > b.size.x) { p.transform.rotation = Quaternion.Euler(0f, 90f, 0f) * rotacaoPortal; b = Medir(p); }
+        float esc = ALTURA_PORTAL / Mathf.Max(0.01f, b.size.y);
+        p.transform.localScale = Vector3.one * esc;
+        b = Medir(p);
+        Vector3 alvo = LUGAR + new Vector3(PORTAL_X, 0f, PORTAL_Z);
+        p.transform.position += alvo - new Vector3(b.center.x, b.min.y, b.center.z);
+        b = Medir(p);
+
+        if (materialPortal == null) return;
+        // abertura no formato do arco: do chão até a meia-lua
+        float w = b.size.x * 0.46f, h = b.size.y * 0.72f;
+        Transform abertura = new GameObject("Abertura").transform;
+        abertura.SetParent(raiz, true);
+        abertura.position = new Vector3(b.center.x, b.min.y + b.size.y * 0.02f + h * 0.5f, b.center.z);
+        abertura.rotation = Quaternion.Euler(0f, 180f, 0f);
+        abertura.localScale = new Vector3(w, h, 1f);
+        GameObject q = GameObject.CreatePrimitive(PrimitiveType.Quad);
+        Destroy(q.GetComponent<Collider>());
+        q.name = "Redemoinho";
+        q.transform.SetParent(abertura, false);
+        matVortice = new Material(materialPortal);
+        if (matVortice.HasProperty("_Arco")) matVortice.SetFloat("_Arco", Mathf.Clamp(1f - (w * 0.5f) / h, 0.1f, 0.95f));
+        if (matVortice.HasProperty("_Aspecto")) matVortice.SetFloat("_Aspecto", h / Mathf.Max(w, 0.01f));
+        if (matVortice.HasProperty("_Cor")) matVortice.SetColor("_Cor", corPortal);
+        Renderer rq = q.GetComponent<Renderer>();
+        rq.sharedMaterial = matVortice;
+        rq.shadowCastingMode = ShadowCastingMode.Off;
+        vortice = q.transform;
+
+        GameObject gl = new GameObject("Luz do Portal");
+        gl.transform.SetParent(raiz, true);
+        gl.transform.position = vortice.position + Vector3.forward * 1.2f;
+        luzPortal = gl.AddComponent<Light>();
+        luzPortal.type = LightType.Point; luzPortal.color = corPortal; luzPortal.range = 12f; luzPortal.intensity = 5f;
+        luzPortal.shadows = LightShadows.None;
+
+        // faíscas sendo sugadas para dentro
+        GameObject gp = new GameObject("Faiscas do Portal");
+        gp.transform.SetParent(vortice, false);
+        ParticleSystem ps = gp.AddComponent<ParticleSystem>();
+        ps.Stop(true, ParticleSystemStopBehavior.StopEmittingAndClear);
+        var m = ps.main; m.loop = true; m.prewarm = true; m.simulationSpace = ParticleSystemSimulationSpace.Local;
+        m.startLifetime = 1.4f; m.startSpeed = 0f; m.startSize = new ParticleSystem.MinMaxCurve(0.02f, 0.06f);
+        m.startColor = new ParticleSystem.MinMaxGradient(Color.white, corPortal);
+        var em = ps.emission; em.rateOverTime = 40f;
+        var sh = ps.shape; sh.shapeType = ParticleSystemShapeType.Circle; sh.radius = 0.6f;
+        var vel = ps.velocityOverLifetime; vel.enabled = true; vel.radial = new ParticleSystem.MinMaxCurve(-0.45f);
+        if (materialParticula != null) gp.GetComponent<ParticleSystemRenderer>().sharedMaterial = materialParticula;
+        ps.Play();
+    }
+
+    private Vector3 CentroDoPortal { get { return vortice != null ? vortice.position : LUGAR + new Vector3(PORTAL_X, 2.6f, PORTAL_Z); } }
+
+    // ------------------------------------------------------------------
+    //  todos caminham até o portal, somem num clarão e a tela fica branca
+    // ------------------------------------------------------------------
+    public void EntrarNoPortal(System.Action aoTerminar)
+    {
+        if (vortice == null || cam == null) { Clarao = 1f; aoTerminar(); return; }
+        StartCoroutine(RotinaPortal(aoTerminar));
+    }
+
+    private IEnumerator RotinaPortal(System.Action aoTerminar)
+    {
+        emTransicao = true;
+        foreach (Lugar l in lugares) Caminhar(l);
+        const float DURACAO = 3.4f;
+        Vector3 camIni = cam.transform.position;
+        Vector3 camFim = new Vector3(CentroDoPortal.x, LUGAR.y + 2.2f, LUGAR.z + 1.5f);
+        float t = 0f;
+        while (t < DURACAO)
+        {
+            float dt = Time.unscaledDeltaTime;
+            t += dt;
+            intensidade = Mathf.Lerp(1f, 3.2f, t / DURACAO);
+            Vector3 entrada = new Vector3(CentroDoPortal.x, LUGAR.y, CentroDoPortal.z);
+            for (int i = 0; i < lugares.Count; i++)
+            {
+                GameObject m = lugares[i].modelo;
+                if (m == null || !m.activeSelf) continue;
+                Vector3 dir = entrada - m.transform.position; dir.y = 0f;
+                if (dir.sqrMagnitude > 0.01f) m.transform.rotation = Quaternion.Slerp(m.transform.rotation, Quaternion.LookRotation(dir.normalized), dt * 6f);
+                if (t > 0.35f + i * 0.12f) m.transform.position += dir.normalized * Mathf.Min(dir.magnitude, 2.7f * dt);
+                if (dir.magnitude < 0.7f) { Explosao(m.transform.position + Vector3.up * 1.1f); m.SetActive(false); }
+            }
+            float k = Mathf.SmoothStep(0f, 1f, Mathf.Clamp01((t - 0.4f) / (DURACAO - 0.4f)));
+            cam.transform.position = Vector3.Lerp(camIni, camFim, k);
+            cam.transform.LookAt(CentroDoPortal);
+            Clarao = Mathf.Pow(Mathf.Clamp01((t - (DURACAO - 1.5f)) / 1.5f), 1.6f); // a tela vai clareando até ficar branca
+            yield return null;
+        }
+        Clarao = 1f;
+        yield return new WaitForSecondsRealtime(0.35f);
+        aoTerminar();
+    }
+
+    private void Caminhar(Lugar l)
+    {
+        if (!l.grafo.IsValid() || l.ficha == null || l.ficha.animacaoAndar == null) return;
+        l.grafo.Disconnect(l.mixer, 1);
+        AnimationClipPlayable andar = AnimationClipPlayable.Create(l.grafo, l.ficha.animacaoAndar);
+        andar.SetApplyFootIK(false);
+        l.grafo.Connect(andar, 0, l.mixer, 1);
+        l.fimEntrada = -1f;
+        l.mixer.SetInputWeight(0, 0f);
+        l.mixer.SetInputWeight(1, 1f);
+    }
+
+    private void Explosao(Vector3 pos)
+    {
+        GameObject g = new GameObject("Clarao");
+        g.transform.position = pos;
+        ParticleSystem ps = g.AddComponent<ParticleSystem>();
+        ps.Stop(true, ParticleSystemStopBehavior.StopEmittingAndClear);
+        var m = ps.main; m.loop = false; m.startLifetime = new ParticleSystem.MinMaxCurve(0.3f, 0.7f);
+        m.startSpeed = new ParticleSystem.MinMaxCurve(1.5f, 4f); m.startSize = new ParticleSystem.MinMaxCurve(0.04f, 0.12f);
+        m.startColor = new ParticleSystem.MinMaxGradient(Color.white, corPortal);
+        var em = ps.emission; em.rateOverTime = 0f;
+        var sh = ps.shape; sh.shapeType = ParticleSystemShapeType.Sphere; sh.radius = 0.5f;
+        if (materialParticula != null) g.GetComponent<ParticleSystemRenderer>().sharedMaterial = materialParticula;
+        ps.Play(); ps.Emit(60);
+        g.transform.SetParent(raiz, true);
+        Destroy(g, 1.5f);
     }
 
     private void Luz(string nome, LightType tipo, Vector3 pos, Color cor, float intensidade, float alcance, float angulo, bool sombra)
@@ -293,8 +458,27 @@ public class PalcoSelecao : MonoBehaviour
             l.mixer.SetInputWeight(1, l.pesoEntrada);
             if (l.pesoEntrada <= 0f) l.fimEntrada = -1f;
         }
+        if (vortice != null)
+        {
+            float pulso = 1f + Mathf.Sin(Time.unscaledTime * 2.2f) * 0.08f;
+            if (matVortice.HasProperty("_Intensidade"))
+            {
+                // o efeito no formato do arco gira sozinho
+                float k = Mathf.Clamp01((intensidade - 1f) / 2.2f);              // 0 parado ... 1 fim da entrada
+                matVortice.SetFloat("_Intensidade", Mathf.Lerp(1.3f, 4.5f, k * k) * pulso);
+                matVortice.SetFloat("_Velocidade", Mathf.Lerp(0.35f, 4f, k * k));
+                if (matVortice.HasProperty("_Abertura")) matVortice.SetFloat("_Abertura", 1f);
+            }
+            else
+            {
+                giro += Time.unscaledDeltaTime * (35f + 260f * (intensidade - 1f));
+                vortice.localRotation = Quaternion.Euler(0f, 0f, giro);
+                matVortice.SetColor("_BaseColor", corPortal * (2.2f * intensidade * pulso));
+            }
+            if (luzPortal != null) luzPortal.intensity = 5f * intensidade * pulso;
+        }
         // câmera respirando de leve (e se afastando quando entra mais gente)
-        if (cam != null)
+        if (cam != null && !emTransicao)
         {
             float t = Time.unscaledTime;
             distAtual = Mathf.Lerp(distAtual, distAlvo, 1f - Mathf.Exp(-4f * Time.unscaledDeltaTime));
@@ -332,5 +516,72 @@ public class ReceptorDoPalco : MonoBehaviour
         System.Reflection.MethodInfo criar = tipo.GetMethod("Criar");
         Vector3 dir = transform.forward * 6f + Vector3.right * 2f;
         if (criar != null) criar.Invoke(null, new object[] { ponta, dir, new Color(0.62f, 0.32f, 1f), 0.6f });
+    }
+}
+
+// Chegada no mundo: o personagem sai de uma coluna de luz do portal.
+public class ChegadaDoPortal : MonoBehaviour
+{
+    private Light luz;
+    private float inicio;
+
+    public static void Criar(Vector3 pos, Material mat, Color cor)
+    {
+        GameObject g = new GameObject("Chegada do Portal");
+        g.transform.position = pos;
+        ChegadaDoPortal c = g.AddComponent<ChegadaDoPortal>();
+        c.inicio = Time.time;
+
+        // coluna de luz subindo
+        ParticleSystem col = Sistema(g.transform, "Coluna", mat, cor);
+        var m = col.main; m.startLifetime = 0.7f; m.startSpeed = new ParticleSystem.MinMaxCurve(4f, 8f); m.startSize = new ParticleSystem.MinMaxCurve(0.15f, 0.35f);
+        var sh = col.shape; sh.shapeType = ParticleSystemShapeType.Circle; sh.radius = 0.5f;
+        col.transform.localRotation = Quaternion.Euler(-90f, 0f, 0f);
+        var em = col.emission; em.rateOverTime = 160f;
+        col.Play();
+        c.StartCoroutine(c.Parar(col, 0.9f));
+
+        // anel de faíscas no chão
+        ParticleSystem anel = Sistema(g.transform, "Anel", mat, cor);
+        var ma = anel.main; ma.startLifetime = new ParticleSystem.MinMaxCurve(0.4f, 0.8f); ma.startSpeed = new ParticleSystem.MinMaxCurve(3f, 6f); ma.startSize = new ParticleSystem.MinMaxCurve(0.05f, 0.12f);
+        var sa = anel.shape; sa.shapeType = ParticleSystemShapeType.Circle; sa.radius = 0.3f;
+        anel.transform.localPosition = Vector3.up * 0.1f;
+        anel.transform.localRotation = Quaternion.Euler(-90f, 0f, 0f);
+        anel.Play(); anel.Emit(70);
+
+        c.luz = g.AddComponent<Light>();
+        c.luz.type = LightType.Point; c.luz.color = cor; c.luz.range = 10f; c.luz.intensity = 8f; c.luz.shadows = LightShadows.None;
+        Destroy(g, 4f);
+    }
+
+    private static ParticleSystem Sistema(Transform pai, string nome, Material mat, Color cor)
+    {
+        GameObject g = new GameObject(nome);
+        g.transform.SetParent(pai, false);
+        ParticleSystem ps = g.AddComponent<ParticleSystem>();
+        ps.Stop(true, ParticleSystemStopBehavior.StopEmittingAndClear);
+        var m = ps.main; m.loop = true; m.simulationSpace = ParticleSystemSimulationSpace.World;
+        m.startColor = new ParticleSystem.MinMaxGradient(Color.white, cor);
+        var em = ps.emission; em.rateOverTime = 0f;
+        var col = ps.colorOverLifetime; col.enabled = true;
+        Gradient gr = new Gradient();
+        gr.SetKeys(new[] { new GradientColorKey(Color.white, 0f), new GradientColorKey(Color.white, 1f) },
+                   new[] { new GradientAlphaKey(1f, 0f), new GradientAlphaKey(0f, 1f) });
+        col.color = new ParticleSystem.MinMaxGradient(gr);
+        ParticleSystemRenderer r = g.GetComponent<ParticleSystemRenderer>();
+        if (mat != null) r.sharedMaterial = mat;
+        r.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
+        return ps;
+    }
+
+    private IEnumerator Parar(ParticleSystem ps, float depois)
+    {
+        yield return new WaitForSeconds(depois);
+        if (ps != null) { var em = ps.emission; em.rateOverTime = 0f; }
+    }
+
+    private void Update()
+    {
+        if (luz != null) luz.intensity = Mathf.Lerp(8f, 0f, (Time.time - inicio) / 2.5f);
     }
 }

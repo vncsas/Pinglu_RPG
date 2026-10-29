@@ -39,6 +39,7 @@ public class GerenciadorDeOndas : MonoBehaviour
     private void Awake() { Instancia = this; }
 
     private bool avisouInicio;
+    private float vistoDesde = -1f;
 
     // todos os jogadores (no multiplayer, as cópias dos outros também)
     private void AtualizarJogadores()
@@ -80,7 +81,9 @@ public class GerenciadorDeOndas : MonoBehaviour
         if (Time.time >= proximaBusca) { proximaBusca = Time.time + 0.5f; AtualizarJogadores(); }
         Transform local = JogadorLocal();
         if (local == null) return;
-        if (!avisouInicio) { avisouInicio = true; HUDJogador.Mostrar("Vá até o cemitério para começar a horda (ou aperte " + teclaIrAteAqui + ")", 6f); }
+        if (vistoDesde < 0f) vistoDesde = Time.time;
+        // espera a chegada pelo portal terminar antes de dar a dica
+        if (!avisouInicio && Time.time - vistoDesde > 7f) { avisouInicio = true; HUDJogador.Mostrar("Vá até o cemitério para começar a horda (ou aperte " + teclaIrAteAqui + ")", 6f); }
         if (Input.GetKeyDown(teclaIrAteAqui)) LevarJogadorAteAqui(local);
 
         // no multiplayer, só o host comanda as hordas

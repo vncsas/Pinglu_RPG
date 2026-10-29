@@ -28,5 +28,6 @@ MonoBehaviour:
   modeloVisual: {fileID: 919132149155446097, guid: a7297624c3f55b194becf13f240ddacd, type: 3}
   animacaoParado: {fileID: -619547186965265060, guid: 05eb52110e24493ee9eb24de2fd20dd9, type: 3}
   animacaoEntrada: {fileID: -3859273178093764539, guid: d56df1bcd833f55ea9dbc6a51a26fbc5, type: 3}
+  animacaoAndar: {fileID: -1055766231766805323, guid: 2c50289f2d4510e46ac7e391098e30d3, type: 3}
   prefabJogador: {fileID: 3797705696538078137, guid: 0478f44b36a5b81ab8b343a947f91a77, type: 3}
   disponivel: 1

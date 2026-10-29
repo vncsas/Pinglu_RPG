@@ -70,8 +70,22 @@ public class ThirdPersonCameraFollow : MonoBehaviour
         distanciaAtual = distancia;
     }
 
+    // proteção contra a câmera girar sozinha (defeito do mouse preso, comum no editor do Linux)
+    private static float ignorarMouseAte;
+    private bool menuAntes = true;
+    private int quadrosNoLimite;
+    private const float LIMITE_POR_QUADRO = 12f;
+
+    private void OnApplicationFocus(bool foco) { ignorarMouseAte = Time.unscaledTime + 0.3f; }
+
+    // vira a câmera para um ângulo (ex.: de frente para o portal na chegada)
+    public void DefinirYaw(float novoYaw) { yaw = novoYaw; }
+
     private void Update()
     {
+        // acabou de sair do menu: o clique que fechou o menu não conta como movimento
+        if (menuAntes && !SessaoDeJogo.MenuAberto) ignorarMouseAte = Time.unscaledTime + 0.3f;
+        menuAntes = SessaoDeJogo.MenuAberto;
         if (SessaoDeJogo.MenuAberto) return;
         if (!prenderCursor) return;
         if (Input.GetKeyDown(KeyCode.Escape)) PrenderCursor(false);
@@ -80,6 +94,7 @@ public class ThirdPersonCameraFollow : MonoBehaviour
 
     private static void PrenderCursor(bool prender)
     {
+        ignorarMouseAte = Time.unscaledTime + 0.25f; // o primeiro movimento depois de prender/soltar costuma vir errado
         Cursor.lockState = prender ? CursorLockMode.Locked : CursorLockMode.None;
         Cursor.visible = !prender;
     }
@@ -92,8 +107,26 @@ public class ThirdPersonCameraFollow : MonoBehaviour
         bool controlando = !SessaoDeJogo.MenuAberto && (!prenderCursor || Cursor.lockState == CursorLockMode.Locked);
         if (controlando)
         {
-            yaw += Input.GetAxis("Mouse X") * sensibilidadeX;
-            pitch -= Input.GetAxis("Mouse Y") * sensibilidadeY * (inverterY ? -1f : 1f);
+            float mx = 0f, my = 0f;
+            if (Application.isFocused && Time.unscaledTime >= ignorarMouseAte)
+            {
+                mx = Mathf.Clamp(Input.GetAxis("Mouse X"), -LIMITE_POR_QUADRO, LIMITE_POR_QUADRO);
+                my = Mathf.Clamp(Input.GetAxis("Mouse Y"), -LIMITE_POR_QUADRO, LIMITE_POR_QUADRO);
+                // giro no máximo por muitos quadros seguidos não é a mão de ninguém: é o defeito do mouse
+                quadrosNoLimite = Mathf.Abs(mx) >= LIMITE_POR_QUADRO * 0.98f ? quadrosNoLimite + 1 : 0;
+                if (quadrosNoLimite > 40)
+                {
+                    quadrosNoLimite = 0;
+                    mx = my = 0f;
+                    if (prenderCursor)
+                    {
+                        PrenderCursor(false);
+                        HUDJogador.Mostrar("A câmera estava girando sozinha e foi destravada. Clique no jogo para continuar.", 4f);
+                    }
+                }
+            }
+            yaw += mx * sensibilidadeX;
+            pitch -= my * sensibilidadeY * (inverterY ? -1f : 1f);
         }
         pitch = Mathf.Clamp(pitch, anguloMinimo, anguloMaximo);
 

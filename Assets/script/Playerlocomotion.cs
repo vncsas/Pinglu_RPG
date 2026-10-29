@@ -140,9 +140,28 @@ public class PlayerLocomotion : MonoBehaviour
         verticalVelocity = 0f;
     }
 
+    // caminhada automática (saindo do portal ao chegar no mundo)
+    private float autoAte;
+    private Vector3 autoDir;
+    public void CaminharAutomatico(Vector3 direcao, float duracao)
+    {
+        direcao.y = 0f;
+        if (direcao.sqrMagnitude < 0.0001f) return;
+        autoDir = direcao.normalized;
+        autoAte = Time.time + duracao;
+    }
+
     private void Update()
     {
         ProtegerContraQueda();
+        if (Time.time < autoAte)
+        {
+            if (controller.isGrounded && verticalVelocity < 0f) verticalVelocity = -0.5f; else verticalVelocity += gravity * Time.deltaTime;
+            transform.rotation = Quaternion.Slerp(transform.rotation, Quaternion.LookRotation(autoDir), Time.deltaTime * 8f);
+            controller.Move((autoDir * walkSpeed + Vector3.up * verticalVelocity) * Time.deltaTime);
+            if (animator != null) { animator.SetFloat("Speed", 0.5f); animator.SetBool("Block", false); }
+            return;
+        }
         if (!Controlavel || SessaoDeJogo.MenuAberto || Time.time < atordoadoAte)
         {
             // morto ou atordoado: só gravidade e empurrão

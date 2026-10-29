@@ -28,6 +28,8 @@ public class FichaPersonagem : ScriptableObject
     public AnimationClip animacaoParado;
     [Tooltip("Golpe de apresentação tocado quando o personagem é escolhido")]
     public AnimationClip animacaoEntrada;
+    [Tooltip("Caminhada usada quando o personagem entra no portal")]
+    public AnimationClip animacaoAndar;
 
     [Header("Jogo")]
     [Tooltip("Prefab do jogador (precisa ter NetworkObject). O menu Pinglu > 15 cria o do cavaleiro.")]

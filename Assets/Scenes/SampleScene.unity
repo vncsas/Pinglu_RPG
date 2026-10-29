@@ -41308,6 +41308,10 @@ MonoBehaviour:
   materialFundo: {fileID: 2100000, guid: ace784c106ab78ce7b9f5d3a43ae1b55, type: 2}
   materialChao: {fileID: 2100000, guid: 53aa8c22dc8adaf378c520610b44d73d, type: 2}
   materialParticula: {fileID: 2100000, guid: e823cd5b5d27c0f4b8256e7c12ee3e6d, type: 2}
+  modeloPortal: {fileID: 919132149155446097, guid: 53d20b615e0c00c46939245bd5ae7e35, type: 3}
+  rotacaoPortal: {x: -0.058361776, y: 0.7046942, z: 0.7046942, w: 0.058361776}
+  materialPortal: {fileID: 2100000, guid: 0f34507bf4d7edb14b9cd732b3988e5f, type: 2}
+  corPortal: {r: 0.55, g: 0.45, b: 1, a: 1}
   porta: 7777
   maximoDeJogadores: 4
   teclaSair: 291
@@ -92014,6 +92018,9 @@ PrefabInstance:
     - targetCorrespondingSourceObject: {fileID: 919132149155446097, guid: 53d20b615e0c00c46939245bd5ae7e35, type: 3}
       insertIndex: -1
       addedObject: {fileID: 1179084412}
+    - targetCorrespondingSourceObject: {fileID: 919132149155446097, guid: 53d20b615e0c00c46939245bd5ae7e35, type: 3}
+      insertIndex: -1
+      addedObject: {fileID: 1179084415}
   m_SourcePrefab: {fileID: 100100000, guid: 53d20b615e0c00c46939245bd5ae7e35, type: 3}
 --- !u!4 &1179084410 stripped
 Transform:
@@ -92047,6 +92054,26 @@ MeshCollider:
   m_Convex: 0
   m_CookingOptions: 30
   m_Mesh: {fileID: 1501570459739386805, guid: 53d20b615e0c00c46939245bd5ae7e35, type: 3}
+--- !u!114 &1179084415
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1179084411}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: e8176261bb1dfb537b0253f10db730bb, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::PortalDoMundo
+  materialPortal: {fileID: 2100000, guid: 0f34507bf4d7edb14b9cd732b3988e5f, type: 2}
+  materialParticula: {fileID: 2100000, guid: e823cd5b5d27c0f4b8256e7c12ee3e6d, type: 2}
+  cor: {r: 0.55, g: 0.45, b: 1, a: 1}
+  brilhoEmRepouso: 0.6
+  deslocamentoDaAbertura: {x: 0, y: 0, z: 0}
+  larguraDaAbertura: 0.45
+  alturaDaAbertura: 0.62
+  inverterFrente: 0
 --- !u!1 &1179312575
 GameObject:
   m_ObjectHideFlags: 0
