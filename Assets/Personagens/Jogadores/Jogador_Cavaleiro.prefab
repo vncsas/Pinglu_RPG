@@ -1378,6 +1378,9 @@ MonoBehaviour:
   rollSpeed: 8
   rollDuration: 1.15
   rollCooldown: 0.8
+  tempoParaGuardar: 60
+  tempoParaSacar: 0.55
+  teclaGuardarSacar: 104
   estadosCombo:
   - attack
   - attack_2
@@ -1427,6 +1430,7 @@ MonoBehaviour:
   especialMaximo: 100
   ganhoPorAcerto: 8
   ganhoAoLevarDano: 4
+  ataqueCorpoACorpo: 1
   pausaNoAcerto: 0.06
 --- !u!114 &7574019247605670156
 MonoBehaviour:
@@ -1460,14 +1464,14 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: d5a57f767e5e46a458fc5d3c628d0cbb, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Unity.Netcode.Runtime::Unity.Netcode.NetworkObject
-  GlobalObjectIdHash: 3209554194
+  GlobalObjectIdHash: 1660002639
   InScenePlacedSourceGlobalObjectIdHash: 0
   m_InScenePlacedDisabledByDefault: 0
   DeferredDespawnTick: 0
   Ownership: 1
   AlwaysReplicateAsRoot: 0
   SynchronizeTransform: 1
-  m_InScenePlaced: 1
+  m_InScenePlaced: 0
   ActiveSceneSynchronization: 0
   SceneMigrationSynchronization: 0
   SpawnWithObservers: 1

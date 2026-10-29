@@ -866,6 +866,7 @@ MonoBehaviour:
   especialMaximo: 100
   ganhoPorAcerto: 8
   ganhoAoLevarDano: 4
+  ataqueCorpoACorpo: 1
   pausaNoAcerto: 0.06
 --- !u!114 &1108400611632147143
 MonoBehaviour:
@@ -967,14 +968,14 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: d5a57f767e5e46a458fc5d3c628d0cbb, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Unity.Netcode.Runtime::Unity.Netcode.NetworkObject
-  GlobalObjectIdHash: 347089685
+  GlobalObjectIdHash: 608587514
   InScenePlacedSourceGlobalObjectIdHash: 0
   m_InScenePlacedDisabledByDefault: 0
   DeferredDespawnTick: 0
   Ownership: 1
   AlwaysReplicateAsRoot: 0
   SynchronizeTransform: 1
-  m_InScenePlaced: 1
+  m_InScenePlaced: 0
   ActiveSceneSynchronization: 0
   SceneMigrationSynchronization: 0
   SpawnWithObservers: 1
