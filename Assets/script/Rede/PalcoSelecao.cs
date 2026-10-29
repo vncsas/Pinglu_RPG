@@ -22,11 +22,6 @@ public class PalcoSelecao : MonoBehaviour
     private Camera cam;
     private Camera camPrincipal;
     private int mascaraPrincipal;
-    private GameObject modelo;
-    private PlayableGraph grafo;
-    private AnimationMixerPlayable mixer;
-    private AnimationClipPlayable parado, entrada;
-    private float fimEntrada = -1f, pesoEntrada;
     private FichaPersonagem atual;
     private readonly Dictionary<FichaPersonagem, RenderTexture> retratos = new Dictionary<FichaPersonagem, RenderTexture>();
 
@@ -177,7 +172,7 @@ public class PalcoSelecao : MonoBehaviour
         }
         Destroy(gc);
         Pronto = true;
-        if (atual != null) { FichaPersonagem f = atual; atual = null; Mostrar(f); }
+        if (pendente != null) { List<FichaPersonagem> p = pendente; pendente = null; MostrarGrupo(p); }
     }
 
     public Texture Retrato(FichaPersonagem f)
@@ -187,75 +182,138 @@ public class PalcoSelecao : MonoBehaviour
     }
 
     // ------------------------------------------------------------------
-    //  personagem no palco
+    //  personagens no palco (1 a 4, lado a lado)
     // ------------------------------------------------------------------
-    public void Mostrar(FichaPersonagem f)
+    private class Lugar
     {
-        if (f == atual) return;
-        atual = f;
-        if (!Pronto) return; // mostra depois dos retratos
-        if (grafo.IsValid()) grafo.Destroy();
-        if (modelo != null) Destroy(modelo);
-        if (f == null || f.modeloVisual == null) return;
+        public FichaPersonagem ficha;
+        public GameObject modelo;
+        public PlayableGraph grafo;
+        public AnimationMixerPlayable mixer;
+        public float fimEntrada = -1f, pesoEntrada;
+        public Transform cabeca;
+    }
+    private readonly List<Lugar> lugares = new List<Lugar>();
+    private List<FichaPersonagem> pendente;
+    private float distAlvo = 6.2f, distAtual = 6.2f;
+    private const float ESPACO = 1.5f;
 
-        modelo = Instantiate(f.modeloVisual, LUGAR, Quaternion.Euler(0f, -12f, 0f));
-        modelo.transform.SetParent(raiz, true);
-        modelo.AddComponent<ReceptorDoPalco>();
-        Animator a = modelo.GetComponentInChildren<Animator>();
+    public void Mostrar(FichaPersonagem f) { MostrarGrupo(new List<FichaPersonagem> { f }); }
+
+    public void MostrarGrupo(List<FichaPersonagem> fichas)
+    {
+        atual = fichas.Count > 0 ? fichas[0] : null;
+        if (!Pronto) { pendente = new List<FichaPersonagem>(fichas); return; }
+        // tira os que sobraram
+        while (lugares.Count > fichas.Count) { Limpar(lugares[lugares.Count - 1]); lugares.RemoveAt(lugares.Count - 1); }
+        for (int i = 0; i < fichas.Count; i++)
+        {
+            if (i >= lugares.Count) lugares.Add(new Lugar());
+            if (lugares[i].ficha != fichas[i] || lugares[i].modelo == null) Criar(lugares[i], fichas[i]);
+        }
+        Arrumar();
+    }
+
+    private void Limpar(Lugar l)
+    {
+        if (l.grafo.IsValid()) l.grafo.Destroy();
+        if (l.modelo != null) Destroy(l.modelo);
+        l.modelo = null; l.ficha = null;
+    }
+
+    private void Criar(Lugar l, FichaPersonagem f)
+    {
+        Limpar(l);
+        l.ficha = f;
+        if (f == null || f.modeloVisual == null) return;
+        l.modelo = Instantiate(f.modeloVisual, LUGAR, Quaternion.identity);
+        l.modelo.transform.SetParent(raiz, true);
+        l.modelo.AddComponent<ReceptorDoPalco>();
+        Animator a = l.modelo.GetComponentInChildren<Animator>();
+        l.cabeca = a != null && a.isHuman ? a.GetBoneTransform(HumanBodyBones.Head) : null;
         if (a == null || f.animacaoParado == null) return;
         a.applyRootMotion = false;
-        grafo = PlayableGraph.Create("Selecao");
-        grafo.SetTimeUpdateMode(DirectorUpdateMode.UnscaledGameTime);
-        AnimationPlayableOutput saida = AnimationPlayableOutput.Create(grafo, "anim", a);
-        mixer = AnimationMixerPlayable.Create(grafo, 2);
-        saida.SetSourcePlayable(mixer);
-        parado = AnimationClipPlayable.Create(grafo, f.animacaoParado);
+        l.grafo = PlayableGraph.Create("Selecao");
+        l.grafo.SetTimeUpdateMode(DirectorUpdateMode.UnscaledGameTime);
+        AnimationPlayableOutput saida = AnimationPlayableOutput.Create(l.grafo, "anim", a);
+        l.mixer = AnimationMixerPlayable.Create(l.grafo, 2);
+        saida.SetSourcePlayable(l.mixer);
+        AnimationClipPlayable parado = AnimationClipPlayable.Create(l.grafo, f.animacaoParado);
         parado.SetApplyFootIK(false);
-        grafo.Connect(parado, 0, mixer, 0);
+        l.grafo.Connect(parado, 0, l.mixer, 0);
         if (f.animacaoEntrada != null)
         {
-            entrada = AnimationClipPlayable.Create(grafo, f.animacaoEntrada);
+            AnimationClipPlayable entrada = AnimationClipPlayable.Create(l.grafo, f.animacaoEntrada);
             entrada.SetApplyFootIK(false);
-            grafo.Connect(entrada, 0, mixer, 1);
-            pesoEntrada = 1f;
-            fimEntrada = Time.unscaledTime + f.animacaoEntrada.length - 0.3f;
+            l.grafo.Connect(entrada, 0, l.mixer, 1);
+            l.pesoEntrada = 1f;
+            l.fimEntrada = Time.unscaledTime + f.animacaoEntrada.length - 0.3f;
         }
-        else { pesoEntrada = 0f; fimEntrada = -1f; }
-        mixer.SetInputWeight(0, 1f - pesoEntrada);
-        mixer.SetInputWeight(1, pesoEntrada);
-        grafo.Play();
+        else { l.pesoEntrada = 0f; l.fimEntrada = -1f; }
+        l.mixer.SetInputWeight(0, 1f - l.pesoEntrada);
+        l.mixer.SetInputWeight(1, l.pesoEntrada);
+        l.grafo.Play();
+    }
+
+    // espalha os personagens lado a lado e afasta a câmera para caber todos
+    private void Arrumar()
+    {
+        int n = lugares.Count;
+        distAlvo = 6.2f + Mathf.Max(0, n - 1) * 1.35f;
+        Vector3 posCam = LUGAR + new Vector3(0.2f, 1.35f, distAlvo);
+        for (int i = 0; i < n; i++)
+        {
+            if (lugares[i].modelo == null) continue;
+            Vector3 p = LUGAR + new Vector3((i - (n - 1) * 0.5f) * ESPACO, 0f, 0f);
+            Vector3 olhar = posCam - p; olhar.y = 0f;
+            lugares[i].modelo.transform.SetPositionAndRotation(p, Quaternion.LookRotation(olhar.normalized) * Quaternion.Euler(0f, n == 1 ? -12f : 0f, 0f));
+        }
+    }
+
+    // onde fica (na tela) o alto da cabeça de cada personagem, para as etiquetas P1, P2...
+    public bool PosicaoDaCabeca(int i, out Vector2 tela)
+    {
+        tela = Vector2.zero;
+        if (cam == null || i < 0 || i >= lugares.Count || lugares[i].modelo == null) return false;
+        Vector3 c = lugares[i].cabeca != null ? lugares[i].cabeca.position : lugares[i].modelo.transform.position + Vector3.up * 1.7f;
+        Vector3 s = cam.WorldToScreenPoint(c + Vector3.up * 0.45f);
+        if (s.z <= 0f) return false;
+        tela = new Vector2(s.x, Screen.height - s.y);
+        return true;
     }
 
     private void Update()
     {
-        if (!grafo.IsValid()) return;
-        // depois do golpe de apresentação, volta suave para a pose parada
-        if (fimEntrada > 0f && Time.unscaledTime > fimEntrada)
+        foreach (Lugar l in lugares)
         {
-            pesoEntrada = Mathf.MoveTowards(pesoEntrada, 0f, Time.unscaledDeltaTime / 0.3f);
-            mixer.SetInputWeight(0, 1f - pesoEntrada);
-            mixer.SetInputWeight(1, pesoEntrada);
-            if (pesoEntrada <= 0f) fimEntrada = -1f;
+            if (!l.grafo.IsValid() || l.fimEntrada <= 0f || Time.unscaledTime <= l.fimEntrada) continue;
+            // depois do golpe de apresentação, volta suave para a pose parada
+            l.pesoEntrada = Mathf.MoveTowards(l.pesoEntrada, 0f, Time.unscaledDeltaTime / 0.3f);
+            l.mixer.SetInputWeight(0, 1f - l.pesoEntrada);
+            l.mixer.SetInputWeight(1, l.pesoEntrada);
+            if (l.pesoEntrada <= 0f) l.fimEntrada = -1f;
         }
-        // câmera respirando de leve
+        // câmera respirando de leve (e se afastando quando entra mais gente)
         if (cam != null)
         {
             float t = Time.unscaledTime;
-            cam.transform.localPosition = new Vector3(0.2f + Mathf.Sin(t * 0.25f) * 0.08f, 1.35f + Mathf.Sin(t * 0.33f) * 0.03f, 6.2f);
+            distAtual = Mathf.Lerp(distAtual, distAlvo, 1f - Mathf.Exp(-4f * Time.unscaledDeltaTime));
+            cam.transform.localPosition = new Vector3(0.2f + Mathf.Sin(t * 0.25f) * 0.08f, 1.35f + Mathf.Sin(t * 0.33f) * 0.03f, distAtual);
             cam.transform.LookAt(LUGAR + new Vector3(-0.25f, 1.05f, 0f));
         }
     }
 
     public void Desmontar()
     {
-        if (grafo.IsValid()) grafo.Destroy();
+        foreach (Lugar l in lugares) Limpar(l);
+        lugares.Clear();
         if (raiz != null) Destroy(raiz.gameObject);
         if (camPrincipal != null) camPrincipal.cullingMask = mascaraPrincipal;
         foreach (RenderTexture rt in retratos.Values) if (rt != null) rt.Release();
         retratos.Clear();
     }
 
-    private void OnDestroy() { if (grafo.IsValid()) grafo.Destroy(); }
+    private void OnDestroy() { foreach (Lugar l in lugares) if (l.grafo.IsValid()) l.grafo.Destroy(); }
 }
 
 // Recebe os eventos das animações no palco (feitiços, espada...) para não dar

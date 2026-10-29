@@ -28,7 +28,7 @@ public class MenuRede : MonoBehaviour
     [SerializeField] private int maximoDeJogadores = 4;
     [SerializeField] private KeyCode teclaSair = KeyCode.F10;
 
-    private enum Tela { Principal, Conectando, Jogando }
+    private enum Tela { Principal, Conectando, Sala, Jogando }
     private Tela tela = Tela.Principal;
     private int escolhido;
     private string ipDigitado = "127.0.0.1";
@@ -40,6 +40,7 @@ public class MenuRede : MonoBehaviour
     private GUIStyle titulo, texto, textoPequeno, botao, cartao;
     private GUIStyle estNome, estTituloPers, estSecao, estBotao, estCarta, estP1, estInterrogacao, estCampo;
     private PalcoSelecao palco;
+    private string assinaturaSala = "";
 
     private void Awake()
     {
@@ -73,7 +74,11 @@ public class MenuRede : MonoBehaviour
     {
         if (Ficha(i) == null) return;
         escolhido = i;
-        if (palco != null) palco.Mostrar(Ficha(i));
+        if (tela == Tela.Sala)
+        {
+            if (SalaDeEspera.Atual != null) SalaDeEspera.Atual.EscolherRpc(i);
+        }
+        else if (palco != null) palco.Mostrar(Ficha(i));
     }
 
     private void EscolherAleatorio()
@@ -111,7 +116,8 @@ public class MenuRede : MonoBehaviour
 
     private void Update()
     {
-        if (tela == Tela.Principal)
+        if (tela == Tela.Sala) AtualizarSala();
+        if (tela == Tela.Principal || tela == Tela.Sala)
         {
             int dir = Input.GetKeyDown(KeyCode.RightArrow) ? 1 : (Input.GetKeyDown(KeyCode.LeftArrow) ? -1 : 0);
             for (int passo = 1; dir != 0 && passo <= personagens.Count; passo++)
@@ -163,10 +169,15 @@ public class MenuRede : MonoBehaviour
         if (!Preparar()) return;
         NetworkManager nm = NetworkManager.Singleton;
         nm.GetComponent<UnityTransport>().SetConnectionData("127.0.0.1", porta, "0.0.0.0");
+        if (FindFirstObjectByType<SalaDeEspera>() == null) { erro = "Falta a sala de espera na cena. Rode o menu Pinglu > 25."; return; }
         nm.ConnectionApprovalCallback = Aprovar;
         nm.OnClientDisconnectCallback += AoDesconectar;
+        SalaDeEspera.EscolhaInicial.Clear();
+        SalaDeEspera.PrefabDoPersonagem = PrefabDo;
+        SalaDeEspera.LugarDeNascimento = LugarDeNascimento;
+        SalaDeEspera.RotacaoDeNascimento = rotacaoNascimento;
         SessaoDeJogo.Online = true; SessaoDeJogo.SouHost = true;
-        if (nm.StartHost()) { tela = Tela.Jogando; SessaoDeJogo.MenuAberto = false; SairDoMenu(); }
+        if (nm.StartHost()) { tela = Tela.Sala; assinaturaSala = ""; }
         else { erro = "Não consegui criar a partida. A porta " + porta + " pode estar em uso."; SessaoDeJogo.Online = false; }
     }
 
@@ -193,29 +204,56 @@ public class MenuRede : MonoBehaviour
             return;
         }
         int idx = pedido.Payload != null && pedido.Payload.Length > 0 ? pedido.Payload[0] : 0;
-        FichaPersonagem f = Ficha(idx);
-        if (f == null || f.prefabJogador == null) f = Ficha(escolhido);
-
-        Vector3 lado = rotacaoNascimento * Vector3.right;
-        Vector3 pos = nascimento + lado * (2.5f * proximoLugar);
-        proximoLugar++;
-        Terrain t = Terrain.activeTerrain;
-        if (t != null) pos.y = t.SampleHeight(pos) + t.transform.position.y + 0.1f;
-
+        if (Ficha(idx) == null) idx = escolhido;
+        SalaDeEspera.EscolhaInicial[pedido.ClientNetworkId] = idx;
         resposta.Approved = true;
-        resposta.CreatePlayerObject = true;
-        resposta.PlayerPrefabHash = f.prefabJogador.GetComponent<NetworkObject>().PrefabIdHash;
-        resposta.Position = pos;
-        resposta.Rotation = rotacaoNascimento;
+        resposta.CreatePlayerObject = false; // o personagem nasce quando o host aperta COMEÇAR
         resposta.Pending = false;
     }
 
     private void AoConectar(ulong id)
     {
         if (id != NetworkManager.Singleton.LocalClientId) return;
-        tela = Tela.Jogando;
-        SessaoDeJogo.MenuAberto = false;
-        SairDoMenu();
+        tela = Tela.Sala; // entra na sala de espera
+        assinaturaSala = "";
+    }
+
+    // ------------------------------------------------------------------
+    //  sala de espera
+    // ------------------------------------------------------------------
+    private GameObject PrefabDo(int i)
+    {
+        FichaPersonagem f = Ficha(i);
+        if (f == null || f.prefabJogador == null) f = Ficha(escolhido);
+        return f != null ? f.prefabJogador : null;
+    }
+
+    private Vector3 LugarDeNascimento(int lugar)
+    {
+        Vector3 lado = rotacaoNascimento * Vector3.right;
+        Vector3 pos = nascimento + lado * (2.5f * (lugar - 1.5f));
+        Terrain t = Terrain.activeTerrain;
+        if (t != null) pos.y = t.SampleHeight(pos) + t.transform.position.y + 0.1f;
+        return pos;
+    }
+
+    private void AtualizarSala()
+    {
+        SalaDeEspera sala = SalaDeEspera.Atual;
+        if (sala == null) return;
+        if (sala.Comecou.Value)
+        {
+            // o host começou: todo mundo vai para o mapa
+            tela = Tela.Jogando;
+            SessaoDeJogo.MenuAberto = false;
+            SairDoMenu();
+            return;
+        }
+        List<VagaNaSala> vagas = sala.EmOrdem();
+        string ass = "";
+        List<FichaPersonagem> fichas = new List<FichaPersonagem>();
+        foreach (VagaNaSala v in vagas) { ass += v.cliente + ":" + v.personagem + ";"; fichas.Add(Ficha(v.personagem) ?? Ficha(0)); }
+        if (ass != assinaturaSala && palco != null) { assinaturaSala = ass; palco.MostrarGrupo(fichas); }
     }
 
     private void AoDesconectar(ulong id)
@@ -225,7 +263,7 @@ public class MenuRede : MonoBehaviour
         if (!nm.IsServer && (id == nm.LocalClientId || id == NetworkManager.ServerClientId))
         {
             string motivo = string.IsNullOrEmpty(nm.DisconnectReason) ? "Confira o IP e se o host está com a partida aberta." : nm.DisconnectReason;
-            Voltar(tela == Tela.Conectando ? "Não foi possível entrar. " + motivo : "A conexão com a partida caiu.");
+            Voltar(tela == Tela.Conectando ? "Não foi possível entrar. " + motivo : (tela == Tela.Sala ? "O host fechou a sala." : "A conexão com a partida caiu."));
         }
     }
 
@@ -320,7 +358,7 @@ public class MenuRede : MonoBehaviour
 
         // ---- topo
         GUI.Label(new Rect(48f * e, 26f * e, 600f * e, 60f * e), "PINGLU", titulo);
-        GUI.Label(new Rect(52f * e, 80f * e, 600f * e, 30f * e), "ESCOLHA SEU GUERREIRO", estSecao);
+        GUI.Label(new Rect(52f * e, 80f * e, 600f * e, 30f * e), tela == Tela.Sala ? "SALA DE ESPERA" : "ESCOLHA SEU GUERREIRO", estSecao);
 
         FichaPersonagem atual = Ficha(escolhido);
 
@@ -347,6 +385,29 @@ public class MenuRede : MonoBehaviour
             Moldura(new Rect(bx, by - 10f * e, bw * 3 + gap * 2, bh + 20f * e), 0.9f, false);
             GUI.Label(new Rect(bx, by, bw * 2, bh), "  Conectando em " + ipDigitado + "...", new GUIStyle(texto) { alignment = TextAnchor.MiddleLeft, fontSize = Mathf.RoundToInt(24 * e) });
             if (Botao(new Rect(bx + 2 * (bw + gap), by, bw, bh), "CANCELAR", mouse, e)) Voltar(null);
+            return;
+        }
+        if (tela == Tela.Sala)
+        {
+            EtiquetasDoPalco(e);
+            NetworkManager nmS = NetworkManager.Singleton;
+            bool host = nmS != null && nmS.IsServer;
+            int n = SalaDeEspera.Atual != null ? SalaDeEspera.Atual.Vagas.Count : 0;
+            if (host)
+            {
+                Rect rc = new Rect(bx + bw + gap - 40f * e, by - 6f * e, bw + 80f * e, bh + 12f * e);
+                Retangulo(new Rect(rc.x - 6f * e, rc.y - 6f * e, rc.width + 12f * e, rc.height + 12f * e), new Color(1f, 0.5f, 0.15f, 0.12f + 0.08f * Mathf.Sin(Time.unscaledTime * 3f)));
+                if (Botao(rc, "COMEÇAR", mouse, e) && SalaDeEspera.Atual != null) SalaDeEspera.Atual.Comecar();
+                GUI.Label(new Rect(bx, by + bh + 14f * e, bw * 3 + gap * 2, 30f * e),
+                    "Sala aberta  •  Jogadores: " + n + " / " + maximoDeJogadores + "  •  Os outros entram com o IP: " + meusIps, textoPequeno);
+            }
+            else
+            {
+                GUI.Label(new Rect(bx, by, bw * 2 + gap, bh), "Aguardando o host começar a partida...  (" + n + " na sala)",
+                    new GUIStyle(texto) { alignment = TextAnchor.MiddleLeft, fontSize = Mathf.RoundToInt(24 * e) });
+                GUI.Label(new Rect(bx, by + bh + 14f * e, bw * 3 + gap * 2, 30f * e), "Você pode trocar de personagem até o jogo começar.", textoPequeno);
+            }
+            if (Botao(new Rect(bx + 2 * (bw + gap) + (host ? 60f * e : 0f), by, bw - (host ? 60f * e : 0f), bh), "SAIR DA SALA", mouse, e)) Voltar(null);
             return;
         }
         if (Botao(new Rect(bx, by, bw, bh), "JOGAR SOZINHO", mouse, e)) JogarSozinho();
@@ -410,6 +471,7 @@ public class MenuRede : MonoBehaviour
             FichaPersonagem f = !aleatoria && i < personagens.Count ? personagens[i] : null;
             bool ok = aleatoria || (f != null && f.disponivel && f.prefabJogador != null);
             bool sel = !aleatoria && i == escolhido && ok;
+            List<int> donos = DonosDaCarta(i);
             bool sobre = r.Contains(mouse) && ok;
             if (sobre) r = new Rect(r.x - 4f * e, r.y - 8f * e, r.width + 8f * e, r.height + 8f * e);
 
@@ -424,14 +486,53 @@ public class MenuRede : MonoBehaviour
             GUI.Label(new Rect(r.x + 6f * e, r.y, r.width - 12f * e, r.height - 10f * e), nome.ToUpper(), estCarta);
 
             Borda(r, sel ? 4f * e : 2f * e, sel ? new Color(0.98f, 0.76f, 0.38f) : (sobre ? new Color(0.8f, 0.6f, 0.32f) : new Color(0.4f, 0.3f, 0.18f)));
-            if (sel)
+            // etiquetas P1, P2... de quem escolheu esta carta
+            if (tela != Tela.Sala && sel) donos = new List<int> { 0 };
+            for (int k = 0; k < donos.Count; k++)
             {
-                Rect tag = new Rect(r.center.x - 26f * e, r.yMax - 4f * e, 52f * e, 26f * e);
-                Retangulo(tag, new Color(0.62f, 0.08f, 0.06f));
+                float tw = 44f * e;
+                float tx = r.center.x - (donos.Count * tw + (donos.Count - 1) * 4f * e) * 0.5f + k * (tw + 4f * e);
+                Rect tag = new Rect(tx, r.yMax - 4f * e, tw, 26f * e);
+                Retangulo(tag, CorDoJogador(donos[k]));
                 Borda(tag, 2f * e, new Color(0.98f, 0.76f, 0.38f));
-                GUI.Label(tag, "P1", estP1);
+                GUI.Label(tag, "P" + (donos[k] + 1), estP1);
             }
             if (ok && GUI.Button(r, GUIContent.none, GUIStyle.none)) { if (aleatoria) EscolherAleatorio(); else Escolher(i); }
+        }
+    }
+
+    // quais jogadores da sala (posição 0 = P1) escolheram a carta i
+    private List<int> DonosDaCarta(int i)
+    {
+        List<int> l = new List<int>();
+        if (tela != Tela.Sala || SalaDeEspera.Atual == null) return l;
+        List<VagaNaSala> vagas = SalaDeEspera.Atual.EmOrdem();
+        for (int k = 0; k < vagas.Count; k++) if (vagas[k].personagem == i) l.Add(k);
+        return l;
+    }
+
+    private static Color CorDoJogador(int k)
+    {
+        Color[] c = { new Color(0.62f, 0.08f, 0.06f), new Color(0.10f, 0.30f, 0.62f), new Color(0.12f, 0.45f, 0.18f), new Color(0.50f, 0.20f, 0.58f) };
+        return c[Mathf.Clamp(k, 0, 3)];
+    }
+
+    // etiquetas sobre a cabeça de cada personagem no palco
+    private void EtiquetasDoPalco(float e)
+    {
+        if (palco == null || SalaDeEspera.Atual == null) return;
+        List<VagaNaSala> vagas = SalaDeEspera.Atual.EmOrdem();
+        ulong eu = NetworkManager.Singleton != null ? NetworkManager.Singleton.LocalClientId : 0;
+        for (int k = 0; k < vagas.Count; k++)
+        {
+            Vector2 p;
+            if (!palco.PosicaoDaCabeca(k, out p)) continue;
+            string txt = "P" + (k + 1) + (vagas[k].cliente == NetworkManager.ServerClientId ? "  HOST" : "") + (vagas[k].cliente == eu ? "  •  VOCÊ" : "");
+            Vector2 tam = estP1.CalcSize(new GUIContent(txt));
+            Rect r = new Rect(p.x - tam.x * 0.5f - 12f * e, p.y - 30f * e, tam.x + 24f * e, 28f * e);
+            Retangulo(r, CorDoJogador(k));
+            Borda(r, 2f * e, new Color(0.98f, 0.76f, 0.38f));
+            GUI.Label(r, txt, estP1);
         }
     }
 
