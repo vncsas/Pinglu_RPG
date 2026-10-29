@@ -36,6 +36,10 @@ public class ClimaSombrio : MonoBehaviour
     public Volume volume;
     public Material materialParticula;
 
+    // neblina definida pelo clima geral (os biomas misturam o tom deles por cima)
+    public static Color NeblinaAtual;
+    public static float DensidadeAtual;
+
     private float ultEscuridao = -1f, ultNeblina = -1f, ultCinzento = -1f, ultBrilho = -9f;
     private Transform efeitos;
     private Light apoio;
@@ -100,6 +104,8 @@ public class ClimaSombrio : MonoBehaviour
         RenderSettings.fogMode = FogMode.ExponentialSquared;
         RenderSettings.fogColor = Color.Lerp(neblinaDia, neblinaNoite, t);
         RenderSettings.fogDensity = Mathf.Lerp(0.002f, 0.012f, neblina);
+        NeblinaAtual = RenderSettings.fogColor; NeblinaAtual.a = 1f;
+        DensidadeAtual = RenderSettings.fogDensity;
 
         // recalcula a luz ambiente com as cores novas (sem isso, as sombras ficam pretas)
         DynamicGI.UpdateEnvironment();

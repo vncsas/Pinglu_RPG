@@ -1285,6 +1285,7 @@ GameObject:
   - component: {fileID: 3169206098561402843}
   - component: {fileID: 5063069733410610247}
   - component: {fileID: 9009491560710897829}
+  - component: {fileID: 1882557559812624862}
   m_Layer: 0
   m_Name: Jogador_Cavaleiro
   m_TagString: Untagged
@@ -1598,6 +1599,33 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::EscudoAnimacao
   velocidade: 14
+--- !u!114 &1882557559812624862
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 8959231126796434193}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: b6a9166b1495358d0a24a9b4a2c6b51f, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::EfeitoEspada
+  baseDaLamina: {x: 0.10606022, y: 0.103607856, z: -0.05973684}
+  pontaDaLamina: {x: 0.757573, y: 0.7400561, z: -0.4266917}
+  materialChama: {fileID: 2100000, guid: 43a19ebacca59b9d69e7f8a216402072, type: 2}
+  materialSombra: {fileID: 2100000, guid: 5486acf05b82afd1aa4ff6497ce39440, type: 2}
+  materialBrasa: {fileID: 2100000, guid: a5289e2d0fd01512b99fb22c5daf8569, type: 2}
+  materialFumaca: {fileID: 2100000, guid: 38b99215306dd368b9c7ca652d07677f, type: 2}
+  atrasoDoCorte: 0.08
+  duracaoDoCorte:
+  - 0.35
+  - 0.35
+  - 0.5
+  vidaDoRastro: 0.18
+  vidaDaSombra: 0.35
+  corDaChama: {r: 5, g: 0.35, b: 0.4, a: 1}
+  forcaDoFinalizador: 1.4
 --- !u!1 &9119102088025071600
 GameObject:
   m_ObjectHideFlags: 0

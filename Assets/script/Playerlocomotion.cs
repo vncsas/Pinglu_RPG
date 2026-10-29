@@ -37,6 +37,13 @@ public class PlayerLocomotion : MonoBehaviour
     [SerializeField] private float rollDuration = 0.5f;
     [SerializeField] private float rollCooldown = 0.8f;
 
+    [Header("Guardar/sacar a espada (só personagens com o parâmetro \"Armado\" no Animator)")]
+    [Tooltip("Segundos sem lutar até guardar a espada sozinho")]
+    [SerializeField] private float tempoParaGuardar = 60f;
+    [Tooltip("Segundos depois de começar a sacar até poder atacar/defender")]
+    [SerializeField] private float tempoParaSacar = 0.55f;
+    [SerializeField] private KeyCode teclaGuardarSacar = KeyCode.H;
+
     [Header("Combo de ataques")]
     [SerializeField] private string[] estadosCombo = { "attack", "attack_2", "attack_3" };
     [SerializeField] private string estadoAtaquePesado = "attack_heavy";
@@ -77,6 +84,15 @@ public class PlayerLocomotion : MonoBehaviour
     private Vector3 empurrao;                       // empurrão ao levar golpe
     private float atordoadoAte;
 
+    // bainha
+    private bool usaBainha;
+    private bool armado = true;
+    private float ultimoCombate;
+    private float prontoEm;
+    private bool ataqueNaFila;
+    public bool Armado => armado;
+    public void MarcarCombate() { ultimoCombate = Time.time; }
+
     private void Awake()
     {
         controller = GetComponent<CharacterController>();
@@ -92,6 +108,15 @@ public class PlayerLocomotion : MonoBehaviour
                 golpesDisponiveis++;
             }
             temAtaquePesado = TemEstado(estadoAtaquePesado);
+            foreach (AnimatorControllerParameter par in animator.parameters)
+                if (par.name == "Armado") usaBainha = true;
+            if (usaBainha)
+            {
+                // começa fora de combate, com a espada nas costas
+                armado = false;
+                animator.SetBool("Armado", false);
+                animator.gameObject.SendMessage("GuardarEspada", SendMessageOptions.DontRequireReceiver);
+            }
         }
     }
 
@@ -102,7 +127,7 @@ public class PlayerLocomotion : MonoBehaviour
 
     private void Update()
     {
-        if (!Controlavel || Time.time < atordoadoAte)
+        if (!Controlavel || SessaoDeJogo.MenuAberto || Time.time < atordoadoAte)
         {
             // morto ou atordoado: só gravidade e empurrão
             if (controller.isGrounded && verticalVelocity < 0f) verticalVelocity = -0.5f; else verticalVelocity += gravity * Time.deltaTime;
@@ -155,15 +180,24 @@ public class PlayerLocomotion : MonoBehaviour
             if (animator != null) animator.SetTrigger("Jump");
         }
 
+        // --- Guardar/sacar a espada ---
+        if (usaBainha)
+        {
+            if (Input.GetKeyDown(teclaGuardarSacar) && !atacando && !isRolling) { if (armado) Guardar(); else Sacar(); }
+            else if (armado && !atacando && !isBlocking && Time.time - ultimoCombate > tempoParaGuardar) Guardar();
+        }
+
         // --- Defesa com escudo (botão direito ou Q, segurando) ---
         bool querDefender = Input.GetMouseButton(1) || Input.GetKey(KeyCode.Q);
+        if (querDefender && usaBainha) { MarcarCombate(); if (!armado) Sacar(); }
+        bool espadaPronta = !usaBainha || (armado && Time.time >= prontoEm);
         if (querDefender && atacando && !isRolling)
         {
             // cancela o golpe para defender na hora
             TerminarCombo();
             if (animator != null && TemEstado("Blend Tree")) animator.CrossFadeInFixedTime("Blend Tree", 0.08f, 0, 0f);
         }
-        isBlocking = querDefender && !isRolling && !atacando;
+        isBlocking = querDefender && !isRolling && !atacando && espadaPronta;
         if (animator != null) animator.SetBool("Block", isBlocking);
 
         // --- Ataques ---
@@ -240,8 +274,27 @@ public class PlayerLocomotion : MonoBehaviour
         bool podeAtacar = !isRolling && !isBlocking && controller.isGrounded;
         Vector3 direcaoGolpe = moveDir.sqrMagnitude > 0.001f ? moveDir : frenteCamera;
 
+        // espada guardada: o clique saca e o golpe sai assim que a espada chega na mão
+        if (usaBainha)
+        {
+            if (podeAtacar && Input.GetMouseButtonDown(0) && (!armado || Time.time < prontoEm))
+            {
+                MarcarCombate();
+                Sacar();
+                ataqueNaFila = true;
+                return;
+            }
+            if (ataqueNaFila && armado && Time.time >= prontoEm && !atacando)
+            {
+                ataqueNaFila = false;
+                if (podeAtacar) Golpe(0, direcaoGolpe);
+                return;
+            }
+        }
+
         if (podeAtacar && Input.GetMouseButtonDown(0))
         {
+            MarcarCombate();
             if (!atacando) Golpe(0, direcaoGolpe);
             else if (golpeAtual >= 0 && golpeAtual < golpesDisponiveis - 1) proximoNaFila = true;
         }
@@ -264,9 +317,28 @@ public class PlayerLocomotion : MonoBehaviour
         AoIniciarGolpe?.Invoke(indice);
     }
 
+    private void Sacar()
+    {
+        if (!usaBainha || armado) return;
+        armado = true;
+        prontoEm = Time.time + tempoParaSacar;
+        MarcarCombate();
+        animator.SetBool("Armado", true);
+    }
+
+    private void Guardar()
+    {
+        if (!usaBainha || !armado) return;
+        armado = false;
+        ataqueNaFila = false;
+        animator.SetBool("Armado", false);
+    }
+
     // chamado pelo combate quando o jogador leva um golpe
     public void ReagirAoDano(Vector3 origem, bool bloqueado)
     {
+        MarcarCombate();
+        if (usaBainha && !armado) Sacar();
         Vector3 dir = transform.position - origem; dir.y = 0f;
         if (dir.sqrMagnitude > 0.001f) empurrao = dir.normalized * (bloqueado ? 2.5f : 4f);
         if (bloqueado)

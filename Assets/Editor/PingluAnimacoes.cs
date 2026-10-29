@@ -283,6 +283,11 @@ public class PingluAnimacoes : EditorWindow
 
         Animator anim = AcharAnimatorDoJogador();
         if (anim == null) { EditorUtility.DisplayDialog("Pinglu", "Não achei o cavaleiro na cena. Abra a SampleScene.", "OK"); return; }
+        if (anim.runtimeAnimatorController != null && anim.runtimeAnimatorController.name.ToLower().Contains("sombrio"))
+        {
+            EditorUtility.DisplayDialog("Pinglu", "O personagem da cena é o Cavaleiro Sombrio, que já usa as animações feitas para ele (Pinglu > 18). Este menu era para o cavaleiro antigo.", "OK");
+            return;
+        }
 
         // 1) acerta o loop das animações escolhidas
         string[] nomesEscolhidos = new string[ACOES.Length];

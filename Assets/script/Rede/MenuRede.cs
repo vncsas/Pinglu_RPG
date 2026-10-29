@@ -18,6 +18,11 @@ public class MenuRede : MonoBehaviour
     [Tooltip("O personagem que já estava na cena; usado no modo sozinho e como ponto de nascimento")]
     [SerializeField] private GameObject jogadorDaCena;
 
+    [Header("Palco da seleção (o menu Pinglu > 23 preenche)")]
+    [SerializeField] private Material materialFundo;
+    [SerializeField] private Material materialChao;
+    [SerializeField] private Material materialParticula;
+
     [Header("Rede")]
     [SerializeField] private ushort porta = 7777;
     [SerializeField] private int maximoDeJogadores = 4;
@@ -33,6 +38,8 @@ public class MenuRede : MonoBehaviour
     private int proximoLugar;
     private string meusIps = "";
     private GUIStyle titulo, texto, textoPequeno, botao, cartao;
+    private GUIStyle estNome, estTituloPers, estSecao, estBotao, estCarta, estP1, estInterrogacao, estCampo;
+    private PalcoSelecao palco;
 
     private void Awake()
     {
@@ -54,12 +61,44 @@ public class MenuRede : MonoBehaviour
         for (int i = 0; i < personagens.Count; i++)
             if (personagens[i] != null && personagens[i].disponivel) { escolhido = i; break; }
         meusIps = IpsDesteComputador();
+        palco = gameObject.AddComponent<PalcoSelecao>();
+        palco.materialFundo = materialFundo; palco.materialChao = materialChao; palco.materialParticula = materialParticula;
+        palco.Montar(personagens);
+        palco.Mostrar(Ficha(escolhido));
         SessaoDeJogo.MenuAberto = true;
         SessaoDeJogo.Online = false;
     }
 
+    private void Escolher(int i)
+    {
+        if (Ficha(i) == null) return;
+        escolhido = i;
+        if (palco != null) palco.Mostrar(Ficha(i));
+    }
+
+    private void EscolherAleatorio()
+    {
+        List<int> ok = new List<int>();
+        for (int i = 0; i < personagens.Count; i++) if (Ficha(i) != null && Ficha(i).prefabJogador != null) ok.Add(i);
+        if (ok.Count > 0) Escolher(ok[Random.Range(0, ok.Count)]);
+    }
+
+    private void SairDoMenu()
+    {
+        if (palco != null) { palco.Desmontar(); Destroy(palco); palco = null; }
+    }
+
     private void Update()
     {
+        if (tela == Tela.Principal)
+        {
+            int dir = Input.GetKeyDown(KeyCode.RightArrow) ? 1 : (Input.GetKeyDown(KeyCode.LeftArrow) ? -1 : 0);
+            for (int passo = 1; dir != 0 && passo <= personagens.Count; passo++)
+            {
+                int i = ((escolhido + dir * passo) % personagens.Count + personagens.Count) % personagens.Count;
+                if (Ficha(i) != null) { Escolher(i); break; }
+            }
+        }
         if (tela == Tela.Jogando && SessaoDeJogo.Online && Input.GetKeyDown(teclaSair)) SairDaPartida();
         if (SessaoDeJogo.MenuAberto) { Cursor.lockState = CursorLockMode.None; Cursor.visible = true; }
     }
@@ -74,6 +113,7 @@ public class MenuRede : MonoBehaviour
         SessaoDeJogo.MenuAberto = false;
         if (jogadorDaCena != null) jogadorDaCena.SetActive(true);
         tela = Tela.Jogando;
+        SairDoMenu();
     }
 
     private bool Preparar()
@@ -101,7 +141,7 @@ public class MenuRede : MonoBehaviour
         nm.ConnectionApprovalCallback = Aprovar;
         nm.OnClientDisconnectCallback += AoDesconectar;
         SessaoDeJogo.Online = true; SessaoDeJogo.SouHost = true;
-        if (nm.StartHost()) { tela = Tela.Jogando; SessaoDeJogo.MenuAberto = false; }
+        if (nm.StartHost()) { tela = Tela.Jogando; SessaoDeJogo.MenuAberto = false; SairDoMenu(); }
         else { erro = "Não consegui criar a partida. A porta " + porta + " pode estar em uso."; SessaoDeJogo.Online = false; }
     }
 
@@ -150,6 +190,7 @@ public class MenuRede : MonoBehaviour
         if (id != NetworkManager.Singleton.LocalClientId) return;
         tela = Tela.Jogando;
         SessaoDeJogo.MenuAberto = false;
+        SairDoMenu();
     }
 
     private void AoDesconectar(ulong id)
@@ -207,93 +248,213 @@ public class MenuRede : MonoBehaviour
     private void Estilos()
     {
         float e = Screen.height / 1080f;
-        titulo = new GUIStyle(GUI.skin.label) { fontSize = Mathf.RoundToInt(64 * e), fontStyle = FontStyle.Bold, alignment = TextAnchor.MiddleCenter };
-        titulo.normal.textColor = new Color(0.9f, 0.75f, 0.45f);
-        texto = new GUIStyle(GUI.skin.label) { fontSize = Mathf.RoundToInt(22 * e), wordWrap = true };
-        texto.normal.textColor = new Color(0.92f, 0.9f, 0.85f);
-        textoPequeno = new GUIStyle(texto) { fontSize = Mathf.RoundToInt(17 * e) };
-        botao = new GUIStyle(GUI.skin.button) { fontSize = Mathf.RoundToInt(24 * e), fontStyle = FontStyle.Bold };
-        cartao = new GUIStyle(GUI.skin.button) { fontSize = Mathf.RoundToInt(20 * e), fontStyle = FontStyle.Bold, wordWrap = true, alignment = TextAnchor.LowerCenter };
+        Color bronze = new Color(0.93f, 0.74f, 0.42f), claro = new Color(0.94f, 0.90f, 0.82f);
+        titulo = new GUIStyle(GUI.skin.label) { fontSize = Mathf.RoundToInt(44 * e), fontStyle = FontStyle.Bold };
+        titulo.normal.textColor = bronze;
+        texto = new GUIStyle(GUI.skin.label) { fontSize = Mathf.RoundToInt(20 * e), wordWrap = true };
+        texto.normal.textColor = claro;
+        textoPequeno = new GUIStyle(texto) { fontSize = Mathf.RoundToInt(16 * e) };
+        textoPequeno.normal.textColor = new Color(0.78f, 0.74f, 0.66f);
+        estNome = new GUIStyle(GUI.skin.label) { fontSize = Mathf.RoundToInt(64 * e), fontStyle = FontStyle.Bold, wordWrap = true, alignment = TextAnchor.LowerLeft };
+        estNome.normal.textColor = new Color(0.97f, 0.93f, 0.86f);
+        estTituloPers = new GUIStyle(GUI.skin.label) { fontSize = Mathf.RoundToInt(26 * e), fontStyle = FontStyle.Italic };
+        estTituloPers.normal.textColor = bronze;
+        estSecao = new GUIStyle(GUI.skin.label) { fontSize = Mathf.RoundToInt(20 * e), fontStyle = FontStyle.Bold };
+        estSecao.normal.textColor = bronze;
+        estBotao = new GUIStyle(GUI.skin.label) { fontSize = Mathf.RoundToInt(24 * e), fontStyle = FontStyle.Bold, alignment = TextAnchor.MiddleCenter };
+        estCarta = new GUIStyle(GUI.skin.label) { fontSize = Mathf.RoundToInt(17 * e), fontStyle = FontStyle.Bold, alignment = TextAnchor.LowerCenter, wordWrap = true };
+        estCarta.normal.textColor = claro;
+        estP1 = new GUIStyle(GUI.skin.label) { fontSize = Mathf.RoundToInt(16 * e), fontStyle = FontStyle.Bold, alignment = TextAnchor.MiddleCenter };
+        estP1.normal.textColor = Color.white;
+        estInterrogacao = new GUIStyle(GUI.skin.label) { fontSize = Mathf.RoundToInt(80 * e), fontStyle = FontStyle.Bold, alignment = TextAnchor.MiddleCenter };
+        estInterrogacao.normal.textColor = new Color(0.55f, 0.45f, 0.35f);
+        estCampo = new GUIStyle(GUI.skin.textField) { fontSize = Mathf.RoundToInt(20 * e), alignment = TextAnchor.MiddleLeft };
     }
 
     private void OnGUI()
     {
         if (titulo == null || Event.current.type == EventType.Layout) Estilos();
         float e = Screen.height / 1080f;
+        Vector2 mouse = Event.current.mousePosition;
 
         if (tela == Tela.Jogando)
         {
-            if (SessaoDeJogo.Online)
+            if (SessaoDeJogo.Online && !SessaoDeJogo.MenuAberto)
             {
                 NetworkManager nm = NetworkManager.Singleton;
                 int n = nm != null && nm.IsServer ? nm.ConnectedClientsIds.Count : 0;
                 string info = SessaoDeJogo.SouHost ? "Você é o host  |  IP: " + meusIps + "  |  Jogadores: " + n : "Conectado à partida";
-                GUI.Label(new Rect(16 * e, Screen.height - 60 * e, Screen.width, 30 * e), info + "  |  " + teclaSair + ": sair da partida", textoPequeno);
+                GUI.Label(new Rect(Screen.width - 760f * e, Screen.height - 40f * e, 740f * e, 30f * e), info + "  |  " + teclaSair + ": sair", new GUIStyle(textoPequeno) { alignment = TextAnchor.MiddleRight });
             }
             return;
         }
 
-        Retangulo(new Rect(0, 0, Screen.width, Screen.height), new Color(0f, 0f, 0f, 0.6f));
-        float w = Mathf.Min(1100f * e, Screen.width - 40f);
-        float x = (Screen.width - w) / 2f, y = 60f * e;
-        GUI.Label(new Rect(0, y, Screen.width, 90 * e), "PINGLU", titulo);
-        y += 110 * e;
+        // escurece as bordas para o texto ficar legível sobre o palco
+        Gradiente(new Rect(0, 0, Screen.width, 160f * e), 0.75f, true);
+        Gradiente(new Rect(0, Screen.height - 470f * e, Screen.width, 470f * e), 0.88f, false);
 
-        if (tela == Tela.Conectando)
-        {
-            GUI.Label(new Rect(x, y + 120 * e, w, 40 * e), "Conectando em " + ipDigitado + "...", new GUIStyle(texto) { alignment = TextAnchor.MiddleCenter });
-            if (GUI.Button(new Rect(Screen.width / 2f - 120 * e, y + 200 * e, 240 * e, 56 * e), "Cancelar", botao)) Voltar(null);
-            return;
-        }
+        // ---- topo
+        GUI.Label(new Rect(48f * e, 26f * e, 600f * e, 60f * e), "PINGLU", titulo);
+        GUI.Label(new Rect(52f * e, 80f * e, 600f * e, 30f * e), "ESCOLHA SEU GUERREIRO", estSecao);
 
-        // ---- escolha de personagem
-        GUI.Label(new Rect(x, y, w, 34 * e), "Escolha seu personagem", texto);
-        y += 40 * e;
-        int qtd = Mathf.Max(4, personagens.Count);
-        float cw = (w - 3 * 16 * e) / 4f, ch = 150 * e;
-        for (int i = 0; i < 4 && i < qtd; i++)
-        {
-            FichaPersonagem f = i < personagens.Count ? personagens[i] : null;
-            bool ok = f != null && f.disponivel && f.prefabJogador != null;
-            Rect r = new Rect(x + i * (cw + 16 * e), y, cw, ch);
-            Color cor = f != null ? f.corDestaque : Color.gray;
-            Retangulo(new Rect(r.x - 4 * e, r.y - 4 * e, r.width + 8 * e, r.height + 8 * e), i == escolhido && ok ? cor : new Color(0.2f, 0.2f, 0.2f, 0.8f));
-            GUI.enabled = ok;
-            if (f != null && f.retrato != null) GUI.DrawTexture(r, f.retrato, ScaleMode.ScaleAndCrop);
-            if (GUI.Button(r, f == null ? "Em breve" : (f.nome + (ok ? "" : "\n(em breve)")), cartao)) escolhido = i;
-            GUI.enabled = true;
-        }
-        y += ch + 20 * e;
         FichaPersonagem atual = Ficha(escolhido);
+
+        // ---- nome grande à esquerda
         if (atual != null)
         {
-            string hab = atual.habilidades != null && atual.habilidades.Length > 0 ? "\n• " + string.Join("\n• ", atual.habilidades) : "";
-            GUI.Label(new Rect(x, y, w, 110 * e), atual.descricao + hab, textoPequeno);
+            // à esquerda do personagem (que fica um pouco à direita do centro)
+            float yNome = Screen.height - 640f * e;
+            Sombra(new Rect(56f * e, yNome, Screen.width * 0.36f, 160f * e), atual.nome.ToUpper(), estNome, 4f * e);
+            if (!string.IsNullOrEmpty(atual.titulo)) Sombra(new Rect(62f * e, yNome + 164f * e, Screen.width * 0.36f, 40f * e), atual.titulo, estTituloPers, 2f * e);
         }
-        y += 120 * e;
 
-        // ---- botões
-        float bw = (w - 32 * e) / 3f, bh = 60 * e;
-        if (GUI.Button(new Rect(x, y, bw, bh), "Jogar sozinho", botao)) JogarSozinho();
-        if (GUI.Button(new Rect(x + bw + 16 * e, y, bw, bh), "Criar partida", botao)) CriarPartida();
-        Rect entrar = new Rect(x + 2 * (bw + 16 * e), y, bw, bh);
-        if (GUI.Button(entrar, "Entrar na partida", botao)) EntrarNaPartida();
-        y += bh + 14 * e;
-        GUI.Label(new Rect(entrar.x, y, 140 * e, 34 * e), "IP do host:", textoPequeno);
-        ipDigitado = GUI.TextField(new Rect(entrar.x + 110 * e, y, bw - 110 * e, 34 * e), ipDigitado, new GUIStyle(GUI.skin.textField) { fontSize = Mathf.RoundToInt(20 * e) });
-        y += 50 * e;
+        // ---- painel de informações à direita
+        if (atual != null) PainelInfo(atual, e);
 
-        GUI.Label(new Rect(x, y, w, 30 * e), "O IP deste computador é: " + meusIps + "   (porta " + porta + ")", textoPequeno);
-        y += 34 * e;
-        GUI.Label(new Rect(x, y, w, 60 * e), "Para jogar juntos, os PCs precisam estar na mesma rede (mesmo Wi-Fi). Para testar sozinho, abra o jogo duas vezes: uma em \"Criar partida\" e outra em \"Entrar\" com o IP 127.0.0.1.", textoPequeno);
-        y += 64 * e;
+        // ---- fileira de cartas
+        Cartas(e, mouse);
+
+        // ---- opções
+        float bw = 330f * e, bh = 66f * e, gap = 22f * e;
+        float bx = (Screen.width - (bw * 3 + gap * 2)) * 0.5f, by = Screen.height - 165f * e;
+        if (tela == Tela.Conectando)
+        {
+            Moldura(new Rect(bx, by - 10f * e, bw * 3 + gap * 2, bh + 20f * e), 0.9f, false);
+            GUI.Label(new Rect(bx, by, bw * 2, bh), "  Conectando em " + ipDigitado + "...", new GUIStyle(texto) { alignment = TextAnchor.MiddleLeft, fontSize = Mathf.RoundToInt(24 * e) });
+            if (Botao(new Rect(bx + 2 * (bw + gap), by, bw, bh), "CANCELAR", mouse, e)) Voltar(null);
+            return;
+        }
+        if (Botao(new Rect(bx, by, bw, bh), "JOGAR SOZINHO", mouse, e)) JogarSozinho();
+        if (Botao(new Rect(bx + bw + gap, by, bw, bh), "CRIAR PARTIDA", mouse, e)) CriarPartida();
+        Rect rEntrar = new Rect(bx + 2 * (bw + gap), by, bw, bh);
+        if (Botao(rEntrar, "ENTRAR NA PARTIDA", mouse, e)) EntrarNaPartida();
+        GUI.Label(new Rect(rEntrar.x, rEntrar.yMax + 10f * e, 120f * e, 34f * e), "IP do host:", textoPequeno);
+        ipDigitado = GUI.TextField(new Rect(rEntrar.x + 105f * e, rEntrar.yMax + 8f * e, bw - 105f * e, 34f * e), ipDigitado, estCampo);
+
+        GUI.Label(new Rect(bx, by + bh + 12f * e, bw * 2, 30f * e), "Este computador: " + meusIps + "  (porta " + porta + ")   •   ← → trocam o personagem", textoPequeno);
 
         string msg = erro ?? SessaoDeJogo.MensagemAoVoltar;
         if (!string.IsNullOrEmpty(msg))
         {
             GUIStyle st = new GUIStyle(texto); st.normal.textColor = new Color(1f, 0.5f, 0.4f);
-            GUI.Label(new Rect(x, y, w, 60 * e), msg, st);
+            GUI.Label(new Rect(bx, by - 52f * e, bw * 3 + gap * 2, 40f * e), msg, st);
         }
+    }
+
+    private void PainelInfo(FichaPersonagem f, float e)
+    {
+        float w = 500f * e;
+        Rect r = new Rect(Screen.width - w - 56f * e, 150f * e, w, 400f * e);
+        Moldura(r, 0.78f, false);
+        float x = r.x + 26f * e, y = r.y + 20f * e, lw = w - 52f * e;
+        GUI.Label(new Rect(x, y, lw, 90f * e), f.descricao, texto); y += 92f * e;
+        GUI.Label(new Rect(x, y, lw, 30f * e), "HABILIDADES", estSecao); y += 32f * e;
+        if (f.habilidades != null)
+            foreach (string h in f.habilidades) { GUI.Label(new Rect(x, y, lw, 28f * e), "◆  " + h, textoPequeno); y += 26f * e; }
+        y += 14f * e;
+        GUI.Label(new Rect(x, y, lw, 30f * e), "ATRIBUTOS", estSecao); y += 34f * e;
+        Barra(x, ref y, lw, e, "Força", f.forca);
+        Barra(x, ref y, lw, e, "Defesa", f.defesa);
+        Barra(x, ref y, lw, e, "Velocidade", f.velocidade);
+        Barra(x, ref y, lw, e, "Alcance", f.alcance);
+        r.height = y - r.y + 16f * e; // ajusta a altura ao conteúdo (vale no próximo quadro)
+    }
+
+    private void Barra(float x, ref float y, float w, float e, string nome, int valor)
+    {
+        GUI.Label(new Rect(x, y - 3f * e, 140f * e, 28f * e), nome, textoPequeno);
+        float bx = x + 140f * e, bw = w - 140f * e, h = 12f * e;
+        Retangulo(new Rect(bx, y + 4f * e, bw, h), new Color(0.12f, 0.09f, 0.07f, 0.95f));
+        float seg = bw / 10f;
+        for (int i = 0; i < 10; i++)
+            Retangulo(new Rect(bx + i * seg + 1f, y + 5f * e, seg - 2f, h - 2f * e),
+                i < valor ? Color.Lerp(new Color(0.75f, 0.45f, 0.18f), new Color(0.98f, 0.78f, 0.42f), i / 9f) : new Color(0.2f, 0.16f, 0.13f));
+        y += 28f * e;
+    }
+
+    private void Cartas(float e, Vector2 mouse)
+    {
+        int n = Mathf.Max(4, personagens.Count);
+        float cw = 150f * e, ch = 190f * e, gap = 16f * e;
+        int total = n + 1; // + a carta aleatória
+        float x0 = (Screen.width - (total * cw + (total - 1) * gap)) * 0.5f, y = Screen.height - 400f * e;
+        for (int i = 0; i < total; i++)
+        {
+            Rect r = new Rect(x0 + i * (cw + gap), y, cw, ch);
+            bool aleatoria = i == n;
+            FichaPersonagem f = !aleatoria && i < personagens.Count ? personagens[i] : null;
+            bool ok = aleatoria || (f != null && f.disponivel && f.prefabJogador != null);
+            bool sel = !aleatoria && i == escolhido && ok;
+            bool sobre = r.Contains(mouse) && ok;
+            if (sobre) r = new Rect(r.x - 4f * e, r.y - 8f * e, r.width + 8f * e, r.height + 8f * e);
+
+            if (sel) Retangulo(new Rect(r.x - 8f * e, r.y - 8f * e, r.width + 16f * e, r.height + 16f * e), new Color(1f, 0.55f, 0.2f, 0.18f + 0.1f * Mathf.Sin(Time.unscaledTime * 3f)));
+            Retangulo(r, new Color(0.07f, 0.05f, 0.05f, 0.95f));
+            Texture ret = f != null && palco != null ? palco.Retrato(f) : null;
+            if (ret != null && ok) GUI.DrawTexture(r, ret, ScaleMode.ScaleAndCrop);
+            else if (aleatoria) GUI.Label(r, "?", new GUIStyle(estInterrogacao) { normal = { textColor = new Color(0.93f, 0.74f, 0.42f) } });
+            else GUI.Label(r, "?", estInterrogacao);
+            Gradiente(new Rect(r.x, r.yMax - 70f * e, r.width, 70f * e), 0.9f, false);
+            string nome = aleatoria ? "ALEATÓRIO" : (f != null && ok ? f.nome : "EM BREVE");
+            GUI.Label(new Rect(r.x + 6f * e, r.y, r.width - 12f * e, r.height - 10f * e), nome.ToUpper(), estCarta);
+
+            Borda(r, sel ? 4f * e : 2f * e, sel ? new Color(0.98f, 0.76f, 0.38f) : (sobre ? new Color(0.8f, 0.6f, 0.32f) : new Color(0.4f, 0.3f, 0.18f)));
+            if (sel)
+            {
+                Rect tag = new Rect(r.center.x - 26f * e, r.yMax - 4f * e, 52f * e, 26f * e);
+                Retangulo(tag, new Color(0.62f, 0.08f, 0.06f));
+                Borda(tag, 2f * e, new Color(0.98f, 0.76f, 0.38f));
+                GUI.Label(tag, "P1", estP1);
+            }
+            if (ok && GUI.Button(r, GUIContent.none, GUIStyle.none)) { if (aleatoria) EscolherAleatorio(); else Escolher(i); }
+        }
+    }
+
+    private bool Botao(Rect r, string rotulo, Vector2 mouse, float e)
+    {
+        bool sobre = r.Contains(mouse);
+        Moldura(r, sobre ? 0.95f : 0.85f, sobre);
+        Color c = estBotao.normal.textColor;
+        estBotao.normal.textColor = sobre ? new Color(1f, 0.86f, 0.55f) : new Color(0.9f, 0.84f, 0.74f);
+        GUI.Label(r, rotulo, estBotao);
+        estBotao.normal.textColor = c;
+        return GUI.Button(r, GUIContent.none, GUIStyle.none);
+    }
+
+    private static void Moldura(Rect r, float opacidade, bool destaque)
+    {
+        Retangulo(r, new Color(0.06f, 0.045f, 0.04f, opacidade));
+        Borda(r, destaque ? 3f : 2f, destaque ? new Color(0.98f, 0.74f, 0.36f) : new Color(0.62f, 0.44f, 0.2f));
+        Retangulo(new Rect(r.x + 5f, r.y + 5f, r.width - 10f, 1f), new Color(0.62f, 0.44f, 0.2f, 0.35f));
+    }
+
+    private static void Borda(Rect r, float b, Color c)
+    {
+        Retangulo(new Rect(r.x, r.y, r.width, b), c);
+        Retangulo(new Rect(r.x, r.yMax - b, r.width, b), c);
+        Retangulo(new Rect(r.x, r.y, b, r.height), c);
+        Retangulo(new Rect(r.xMax - b, r.y, b, r.height), c);
+    }
+
+    // faixa que vai do preto (na borda) ao transparente
+    private static void Gradiente(Rect r, float forca, bool deCima)
+    {
+        int passos = 24;
+        for (int i = 0; i < passos; i++)
+        {
+            float t = i / (float)passos;
+            float a = forca * (deCima ? 1f - t : t);
+            Retangulo(new Rect(r.x, r.y + r.height * t, r.width, r.height / passos + 1f), new Color(0.02f, 0.015f, 0.02f, a * a));
+        }
+    }
+
+    private static void Sombra(Rect r, string s, GUIStyle st, float d)
+    {
+        Color c = st.normal.textColor;
+        st.normal.textColor = new Color(0f, 0f, 0f, 0.85f);
+        GUI.Label(new Rect(r.x + d, r.y + d, r.width, r.height), s, st);
+        st.normal.textColor = c;
+        GUI.Label(r, s, st);
     }
 
     private static void Retangulo(Rect r, Color c)

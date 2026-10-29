@@ -119,6 +119,7 @@ public class HUDJogador : MonoBehaviour
 
     private void OnGUI()
     {
+        if (SessaoDeJogo.MenuAberto) return;
         if (estiloTexto == null || Event.current.type == EventType.Layout) CriarEstilos();
         float esc = Screen.height / 1080f;
 

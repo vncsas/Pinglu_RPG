@@ -13,6 +13,22 @@ public class FichaPersonagem : ScriptableObject
     public Color corDestaque = new Color(0.8f, 0.6f, 0.25f);
     public Texture2D retrato;
 
+    [Tooltip("Título que aparece embaixo do nome na tela de seleção")]
+    public string titulo = "";
+
+    [Header("Atributos (0 a 10, só para mostrar na seleção)")]
+    [Range(0, 10)] public int forca = 5;
+    [Range(0, 10)] public int defesa = 5;
+    [Range(0, 10)] public int velocidade = 5;
+    [Range(0, 10)] public int alcance = 5;
+
+    [Header("Palco da tela de seleção")]
+    [Tooltip("O modelo 3D (o .fbx do personagem, sem scripts)")]
+    public GameObject modeloVisual;
+    public AnimationClip animacaoParado;
+    [Tooltip("Golpe de apresentação tocado quando o personagem é escolhido")]
+    public AnimationClip animacaoEntrada;
+
     [Header("Jogo")]
     [Tooltip("Prefab do jogador (precisa ter NetworkObject). O menu Pinglu > 15 cria o do cavaleiro.")]
     public GameObject prefabJogador;

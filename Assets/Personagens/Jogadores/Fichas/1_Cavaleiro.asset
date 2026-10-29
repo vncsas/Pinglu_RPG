@@ -12,14 +12,21 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 45772ae0587a59f2abfe47e73b6fe1b9, type: 3}
   m_Name: 1_Cavaleiro
   m_EditorClassIdentifier: Assembly-CSharp::FichaPersonagem
-  nome: Cavaleiro
-  descricao: "Guerreiro de armadura pesada, com espada e escudo. (Personagem provis\xF3rio: ser\xE1 trocado pelo cavaleiro definitivo.)"
+  nome: Cavaleiro Sombrio
+  descricao: "Guerreiro encapuzado com coroa e armadura pesada, que luta com um montante de duas m\xE3os."
   habilidades:
-  - Combo de 3 golpes de espada (clique esquerdo)
-  - Golpe pesado (clique direito)
-  - Bloqueio com escudo (Q)
+  - Combo de 3 golpes de montante (clique esquerdo)
+  - "Guarda com a espada (segurar o bot\xE3o direito)"
   - Rolamento sem levar dano (Ctrl)
   corDestaque: {r: 0.85, g: 0.6, b: 0.25, a: 1}
   retrato: {fileID: 0}
-  prefabJogador: {fileID: 8959231126796434193, guid: e60109c0b37b2c84ea19ac209cf1e1e1, type: 3}
+  titulo: "A L\xE2mina do Crep\xFAsculo"
+  forca: 9
+  defesa: 7
+  velocidade: 4
+  alcance: 9
+  modeloVisual: {fileID: 919132149155446097, guid: a7297624c3f55b194becf13f240ddacd, type: 3}
+  animacaoParado: {fileID: -619547186965265060, guid: 05eb52110e24493ee9eb24de2fd20dd9, type: 3}
+  animacaoEntrada: {fileID: -3859273178093764539, guid: d56df1bcd833f55ea9dbc6a51a26fbc5, type: 3}
+  prefabJogador: {fileID: 3797705696538078137, guid: 0478f44b36a5b81ab8b343a947f91a77, type: 3}
   disponivel: 1

@@ -33,6 +33,11 @@ public static class PingluEscudo
         foreach (Animator a in jogador.GetComponentsInChildren<Animator>(true)) if (a.runtimeAnimatorController != null) { anim = a; break; }
         AnimatorController ctrl = anim != null ? anim.runtimeAnimatorController as AnimatorController : null;
         if (ctrl == null) { EditorUtility.DisplayDialog("Pinglu", "O cavaleiro não tem um Animator Controller editável. Rode antes o Pinglu > 5.", "OK"); return; }
+        if (ctrl.name.ToLower().Contains("sombrio"))
+        {
+            EditorUtility.DisplayDialog("Pinglu", "Este menu era para o cavaleiro antigo (com escudo). O Cavaleiro Sombrio já vem com a defesa montada pelo Pinglu > 18.", "OK");
+            return;
+        }
 
         AnimationClip segurar = Clipe("Blocking", true);
         AnimationClip impacto = Clipe("Block", false);
@@ -141,6 +146,7 @@ public static class PingluEscudo
             if (p == null || !p.gameObject.scene.IsValid() || EditorUtility.IsPersistent(p)) continue;
             string n = p.gameObject.name.ToLower();
             if (n.Contains("x bot") || n.Contains("antigo")) continue;
+            if (!p.gameObject.activeInHierarchy) continue;
             return p.gameObject;
         }
         return null;

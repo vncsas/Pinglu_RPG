@@ -33,6 +33,7 @@ public class EscudoAnimacao : MonoBehaviour
     public void Impacto()
     {
         if (anim == null || camada < 0) return;
+        if (!anim.HasState(camada, Animator.StringToHash("impacto"))) return;
         anim.CrossFadeInFixedTime("impacto", 0.05f, camada, 0f);
     }
 }
