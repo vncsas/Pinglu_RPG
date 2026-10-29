@@ -15,6 +15,10 @@ public class FichaPersonagem : ScriptableObject
 
     [Tooltip("Título que aparece embaixo do nome na tela de seleção")]
     public string titulo = "";
+    [Tooltip("Fonte do nome na tela de seleção (cada personagem tem a sua)")]
+    public Font fonteNome;
+    public int tamanhoNome = 64;
+    public Color corNome = new Color(0.97f, 0.93f, 0.86f, 1f);
 
     [Header("Atributos (0 a 10, só para mostrar na seleção)")]
     [Range(0, 10)] public int forca = 5;

@@ -21,6 +21,9 @@ MonoBehaviour:
   corDestaque: {r: 0.85, g: 0.6, b: 0.25, a: 1}
   retrato: {fileID: 0}
   titulo: "A L\xE2mina do Crep\xFAsculo"
+  fonteNome: {fileID: 12800000, guid: fdf91045cd029705d874ddd252b57205, type: 3}
+  tamanhoNome: 84
+  corNome: {r: 0.93, g: 0.9, b: 0.86, a: 1}
   forca: 9
   defesa: 7
   velocidade: 4

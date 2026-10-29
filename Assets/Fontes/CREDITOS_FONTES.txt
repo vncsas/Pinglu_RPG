@@ -1,0 +1,6 @@
+Fontes usadas no Pinglu (todas com licença SIL Open Font License 1.1, ver LICENCA_FONTES_OFL.txt):
+- Cinzel Decorative (Natanael Gama) - interface
+- Marcellus SC (Astigmatic) - textos
+- Pirata One (Rodrigo Fuenzalida, Nicolas Massi) - nome do Cavaleiro Sombrio
+- Uncial Antiqua (Astigmatic) - nome da Maga
+Baixadas de github.com/google/fonts

@@ -1827,6 +1827,23 @@ public static partial class PingluVila
             Tri(a, b, c, -nrm, mat);
         }
 
+        // arranca as faces cujo centro cai em "remover" (telhados desabados, paredes quebradas)
+        public void Danificar(System.Func<Vector3, bool> remover)
+        {
+            List<int> chaves = new List<int>(tri.Keys);
+            foreach (int k in chaves)
+            {
+                List<int> l = tri[k];
+                List<int> nova = new List<int>(l.Count);
+                for (int i = 0; i + 2 < l.Count; i += 3)
+                {
+                    Vector3 c = (v[l[i]] + v[l[i + 1]] + v[l[i + 2]]) / 3f;
+                    if (!remover(c)) { nova.Add(l[i]); nova.Add(l[i + 1]); nova.Add(l[i + 2]); }
+                }
+                tri[k] = nova;
+            }
+        }
+
         public void Caixa(Vector3 c, Vector3 s, int mat) { Caixa(c, s, Quaternion.identity, mat); }
 
         public void Caixa(Vector3 c, Vector3 s, Quaternion r, int mat)

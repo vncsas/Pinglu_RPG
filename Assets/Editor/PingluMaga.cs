@@ -271,7 +271,7 @@ public static class PingluMaga
     {
         FichaPersonagem f = AssetDatabase.LoadAssetAtPath<FichaPersonagem>(FICHA);
         if (f == null) { avisos.Add("Não achei a ficha do personagem 2 (rode o Pinglu > 15)."); return; }
-        f.nome = "Maga";
+        f.nome = "Morgana";
         f.titulo = "A Tecelã do Relâmpago";
         f.descricao = "Feiticeira encapuzada que dispara esferas arcanas com a mão e invoca relâmpagos pelo cajado. Flutua para se mover rápido.";
         f.habilidades = new[] { "Esfera arcana com mira automática (clique esquerdo)", "3º golpe: relâmpago que atinge todos na linha",

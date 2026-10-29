@@ -12,7 +12,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 45772ae0587a59f2abfe47e73b6fe1b9, type: 3}
   m_Name: 2_Personagem2
   m_EditorClassIdentifier: Assembly-CSharp::FichaPersonagem
-  nome: Maga
+  nome: Morgana
   descricao: "Feiticeira encapuzada que dispara esferas arcanas com a m\xE3o e invoca rel\xE2mpagos pelo cajado. Flutua para se mover r\xE1pido."
   habilidades:
   - "Esfera arcana com mira autom\xE1tica (clique esquerdo)"
@@ -22,6 +22,9 @@ MonoBehaviour:
   corDestaque: {r: 0.62, g: 0.32, b: 1, a: 1}
   retrato: {fileID: 0}
   titulo: "A Tecel\xE3 do Rel\xE2mpago"
+  fonteNome: {fileID: 12800000, guid: 999c088059776619b9ba046558c24dc3, type: 3}
+  tamanhoNome: 76
+  corNome: {r: 0.86, g: 0.8, b: 1, a: 1}
   forca: 6
   defesa: 4
   velocidade: 7

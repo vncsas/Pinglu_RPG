@@ -11,6 +11,8 @@ public class PortalDoMundo : MonoBehaviour
     [Header("Aparência (o menu Pinglu > 23 preenche)")]
     public Material materialPortal;
     public Material materialParticula;
+    [Tooltip("Fundo sólido atrás do redemoinho (o menu Pinglu > 23 preenche)")]
+    public Material materialFundo;
     public Color cor = new Color(0.55f, 0.45f, 1f);
 
     [Header("Tempo")]
@@ -36,7 +38,8 @@ public class PortalDoMundo : MonoBehaviour
     private Material mat;
     private Light luz;
     private ParticleSystem faiscas;
-    private Renderer rend;
+    private Renderer rend, rendFundo;
+    private Material matFundo;
 
     private enum Estado { Apagado, Aberto, Fechando }
     private Estado estado = Estado.Apagado;
@@ -136,6 +139,22 @@ public class PortalDoMundo : MonoBehaviour
         rend.sharedMaterial = mat;
         rend.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
 
+        // fundo escuro atrás do redemoinho: a abertura vira uma passagem (esconde a floresta atrás)
+        if (materialFundo != null)
+        {
+            GameObject f = GameObject.CreatePrimitive(PrimitiveType.Quad);
+            Destroy(f.GetComponent<Collider>());
+            f.name = "Fundo do Portal";
+            f.transform.SetParent(abertura, false);
+            f.transform.localPosition = new Vector3(0f, 0f, 0.04f);
+            matFundo = new Material(materialFundo);
+            if (matFundo.HasProperty("_Arco")) matFundo.SetFloat("_Arco", Mathf.Clamp(1f - (w * 0.5f) / h, 0.1f, 0.95f));
+            if (matFundo.HasProperty("_Aspecto")) matFundo.SetFloat("_Aspecto", h / Mathf.Max(w, 0.01f));
+            rendFundo = f.GetComponent<Renderer>();
+            rendFundo.sharedMaterial = matFundo;
+            rendFundo.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
+        }
+
         GameObject gl = new GameObject("Luz do Portal");
         gl.transform.SetParent(efeitos, true);
         gl.transform.position = CentroDaAbertura + Frente * 1.2f;
@@ -158,6 +177,7 @@ public class PortalDoMundo : MonoBehaviour
     private void Mostrar(bool ligado)
     {
         if (rend != null) rend.enabled = ligado;
+        if (rendFundo != null) rendFundo.enabled = ligado;
         if (luz != null) luz.enabled = ligado;
         if (faiscas != null) { if (ligado) faiscas.Play(); else faiscas.Stop(true, ParticleSystemStopBehavior.StopEmittingAndClear); }
     }
@@ -195,6 +215,7 @@ public class PortalDoMundo : MonoBehaviour
         }
         float pulso = 1f + Mathf.Sin(Time.time * 2f) * 0.08f;
         if (temAbertura) mat.SetFloat("_Abertura", tamanho);   // o arco fica do tamanho da porta; a luz é que abre/fecha
+        if (matFundo != null && matFundo.HasProperty("_Abertura")) matFundo.SetFloat("_Abertura", tamanho);
         else abertura.localScale = new Vector3(escalaAbertura.x * Mathf.Max(tamanho, 0.001f), escalaAbertura.y * Mathf.Max(tamanho, 0.001f), 1f);
         if (mat.HasProperty("_Intensidade")) { mat.SetFloat("_Intensidade", forca * pulso); mat.SetFloat("_Velocidade", giro); }
         else mat.SetColor("_BaseColor", cor * (2.2f * forca * pulso));
