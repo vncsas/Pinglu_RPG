@@ -56,6 +56,17 @@ public class GerenciadorDeOndas : MonoBehaviour
     [Tooltip("Quanto da vida o jogador recupera ao vencer uma onda (0.3 = 30%)")]
     [SerializeField] private float curaAoVencerOnda = 0.3f;
 
+    // moldes dos monstros (usado pelo trailer)
+    public GameObject[] PrefabsDeMonstros
+    {
+        get
+        {
+            List<GameObject> l = new List<GameObject>();
+            foreach (TipoDeMonstro t in TiposValidos()) l.Add(t.prefab);
+            return l.ToArray();
+        }
+    }
+
     public int OndaAtual { get; private set; }
     public int Vivos => vivos.Count;
     public int Restantes { get; private set; }

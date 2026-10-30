@@ -37,7 +37,7 @@ Material:
     - _Rot: 0
     - _Zoom: 0.16
     m_Colors:
-    - _Centro: {r: 0.6226433, g: 0.34641325, b: 0, a: 0}
+    - _Centro: {r: 0.59719056, g: 0.33044425, b: 0, a: 0}
     - _CorNevoa: {r: 0.15999997, g: 0.12999997, b: 0.09999997, a: 1}
   m_BuildTextureStacks: []
   m_AllowLocking: 1
