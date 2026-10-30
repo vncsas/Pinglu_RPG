@@ -30,6 +30,10 @@ public class InimigoEsqueleto : MonoBehaviour
     [SerializeField] private float vidaMaxima = 60f;
     [SerializeField] private float tempoAtordoado = 0.45f;
 
+    [Header("Aparência")]
+    [Tooltip("Cor que tinge o modelo (branco = sem mudança). Usada nas variações de monstro")]
+    [SerializeField] private Color tom = Color.white;
+
     [Header("Barra de vida")]
     [SerializeField] private Material materialFundo;
     [SerializeField] private Material materialFrente;
@@ -72,10 +76,23 @@ public class InimigoEsqueleto : MonoBehaviour
         vida.DefinirMaxima(vidaMaxima);
         vida.AoLevarDano += AoLevarDano;
         vida.AoMorrer += Morrer;
+        AplicarTom();
         CriarBarra();
     }
 
     private void Start() { AcharAlvo(); }
+
+    private void AplicarTom()
+    {
+        if (tom == Color.white) return;
+        MaterialPropertyBlock bloco = new MaterialPropertyBlock();
+        foreach (Renderer r in GetComponentsInChildren<Renderer>())
+        {
+            r.GetPropertyBlock(bloco);
+            bloco.SetColor("_BaseColor", tom);
+            r.SetPropertyBlock(bloco);
+        }
+    }
 
     // o jogador vivo mais perto (no multiplayer, qualquer um dos jogadores)
     private void AcharAlvo()
@@ -92,6 +109,17 @@ public class InimigoEsqueleto : MonoBehaviour
         }
         alvo = achado; vidaAlvo = vAchada;
     }
+
+    // área onde este monstro pode agir: ele só persegue quem está dentro dela (ex.: a floresta)
+    private bool temLimite;
+    private Vector3 limiteCentro;
+    private float limiteRaio;
+    private System.Func<Vector3, bool> areaDentro;
+    public void DefinirLimite(Vector3 centro, float raio) { temLimite = true; limiteCentro = centro; limiteRaio = raio; areaDentro = null; }
+    // área de qualquer formato; "refugio" é para onde o monstro volta se ficar fora dela
+    public void DefinirArea(System.Func<Vector3, bool> dentro, Vector3 refugio) { temLimite = true; areaDentro = dentro; limiteCentro = refugio; limiteRaio = 0f; }
+    private bool EstaDentro(Vector3 p) { return areaDentro != null ? areaDentro(p) : PlanoDist(p, limiteCentro) <= limiteRaio; }
+    private static float PlanoDist(Vector3 a, Vector3 b) { a.y = 0f; b.y = 0f; return Vector3.Distance(a, b); }
 
     public void MultiplicarVida(float fator) { vida.DefinirMaxima(vidaMaxima * fator); }
 
@@ -129,6 +157,7 @@ public class InimigoEsqueleto : MonoBehaviour
 
         Vector3 mover = Vector3.zero;
         bool alvoVivo = alvo != null && (vidaAlvo == null || !vidaAlvo.Morto);
+        if (alvoVivo && temLimite && !EstaDentro(alvo.position)) alvoVivo = false; // o jogador saiu da área deste monstro
         Vector3 paraAlvo = alvoVivo ? alvo.position - transform.position : Vector3.zero;
         paraAlvo.y = 0f;
         float dist = paraAlvo.magnitude;
@@ -136,7 +165,19 @@ public class InimigoEsqueleto : MonoBehaviour
         switch (estado)
         {
             case Estado.Perseguindo:
-                if (!alvoVivo) { Tocar(animParado); break; }
+                if (!alvoVivo)
+                {
+                    // sem alvo: se estiver perto da borda da área, volta para dentro; senão fica parado
+                    Vector3 paraCentro = limiteCentro - transform.position; paraCentro.y = 0f;
+                    if (temLimite && (areaDentro != null ? !EstaDentro(transform.position) : paraCentro.magnitude > limiteRaio - 8f))
+                    {
+                        Girar(paraCentro);
+                        mover = transform.forward * velocidade;
+                        Tocar(animAndar);
+                    }
+                    else Tocar(animParado);
+                    break;
+                }
                 Girar(paraAlvo);
                 if (dist > distanciaParaAtacar)
                 {

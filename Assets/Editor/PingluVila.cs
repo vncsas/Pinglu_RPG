@@ -48,7 +48,9 @@ public static partial class PingluVila
               AGUA = 18, FOLHAGEM = 19, BRASA = 20, LANTERNA = 21,
               P_JANELA_ARCO = 22, P_VITRAL = 23, P_GRADE = 24, P_VENEZIANA = 25, P_PORTA_ARCO = 26,
               P_PORTA = 27, P_BRASAO = 28, P_ARCO_SINO = 29;
-    const int TOTAL_MATS = 30;
+    // materiais do cemitério (texturas realistas CC0 do Poly Haven)
+    const int CEM_TIJOLO = 30, CEM_PEDRA = 31, CEM_LAPIDE = 32, CEM_PISO = 33, CEM_PRACA = 34, CEM_TELHA = 35, CEM_CASCA = 36;
+    const int TOTAL_MATS = 37;
 
     // nome, textura, cor, lisura, metal, metros por repetição (0 = painel), veio no comprimento, recorte, emissão
     struct DefMat
@@ -300,6 +302,13 @@ public static partial class PingluVila
         d[P_PORTA] = D("Porta", "p_porta", Color.white, 0.15f, 0f);
         d[P_BRASAO] = D("Brasao", "p_brasao", Color.white, 0.3f, 0f); d[P_BRASAO].recorte = true;
         d[P_ARCO_SINO] = D("Arco_Sino", "p_arco_sino", Color.white, 0.1f, 0f); d[P_ARCO_SINO].recorte = true;
+        d[CEM_TIJOLO] = D("Cem_Tijolo", "cem_tijolo", new Color(0.8f, 0.77f, 0.72f), 0.12f, 1.7f);
+        d[CEM_PEDRA] = D("Cem_Pedra", "cem_pedra", new Color(0.62f, 0.6f, 0.56f), 0.1f, 1.6f);
+        d[CEM_LAPIDE] = D("Cem_Lapide", "cem_lapide", new Color(0.52f, 0.54f, 0.52f), 0.1f, 1.3f);
+        d[CEM_PISO] = D("Cem_Piso", "cem_piso", new Color(0.7f, 0.7f, 0.68f), 0.1f, 2.2f);
+        d[CEM_PRACA] = D("Cem_Praca", "cem_praca", new Color(0.62f, 0.6f, 0.58f), 0.12f, 3.2f);
+        d[CEM_TELHA] = D("Cem_Telha", "cem_telha", new Color(0.78f, 0.62f, 0.56f), 0.15f, 1.6f);
+        d[CEM_CASCA] = D("Cem_Casca", "cem_casca", new Color(0.5f, 0.46f, 0.44f), 0.05f, 1.8f); d[CEM_CASCA].veio = true;
 
         Shader lit = Shader.Find("Universal Render Pipeline/Lit");
         if (lit == null) throw new System.Exception("Não achei o shader URP/Lit.");
@@ -1935,6 +1944,43 @@ public static partial class PingluVila
             { l.Add(i0); l.Add(i0 + 1); l.Add(i0 + 2); l.Add(i0); l.Add(i0 + 2); l.Add(i0 + 3); }
             else
             { l.Add(i0); l.Add(i0 + 2); l.Add(i0 + 1); l.Add(i0); l.Add(i0 + 3); l.Add(i0 + 2); }
+        }
+
+        // peça de revolução (urna, cabeça, túnica de estátua): anéis de raio/altura empilhados
+        public void Torno(Vector3 baseCentro, float[] raios, float[] alturas, int lados, int mat, Quaternion r, bool tampas = true)
+        {
+            Vector3 eixo = r * Vector3.up;
+            int n = raios.Length;
+            for (int i = 0; i + 1 < n; i++)
+            {
+                float h = alturas[i + 1] - alturas[i];
+                for (int j = 0; j < lados; j++)
+                {
+                    float a0 = j * Mathf.PI * 2f / lados, a1 = (j + 1) * Mathf.PI * 2f / lados;
+                    Vector3 d0 = r * new Vector3(Mathf.Cos(a0), 0f, Mathf.Sin(a0));
+                    Vector3 d1 = r * new Vector3(Mathf.Cos(a1), 0f, Mathf.Sin(a1));
+                    Vector3 p00 = baseCentro + eixo * alturas[i] + d0 * raios[i];
+                    Vector3 p01 = baseCentro + eixo * alturas[i] + d1 * raios[i];
+                    Vector3 p10 = baseCentro + eixo * alturas[i + 1] + d0 * raios[i + 1];
+                    Vector3 p11 = baseCentro + eixo * alturas[i + 1] + d1 * raios[i + 1];
+                    Vector3 nrm = ((d0 + d1).normalized * Mathf.Max(0.01f, h) + eixo * (raios[i] - raios[i + 1])).normalized;
+                    Quad(p00, p10, p11, p01, nrm, mat, eixo);
+                }
+            }
+            if (tampas && raios[n - 1] > 0.001f)
+                for (int j = 0; j < lados; j++)
+                {
+                    float a0 = j * Mathf.PI * 2f / lados, a1 = (j + 1) * Mathf.PI * 2f / lados;
+                    Vector3 topo = baseCentro + eixo * alturas[n - 1];
+                    Tri(topo, topo + r * new Vector3(Mathf.Cos(a0), 0f, Mathf.Sin(a0)) * raios[n - 1], topo + r * new Vector3(Mathf.Cos(a1), 0f, Mathf.Sin(a1)) * raios[n - 1], eixo, mat);
+                }
+            if (tampas && raios[0] > 0.001f)
+                for (int j = 0; j < lados; j++)
+                {
+                    float a0 = j * Mathf.PI * 2f / lados, a1 = (j + 1) * Mathf.PI * 2f / lados;
+                    Vector3 b0 = baseCentro + eixo * alturas[0];
+                    Tri(b0, b0 + r * new Vector3(Mathf.Cos(a1), 0f, Mathf.Sin(a1)) * raios[0], b0 + r * new Vector3(Mathf.Cos(a0), 0f, Mathf.Sin(a0)) * raios[0], -eixo, mat);
+                }
         }
 
         public Mesh Gerar(string nome)

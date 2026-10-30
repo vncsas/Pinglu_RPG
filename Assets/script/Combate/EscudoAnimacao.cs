@@ -32,7 +32,13 @@ public class EscudoAnimacao : MonoBehaviour
     // tranco de golpe batendo no escudo
     public void Impacto()
     {
-        if (anim == null || camada < 0) return;
+        if (anim == null) return;
+        // personagens com a defesa no corpo todo (ex.: Tanque) têm o estado "escudo_impacto" na camada base
+        if (camada < 0)
+        {
+            if (anim.HasState(0, Animator.StringToHash("escudo_impacto"))) anim.CrossFadeInFixedTime("escudo_impacto", 0.05f, 0, 0f);
+            return;
+        }
         if (!anim.HasState(camada, Animator.StringToHash("impacto"))) return;
         anim.CrossFadeInFixedTime("impacto", 0.05f, camada, 0f);
     }

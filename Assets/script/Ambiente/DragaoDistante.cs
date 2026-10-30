@@ -1,5 +1,7 @@
 using System.Collections.Generic;
 using UnityEngine;
+using UnityEngine.Animations;
+using UnityEngine.Playables;
 
 // O dragão do fim do jogo (o que destruiu as vilas), voando longe no lobby.
 // Dragão 3D montado por código: corpo, pescoço, cabeça com mandíbula e
@@ -8,7 +10,15 @@ using UnityEngine;
 // cabeça e solta um jato de fogo que acende o chão lá embaixo.
 public class DragaoDistante : MonoBehaviour
 {
-    [Header("Aparência")]
+    [Header("Modelo do dragão (o menu Pinglu > 30 preenche)")]
+    public GameObject modelo;
+    public AnimationClip animVoo, animPlanar, animSopro;
+    [Tooltip("Corrige a direção do modelo, se ele voar de lado ou de costas")]
+    public Vector3 rotacaoDoModelo = Vector3.zero;
+    [Tooltip("Tamanho do dragão no lobby (maior medida, em metros)")]
+    public float comprimentoDoModelo = 34f;
+
+    [Header("Aparência (dragão feito por código, usado se não houver modelo)")]
     public Color corDasEscamas = new Color(0.28f, 0.11f, 0.07f);
     public Color corDaMembrana = new Color(0.42f, 0.14f, 0.06f);
     public float tamanho = 1.6f;            // 1 = envergadura de ~14 m
@@ -31,6 +41,12 @@ public class DragaoDistante : MonoBehaviour
     private float t, ang, rolagem, proximoFogo, fimDoFogo = -1f, mergulho;
     private ParticleSystem chamas, fumacaDoSopro;
     private Light luzDoSopro;
+    // modelo importado
+    private bool usandoModelo;
+    private Transform osso_boca;
+    private PlayableGraph grafo;
+    private AnimationMixerPlayable mixer;
+    private float pesoSopro, pesoPlanar;
 
     // ------------------------------------------------------------------
     //  montagem
@@ -45,6 +61,7 @@ public class DragaoDistante : MonoBehaviour
 
         corpo = new GameObject("Dragao 3D").transform;
         corpo.SetParent(transform, false);
+        if (modelo != null) { MontarModelo(); return; }
         corpo.localScale = Vector3.one * tamanho;
 
         // tronco (da base da cauda até o peito), engrossando no peito
@@ -85,6 +102,88 @@ public class DragaoDistante : MonoBehaviour
         CriarSopro();
         proximoFogo = Time.unscaledTime + 5f;
         ang = Random.Range(0f, Mathf.PI * 2f);
+    }
+
+    // ------------------------------------------------------------------
+    //  modelo importado (o dragão que vocês escolheram)
+    // ------------------------------------------------------------------
+    private void MontarModelo()
+    {
+        usandoModelo = true;
+        GameObject m = Instantiate(modelo);
+        m.name = "Modelo do Dragao";
+        foreach (Collider c in m.GetComponentsInChildren<Collider>()) Destroy(c);
+        m.transform.SetParent(corpo, false);
+        m.transform.localPosition = Vector3.zero;
+        m.transform.localRotation = Quaternion.Euler(rotacaoDoModelo);
+        m.transform.localScale = Vector3.one;
+        // ajusta o tamanho e centraliza
+        Bounds b = new Bounds(); bool tem = false;
+        foreach (Renderer r in m.GetComponentsInChildren<Renderer>())
+        {
+            r.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
+            if (r is SkinnedMeshRenderer) ((SkinnedMeshRenderer)r).updateWhenOffscreen = true;
+            if (!tem) { b = r.bounds; tem = true; } else b.Encapsulate(r.bounds);
+        }
+        float maior = tem ? Mathf.Max(b.size.x, Mathf.Max(b.size.y, b.size.z)) : 1f;
+        float esc = comprimentoDoModelo / Mathf.Max(0.01f, maior);
+        m.transform.localScale = Vector3.one * esc;
+        if (tem) m.transform.position += corpo.position - (corpo.position + (b.center - corpo.position) * esc);
+
+        osso_boca = Achar(m.transform, new[] { "jaw", "mouth", "tongue", "boca", "mandibula", "head", "cabeca" });
+        // animações
+        if (animVoo != null || animSopro != null || animPlanar != null)
+        {
+            Animator an = m.GetComponent<Animator>();
+            if (an == null) an = m.AddComponent<Animator>();
+            an.applyRootMotion = false;
+            Animation leg = m.GetComponent<Animation>();
+            if (leg != null) leg.enabled = false;
+            grafo = PlayableGraph.Create("Dragao");
+            grafo.SetTimeUpdateMode(DirectorUpdateMode.UnscaledGameTime);
+            mixer = AnimationMixerPlayable.Create(grafo, 3);
+            AnimationClip[] c = { animVoo, animPlanar != null ? animPlanar : animVoo, animSopro != null ? animSopro : animVoo };
+            for (int i = 0; i < 3; i++)
+                if (c[i] != null) grafo.Connect(AnimationClipPlayable.Create(grafo, c[i]), 0, mixer, i);
+            mixer.SetInputWeight(0, 1f);
+            AnimationPlayableOutput.Create(grafo, "Saida", an).SetSourcePlayable(mixer);
+            grafo.Play();
+        }
+
+        // o sopro sai da boca (segue o osso, mas aponta para frente e para baixo)
+        mandibula = new GameObject("Boca").transform;
+        mandibula.SetParent(corpo, false);
+        mandibula.localPosition = new Vector3(0f, 0f, comprimentoDoModelo * 0.45f);
+        CriarSopro();
+        chamas.transform.localPosition = Vector3.zero;
+        proximoFogo = Time.unscaledTime + 5f;
+        ang = Random.Range(0f, Mathf.PI * 2f);
+    }
+
+    private static Transform Achar(Transform raiz, string[] nomes)
+    {
+        foreach (string n in nomes)
+            foreach (Transform t in raiz.GetComponentsInChildren<Transform>(true))
+                if (t.name.ToLower().Contains(n)) return t;
+        return null;
+    }
+
+    private void OnDestroy() { if (grafo.IsValid()) grafo.Destroy(); }
+
+    private void AnimarModelo(float dt, bool soprando, bool jato)
+    {
+        // posição da boca: segue o osso; o jato aponta para frente e para baixo
+        if (osso_boca != null) mandibula.position = osso_boca.position + corpo.forward * comprimentoDoModelo * 0.02f;
+        chamas.transform.rotation = Quaternion.LookRotation((corpo.forward + Vector3.down * 0.9f).normalized);
+        if (!mixer.IsValid()) return;
+        bool planando = Mathf.PerlinNoise(Time.unscaledTime * 0.15f, 3f) > 0.62f && !soprando && animPlanar != null;
+        pesoSopro = Mathf.MoveTowards(pesoSopro, soprando && animSopro != null ? 1f : 0f, dt * 2.5f);
+        pesoPlanar = Mathf.MoveTowards(pesoPlanar, planando ? 1f : 0f, dt * 1.2f);
+        float voo = Mathf.Clamp01(1f - pesoSopro - pesoPlanar);
+        mixer.SetInputWeight(0, voo);
+        mixer.SetInputWeight(1, pesoPlanar * (1f - pesoSopro));
+        mixer.SetInputWeight(2, pesoSopro);
+        if (soprando && pesoSopro < 0.05f && mixer.GetInput(2).IsValid()) mixer.GetInput(2).SetTime(0);
     }
 
     private Transform Asa(int lado)
@@ -270,6 +369,16 @@ public class DragaoDistante : MonoBehaviour
         Vector3 curva = Vector3.Cross(frente, (depois - prox).normalized);
         rolagem = Mathf.Lerp(rolagem, Mathf.Clamp(-curva.y * 900f, -32f, 32f), dt * 2f);
 
+        if (usandoModelo)
+        {
+            corpo.position = pos;
+            corpo.rotation = Quaternion.LookRotation(frente, Vector3.up) * Quaternion.Euler(soprando ? 12f : 0f, 0f, rolagem);
+            bool jatoM = soprando && Time.unscaledTime > fimDoFogo - 2.0f;
+            AnimarModelo(dt, soprando, jatoM);
+            Sopro(soprando, dt);
+            return;
+        }
+
         // asas: bate em onda; de vez em quando plana com as asas abertas
         float plano = Mathf.PerlinNoise(Time.unscaledTime * 0.15f, 3f) > 0.62f && !soprando ? 0.15f : 1f;
         t += dt * Mathf.Lerp(3.2f, 4.2f, plano);
@@ -290,6 +399,11 @@ public class DragaoDistante : MonoBehaviour
         cabeca.localRotation = Quaternion.Slerp(cabeca.localRotation, Quaternion.Euler(soprando ? 15f : -5f, 0f, 0f), dt * 3f);
         mandibula.localRotation = Quaternion.Slerp(mandibula.localRotation, Quaternion.Euler(soprando ? 32f : 4f, 0f, 0f), dt * 6f);
 
+        Sopro(soprando, dt);
+    }
+
+    private void Sopro(bool soprando, float dt)
+    {
         // sopro de fogo
         if (!soprando && Time.unscaledTime >= proximoFogo)
         {
@@ -305,7 +419,7 @@ public class DragaoDistante : MonoBehaviour
 
     private void AcenderChao()
     {
-        if (cabeca == null) return;
+        if (chamas == null) return;
         Vector3 boca = chamas.transform.position, dir = chamas.transform.forward;
         float chao = transform.position.y + 0.5f;
         float k = dir.y < -0.05f ? (chao - boca.y) / dir.y : 25f;

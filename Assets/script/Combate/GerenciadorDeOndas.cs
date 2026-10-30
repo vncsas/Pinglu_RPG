@@ -8,18 +8,47 @@ public class GerenciadorDeOndas : MonoBehaviour
 {
     public static GerenciadorDeOndas Instancia { get; private set; }
 
+    [System.Serializable]
+    public class TipoDeMonstro
+    {
+        public string nome = "Esqueleto";
+        public GameObject prefab;
+        [Tooltip("A partir de qual onda este monstro pode aparecer")]
+        public int aPartirDaOnda = 1;
+        [Tooltip("Chance relativa de ser sorteado (maior = mais comum)")]
+        public int peso = 10;
+        [Tooltip("Quanto ele gasta do orçamento da onda (monstros fortes custam mais)")]
+        public int custo = 1;
+        [Tooltip("Chefe: aparece sozinho nas ondas de chefe, não entra no sorteio comum")]
+        public bool chefe;
+    }
+
     [Header("Monstro e pontos de onde ele sai")]
     [SerializeField] private GameObject prefabInimigo;
+    [Tooltip("Tipos de monstro. Se estiver vazio, usa só o 'Prefab Inimigo'")]
+    [SerializeField] private TipoDeMonstro[] tipos;
     [SerializeField] private Transform[] pontosDeSurgimento;
+    [Tooltip("Onde o jogador aparece ao apertar F2 (se vazio, fica na frente deste objeto)")]
+    [SerializeField] private Transform pontoDeChegada;
 
     [Header("Quando começa")]
-    [SerializeField] private float distanciaParaComecar = 35f;
+    [SerializeField] private float distanciaParaComecar = 30f;
+    [Tooltip("Os monstros da horda só perseguem quem está a esta distância do cemitério (0 = sem limite)")]
+    [SerializeField] private float raioDosMonstros = 75f;
     [SerializeField] private KeyCode teclaIrAteAqui = KeyCode.F2;
 
     [Header("Ondas")]
-    [SerializeField] private int inimigosNaPrimeiraOnda = 3;
-    [SerializeField] private int aumentoPorOnda = 2;
-    [SerializeField] private int maximoAoMesmoTempo = 8;
+    [Tooltip("Orçamento da onda 1 (cada monstro gasta o seu custo)")]
+    [SerializeField] private int inimigosNaPrimeiraOnda = 5;
+    [Tooltip("Quanto o orçamento cresce a cada onda")]
+    [SerializeField] private int aumentoPorOnda = 3;
+    [Tooltip("Orçamento extra por jogador além do primeiro")]
+    [SerializeField] private int extraPorJogador = 4;
+    [SerializeField] private int maximoAoMesmoTempo = 10;
+    [Tooltip("Limite extra ao mesmo tempo por jogador além do primeiro")]
+    [SerializeField] private int maximoExtraPorJogador = 3;
+    [Tooltip("A cada quantas ondas vem um chefe (0 = nunca)")]
+    [SerializeField] private int chefeACadaNOndas = 5;
     [SerializeField] private float intervaloEntreSurgimentos = 1.2f;
     [SerializeField] private float descansoEntreOndas = 6f;
     [Tooltip("Quanto a vida dos monstros aumenta a cada onda (0.15 = +15%)")]
@@ -51,7 +80,12 @@ public class GerenciadorDeOndas : MonoBehaviour
 
     private Transform JogadorLocal()
     {
-        foreach (Transform t in jogadores) { PlayerLocomotion p = t.GetComponent<PlayerLocomotion>(); if (p != null && p.enabled) return t; }
+        foreach (Transform t in jogadores)
+        {
+            if (t == null) continue; // jogador destruído desde a última busca
+            PlayerLocomotion p = t.GetComponent<PlayerLocomotion>();
+            if (p != null && p.enabled) return t;
+        }
         return null;
     }
 
@@ -102,7 +136,7 @@ public class GerenciadorDeOndas : MonoBehaviour
     {
         CharacterController cc = jogador.GetComponent<CharacterController>();
         if (cc != null) cc.enabled = false;
-        Vector3 destino = transform.position + transform.forward * 16f;
+        Vector3 destino = pontoDeChegada != null ? pontoDeChegada.position : transform.position + transform.forward * 16f;
         Terrain t = Terrain.activeTerrain;
         if (t != null) destino.y = t.SampleHeight(destino) + t.transform.position.y + 0.2f;
         jogador.position = destino;
@@ -118,18 +152,19 @@ public class GerenciadorDeOndas : MonoBehaviour
         while (AlguemVivo())
         {
             OndaAtual++;
-            int total = inimigosNaPrimeiraOnda + (OndaAtual - 1) * aumentoPorOnda;
-            if (SessaoDeJogo.Online) total += (jogadores.Count - 1) * 2; // mais jogadores, mais mortos
-            Restantes = total;
-            Aviso("Onda " + OndaAtual, 2.5f);
+            List<TipoDeMonstro> fila = MontarOnda();
+            Restantes = fila.Count;
+            bool temChefe = fila.Exists(t => t.chefe);
+            Aviso(temChefe ? "Onda " + OndaAtual + " - algo enorme desperta..." : "Onda " + OndaAtual, 2.5f);
             yield return new WaitForSeconds(1.5f);
 
+            int indice = 0;
             while (Restantes > 0)
             {
                 if (!AlguemVivo()) break;
-                if (vivos.Count < maximoAoMesmoTempo)
+                if (vivos.Count < LimiteAoMesmoTempo())
                 {
-                    Surgir();
+                    Surgir(fila[indice++]);
                     Restantes--;
                     yield return new WaitForSeconds(intervaloEntreSurgimentos);
                 }
@@ -155,28 +190,89 @@ public class GerenciadorDeOndas : MonoBehaviour
         }
     }
 
-    private void Surgir()
+    private int LimiteAoMesmoTempo()
     {
-        if (prefabInimigo == null || pontosDeSurgimento == null || pontosDeSurgimento.Length == 0) return;
+        int extra = Mathf.Max(0, jogadores.Count - 1) * maximoExtraPorJogador;
+        return Mathf.Min(maximoAoMesmoTempo + extra, 30);
+    }
 
-        // prefere pontos que não estão colados no jogador
+    private List<TipoDeMonstro> TiposValidos()
+    {
+        List<TipoDeMonstro> l = new List<TipoDeMonstro>();
+        if (tipos != null) foreach (TipoDeMonstro t in tipos) if (t != null && t.prefab != null) l.Add(t);
+        if (l.Count == 0 && prefabInimigo != null) l.Add(new TipoDeMonstro { nome = "Esqueleto", prefab = prefabInimigo });
+        return l;
+    }
+
+    // sorteia os monstros da onda gastando um orçamento que cresce a cada onda
+    private List<TipoDeMonstro> MontarOnda()
+    {
+        List<TipoDeMonstro> todos = TiposValidos();
+        List<TipoDeMonstro> fila = new List<TipoDeMonstro>();
+        if (todos.Count == 0) return fila;
+
+        int orcamento = inimigosNaPrimeiraOnda + (OndaAtual - 1) * aumentoPorOnda;
+        if (SessaoDeJogo.Online) orcamento += (jogadores.Count - 1) * extraPorJogador;
+
+        if (chefeACadaNOndas > 0 && OndaAtual % chefeACadaNOndas == 0)
+        {
+            TipoDeMonstro chefe = todos.Find(t => t.chefe);
+            if (chefe != null) { int quantos = 1 + OndaAtual / (chefeACadaNOndas * 2); for (int i = 0; i < quantos; i++) fila.Add(chefe); orcamento /= 2; }
+        }
+
+        List<TipoDeMonstro> comuns = todos.FindAll(t => !t.chefe && t.aPartirDaOnda <= OndaAtual);
+        if (comuns.Count == 0) comuns = todos.FindAll(t => !t.chefe);
+        if (comuns.Count == 0) return fila;
+
+        int guarda = 0;
+        while (orcamento > 0 && fila.Count < 80 && guarda++ < 400)
+        {
+            List<TipoDeMonstro> cabem = comuns.FindAll(t => Mathf.Max(1, t.custo) <= orcamento);
+            if (cabem.Count == 0) break;
+            int soma = 0; foreach (TipoDeMonstro t in cabem) soma += Mathf.Max(1, t.peso);
+            int sorte = Random.Range(0, soma);
+            TipoDeMonstro escolhido = cabem[0];
+            foreach (TipoDeMonstro t in cabem) { sorte -= Mathf.Max(1, t.peso); if (sorte < 0) { escolhido = t; break; } }
+            fila.Add(escolhido);
+            orcamento -= Mathf.Max(1, escolhido.custo);
+        }
+        // mistura, deixando o chefe por último
+        for (int i = fila.Count - 1; i > 0; i--)
+        {
+            int j = Random.Range(0, i + 1);
+            if (fila[i].chefe || fila[j].chefe) continue;
+            TipoDeMonstro tmp = fila[i]; fila[i] = fila[j]; fila[j] = tmp;
+        }
+        fila.Sort((a, b) => a.chefe.CompareTo(b.chefe));
+        return fila;
+    }
+
+    private void Surgir(TipoDeMonstro tipo)
+    {
+        if (tipo == null || tipo.prefab == null || pontosDeSurgimento == null || pontosDeSurgimento.Length == 0) return;
+
+        // prefere pontos a uma boa distância dos jogadores (nem colados, nem longe demais)
         Transform ponto = pontosDeSurgimento[Random.Range(0, pontosDeSurgimento.Length)];
-        for (int i = 0; i < 6; i++)
+        float melhorNota = float.MaxValue;
+        for (int i = 0; i < 8; i++)
         {
             Transform p = pontosDeSurgimento[Random.Range(0, pontosDeSurgimento.Length)];
             Transform perto = MaisPerto(p.position);
-            if (perto == null || Vector3.Distance(p.position, perto.position) > 5f) { ponto = p; break; }
+            float d = perto == null ? 20f : Vector3.Distance(p.position, perto.position);
+            float nota = d < 8f ? 1000f - d : Mathf.Abs(d - 20f);
+            if (nota < melhorNota) { melhorNota = nota; ponto = p; }
         }
         Vector3 pos = ponto.position;
         Terrain t = Terrain.activeTerrain;
         if (t != null) pos.y = t.SampleHeight(pos) + t.transform.position.y;
         Transform alvo = MaisPerto(pos);
         Vector3 olhar = alvo != null ? alvo.position - pos : Vector3.zero; olhar.y = 0f;
-        GameObject go = Instantiate(prefabInimigo, pos, olhar.sqrMagnitude > 0.01f ? Quaternion.LookRotation(olhar) : Quaternion.identity);
+        GameObject go = Instantiate(tipo.prefab, pos, olhar.sqrMagnitude > 0.01f ? Quaternion.LookRotation(olhar) : Quaternion.identity);
 
         InimigoEsqueleto ini = go.GetComponent<InimigoEsqueleto>();
         if (ini == null) return;
         ini.MultiplicarVida(1f + aumentoDeVidaPorOnda * (OndaAtual - 1));
+        if (raioDosMonstros > 0f) ini.DefinirLimite(transform.position, raioDosMonstros);
         ini.AoMorrer += e => vivos.Remove(e);
         vivos.Add(ini);
         ini.Surgir();

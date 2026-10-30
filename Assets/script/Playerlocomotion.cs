@@ -80,6 +80,10 @@ public class PlayerLocomotion : MonoBehaviour
     public bool Rolando => isRolling;
     public int GolpeAtual => golpeAtual;            // 0, 1, 2 = combo ; -1 = pesado
     public bool Controlavel { get; set; } = true;   // falso quando morto
+    // voo (usado pelo Tanque): sem gravidade, sobe/desce na velocidade pedida e não ataca nem defende
+    public bool Voando { get; set; }
+    public float VelocidadeVerticalDeVoo { get; set; }
+    public float MultiplicadorDeVoo { get; set; } = 1f;
     public event System.Action<int> AoIniciarGolpe;
     // ações que o multiplayer repete nos outros PCs: 1 pulo, 2 rolagem, 3 levou golpe, 4 morreu
     public event System.Action<int> AoAcao;
@@ -200,7 +204,7 @@ public class PlayerLocomotion : MonoBehaviour
         // --- Rolagem (Esquiva) --- (cancela o combo)
         if (rollCooldownTimer > 0f) rollCooldownTimer -= Time.deltaTime;
 
-        if (Input.GetKeyDown(KeyCode.LeftControl) && !isRolling && rollCooldownTimer <= 0f)
+        if (Input.GetKeyDown(KeyCode.LeftControl) && !isRolling && rollCooldownTimer <= 0f && !Voando)
         {
             // Rola na direção que o jogador está segurando (WASD); se não estiver segurando nada, rola pra frente
             rollDirection = moveDir.sqrMagnitude > 0.001f ? moveDir : transform.forward;
@@ -209,7 +213,7 @@ public class PlayerLocomotion : MonoBehaviour
         }
 
         // --- Pulo ---
-        if (Input.GetKeyDown(KeyCode.Space) && controller.isGrounded && !isRolling && !atacando)
+        if (Input.GetKeyDown(KeyCode.Space) && controller.isGrounded && !isRolling && !atacando && !Voando)
         {
             verticalVelocity = Mathf.Sqrt(jumpHeight * -2f * gravity);
             if (animator != null) animator.SetTrigger("Jump");
@@ -224,7 +228,7 @@ public class PlayerLocomotion : MonoBehaviour
         }
 
         // --- Defesa com escudo (botão direito ou Q, segurando) ---
-        bool querDefender = Input.GetMouseButton(1) || Input.GetKey(KeyCode.Q);
+        bool querDefender = (Input.GetMouseButton(1) || Input.GetKey(KeyCode.Q)) && !Voando;
         if (querDefender && usaBainha) { MarcarCombate(); if (!armado) Sacar(); }
         bool espadaPronta = !usaBainha || (armado && Time.time >= prontoEm);
         if (querDefender && atacando && !isRolling)
@@ -237,7 +241,7 @@ public class PlayerLocomotion : MonoBehaviour
         if (animator != null) animator.SetBool("Block", isBlocking);
 
         // --- Ataques ---
-        AtualizarAtaques(moveDir, frenteCamera);
+        if (!Voando) AtualizarAtaques(moveDir, frenteCamera);
 
         // --- Velocidade enviada pro Animator (Blend Tree) ---
         bool correndo = isRunning && !atacando && !isBlocking;
@@ -257,7 +261,11 @@ public class PlayerLocomotion : MonoBehaviour
         }
 
         // --- Gravidade ---
-        if (controller.isGrounded && verticalVelocity < 0f)
+        if (Voando)
+        {
+            verticalVelocity = VelocidadeVerticalDeVoo;
+        }
+        else if (controller.isGrounded && verticalVelocity < 0f)
         {
             verticalVelocity = -0.5f; // pequena força pra manter no chão
         }
@@ -268,6 +276,7 @@ public class PlayerLocomotion : MonoBehaviour
 
         // --- Movimento final ---
         float targetMoveSpeed = inputMagnitude * (correndo ? runSpeed : walkSpeed);
+        if (Voando) targetMoveSpeed *= MultiplicadorDeVoo;
         if (atacando) targetMoveSpeed = inputMagnitude * walkSpeed * movimentoDuranteGolpe;
         else if (isBlocking) targetMoveSpeed = inputMagnitude * walkSpeed * 0.5f;
         Vector3 finalMove = isRolling ? rollDirection * rollSpeed : moveDir * targetMoveSpeed;
