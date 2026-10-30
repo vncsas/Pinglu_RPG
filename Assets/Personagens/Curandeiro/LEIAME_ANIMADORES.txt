@@ -1,0 +1,73 @@
+CURANDEIRO (SERAFIM DE OSSOS) - PACOTE DO ESQUELETO (RIG)
+==========================================================
+
+ARQUIVOS
+- curandeiro_rigged.fbx  -> modelo + esqueleto + pesos (Unity, Maya, 3ds Max, Blender...)
+- curandeiro_rig.blend   -> mesma coisa no Blender 5.2, COM controles de animacao (IK) e material pronto
+- texturas_unity/        -> curandeiro_BaseColor, curandeiro_Normal, curandeiro_MetallicSmoothness (2048)
+- renders/               -> poses de teste
+- animacoes/             -> 15 animacoes (um .fbx cada) + animacoes.blend + previas/
+- unity/                 -> CuraCurandeiro.cs (efeito de cura de teste), DemoCurandeiro.cs (tela de teste),
+                            Editor/MontarCurandeiro.cs (menu Curandeiro > Montar tudo)
+- scripts/               -> ferramentas do Blender (validacao, refazer o rig, gerar as animacoes)
+
+ESPECIFICACOES
+- Altura: 1,92 m em T-pose contando a aureola (cranio ~1,72 m), escala 1:1 (metros), pes no chao.
+- Pose de repouso: T-POSE, cotovelos/joelhos levemente dobrados (~7 graus) de proposito (IK estavel).
+  O modelo original estava no meio de um passo (perna direita a frente); no repouso as pernas ficam retas.
+- Malha: 70 mil triangulos (o original tinha 2 milhoes), 1 material ("Curandeiro").
+- Validacao: 0 FAIL, 0 WARN (APROVADO).
+
+ESQUELETO (nomes Humanoid do Unity - iguais aos outros personagens)
+  Hips > Spine > Chest > UpperChest > Neck > Head (a aureola segue a cabeca, rigida)
+  UpperChest > Left/RightShoulder > UpperArm > LowerArm > Hand   (+ LowerArm_Twist)
+  Hips > Left/RightUpperLeg > LowerLeg > Foot > Toes
+  ASAS: Wing_L_1 > Wing_L_2 > Wing_L_3 > Wing_L_4 (e Wing_R_*), presas no UpperChest:
+    _1 omoplata ate o "ombro" da asa, _2 sobe ate o topo (curva da asa), _3 e _4 descem pelas penas grandes.
+    Bracos e asas sao independentes.
+  Encaixes (sem peso, para efeitos): MagicHand_L / MagicHand_R (palmas, eixo Y para fora da palma),
+    HealCenter (peito, olhando para frente).
+  Sem ossos de dedos (maos esculpidas).
+
+O QUE FOI FEITO NOS PESOS (o modelo do Tripo vem numa peca so, com tudo grudado)
+- Pesos calculados numa copia "limpa" da malha e transferidos (o calculo direto falha nessa escultura).
+- Asas: cada vertice ou e asa (so ossos da asa + omoplata) ou nao e (nenhum peso de asa).
+- Aureola: rigida na cabeca.
+- Manto abaixo da cintura: segue a perna mais proxima perto dela e o quadril nas pontas.
+- Os ossos sao finos (esqueleto!): pano/corda ao lado do braco nao segue o braco.
+- As maos estavam GRUDADAS na lateral do manto na escultura: as faces que ligavam mao/antebraco ao manto
+  foram cortadas, e as pontas dos dedos fundidas no manto foram devolvidas para a mao. Assim levantar o braco
+  nao arrasta um lencol de pano junto. (Sobram uns pedacinhos minusculos na lateral do manto.)
+
+IMPORTAR NO UNITY
+  0. .meta: so UMA pessoa abre primeiro e da commit.
+  1. curandeiro_rigged > Rig > Humanoid > Create From This Model > Apply > Configure: tudo verde
+     (Wing_*, *_Twist, MagicHand_*, HealCenter ficam de fora; certo).
+  2. Texturas: curandeiro_Normal > Normal map; curandeiro_MetallicSmoothness > desmarcar sRGB.
+     Extract Materials > "Curandeiro": Base Map = BaseColor, Metallic Map = MetallicSmoothness (Source:
+     Metallic Alpha, Smoothness 1), Normal Map = Normal.
+  3. Animacoes Humanoid tocam nele. ASAS no Unity: clipe Humanoid descarta ossos fora do corpo humano;
+     para animar as asas, no import do clipe use uma Avatar Mask com TODOS os ossos (o menu Montar tudo ja faz).
+
+ANIMACOES (pasta animacoes/, 30 quadros/s, no lugar)
+  Movimento (mocap Quaternius + asas animadas por cima): Parado, Andar, Correr, Levar_Golpe, Morrer
+  Cura: Curar_Entrar > Curar_Pronta (loop) > Curar_Lancar (disparo no quadro 7, evento LancarCura) > Curar_Sair
+  Voo (feitas a mao): Decolar > Voar (loop) / Voar_Frente (loop) / Voar_Curar (loop) > Pousar;
+    Voar_Curar_Lancar = o disparo da cura no ar (evento LancarCura no quadro 7), volta sozinho para Voar_Curar.
+  As asas respiram no Parado, balancam no Andar/Correr, abrem na cura e batem no voo (a descida da asa e rapida,
+  a subida e mais lenta e dobrada; o corpo sobe um pouco depois de cada batida).
+  Morrer: cai de costas e as asas ficam abertas SOBRE o chao (nao afundam).
+  O menu Curandeiro > Montar tudo configura tudo no Unity (Humanoid, material, clipes com loop, eventos, a
+  mascara com todos os ossos que mantem as asas animadas, Animator e a cena Teste_Curandeiro com botoes).
+  Eventos usados: LancarCura (Curar_Lancar e Voar_Curar_Lancar) - chama CuraCurandeiro.LancarCura().
+
+ANIMAR NO BLENDER (curandeiro_rig.blend)
+  Controles iguais aos outros: CTRL_Root, IK_Foot_* (+ RF_Ball_/RF_Toe_), POLE_Knee_*, IK_Hand_* +
+  POLE_Elbow_*, chaves ik_perna_* (1 = IK) e ik_braco_* (0 = FK) no CTRL_Root. Asas: colecao "Asas".
+  Exportar: Armature + Body, Apply Scalings "FBX All", Only Deform Bones LIGADO, Add Leaf Bones DESLIGADO.
+
+REFAZER DO ZERO
+  blender -b -P scripts/step1_norm.py -- tripo.fbx norm.blend 1.85 300000
+  blender -b norm.blend -P scripts/build.py -- scripts rig_a.blend
+  blender -b -P scripts/make_textures.py -- <pasta textures> texturas_unity
+  blender -b rig_a.blend -P scripts/rig_b.py -- texturas_unity <saida>
