@@ -52,6 +52,8 @@ public class JogadorRede : NetworkBehaviour
                 vida.Redirecionar = (d, o) => { LevarDanoRpc(d, o); return true; };
                 vida.RedirecionarCura = v => CurarRpc(v);
             }
+            // curar a cópia de outro jogador (ex.: o Curandeiro) manda a cura para o PC do dono
+            if (vida != null) vida.RedirecionarCura = v => CurarRpc(v);
             HUDJogador.Mostrar("Um jogador entrou na partida", 3f);
             if (PortalDoMundo.Atual != null) PortalDoMundo.Atual.Clarao(false);
         }
@@ -118,7 +120,7 @@ public class JogadorRede : NetworkBehaviour
     [Rpc(SendTo.Owner)]
     private void LevarDanoRpc(float dano, Vector3 origem) { if (vida != null) vida.ReceberDano(dano, origem); }
 
-    [Rpc(SendTo.Owner)]
+    [Rpc(SendTo.Owner, InvokePermission = RpcInvokePermission.Everyone)]
     private void CurarRpc(float valor) { if (vida != null) vida.Curar(valor); }
 
     // ------------------------------------------------------------------

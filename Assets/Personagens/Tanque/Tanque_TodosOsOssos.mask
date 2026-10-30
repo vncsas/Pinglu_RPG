@@ -1,0 +1,223 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!319 &31900000
+AvatarMask:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_Name: Tanque_TodosOsOssos
+  m_Mask: 01000000010000000100000001000000010000000100000001000000010000000100000001000000010000000100000001000000u
+  m_Elements:
+  - m_Path: 
+    m_Weight: 1
+  - m_Path: Armature
+    m_Weight: 1
+  - m_Path: Armature/Hips
+    m_Weight: 1
+  - m_Path: Armature/Hips/CC_Base_Pelvis
+    m_Weight: 1
+  - m_Path: Armature/Hips/CC_Base_Pelvis/LeftUpperLeg
+    m_Weight: 1
+  - m_Path: Armature/Hips/CC_Base_Pelvis/LeftUpperLeg/CC_Base_L_ThighTwist01
+    m_Weight: 1
+  - m_Path: Armature/Hips/CC_Base_Pelvis/LeftUpperLeg/CC_Base_L_ThighTwist01/CC_Base_L_ThighTwist02
+    m_Weight: 1
+  - m_Path: Armature/Hips/CC_Base_Pelvis/LeftUpperLeg/LeftLowerLeg
+    m_Weight: 1
+  - m_Path: Armature/Hips/CC_Base_Pelvis/LeftUpperLeg/LeftLowerLeg/CC_Base_L_CalfTwist01
+    m_Weight: 1
+  - m_Path: Armature/Hips/CC_Base_Pelvis/LeftUpperLeg/LeftLowerLeg/CC_Base_L_CalfTwist01/CC_Base_L_CalfTwist02
+    m_Weight: 1
+  - m_Path: Armature/Hips/CC_Base_Pelvis/LeftUpperLeg/LeftLowerLeg/CC_Base_L_KneeShareBone
+    m_Weight: 1
+  - m_Path: Armature/Hips/CC_Base_Pelvis/LeftUpperLeg/LeftLowerLeg/LeftFoot
+    m_Weight: 1
+  - m_Path: Armature/Hips/CC_Base_Pelvis/LeftUpperLeg/LeftLowerLeg/LeftFoot/CC_Base_L_ToeBaseShareBone
+    m_Weight: 1
+  - m_Path: Armature/Hips/CC_Base_Pelvis/LeftUpperLeg/LeftLowerLeg/LeftFoot/LeftToes
+    m_Weight: 1
+  - m_Path: Armature/Hips/CC_Base_Pelvis/LeftUpperLeg/LeftLowerLeg/LeftFoot/LeftToes/CC_Base_L_BigToe1
+    m_Weight: 1
+  - m_Path: Armature/Hips/CC_Base_Pelvis/LeftUpperLeg/LeftLowerLeg/LeftFoot/LeftToes/CC_Base_L_IndexToe1
+    m_Weight: 1
+  - m_Path: Armature/Hips/CC_Base_Pelvis/LeftUpperLeg/LeftLowerLeg/LeftFoot/LeftToes/CC_Base_L_MidToe1
+    m_Weight: 1
+  - m_Path: Armature/Hips/CC_Base_Pelvis/LeftUpperLeg/LeftLowerLeg/LeftFoot/LeftToes/CC_Base_L_PinkyToe1
+    m_Weight: 1
+  - m_Path: Armature/Hips/CC_Base_Pelvis/LeftUpperLeg/LeftLowerLeg/LeftFoot/LeftToes/CC_Base_L_RingToe1
+    m_Weight: 1
+  - m_Path: Armature/Hips/CC_Base_Pelvis/RightUpperLeg
+    m_Weight: 1
+  - m_Path: Armature/Hips/CC_Base_Pelvis/RightUpperLeg/CC_Base_R_ThighTwist01
+    m_Weight: 1
+  - m_Path: Armature/Hips/CC_Base_Pelvis/RightUpperLeg/CC_Base_R_ThighTwist01/CC_Base_R_ThighTwist02
+    m_Weight: 1
+  - m_Path: Armature/Hips/CC_Base_Pelvis/RightUpperLeg/RightLowerLeg
+    m_Weight: 1
+  - m_Path: Armature/Hips/CC_Base_Pelvis/RightUpperLeg/RightLowerLeg/CC_Base_R_CalfTwist01
+    m_Weight: 1
+  - m_Path: Armature/Hips/CC_Base_Pelvis/RightUpperLeg/RightLowerLeg/CC_Base_R_CalfTwist01/CC_Base_R_CalfTwist02
+    m_Weight: 1
+  - m_Path: Armature/Hips/CC_Base_Pelvis/RightUpperLeg/RightLowerLeg/CC_Base_R_KneeShareBone
+    m_Weight: 1
+  - m_Path: Armature/Hips/CC_Base_Pelvis/RightUpperLeg/RightLowerLeg/RightFoot
+    m_Weight: 1
+  - m_Path: Armature/Hips/CC_Base_Pelvis/RightUpperLeg/RightLowerLeg/RightFoot/CC_Base_R_ToeBaseShareBone
+    m_Weight: 1
+  - m_Path: Armature/Hips/CC_Base_Pelvis/RightUpperLeg/RightLowerLeg/RightFoot/RightToes
+    m_Weight: 1
+  - m_Path: Armature/Hips/CC_Base_Pelvis/RightUpperLeg/RightLowerLeg/RightFoot/RightToes/CC_Base_R_BigToe1
+    m_Weight: 1
+  - m_Path: Armature/Hips/CC_Base_Pelvis/RightUpperLeg/RightLowerLeg/RightFoot/RightToes/CC_Base_R_IndexToe1
+    m_Weight: 1
+  - m_Path: Armature/Hips/CC_Base_Pelvis/RightUpperLeg/RightLowerLeg/RightFoot/RightToes/CC_Base_R_MidToe1
+    m_Weight: 1
+  - m_Path: Armature/Hips/CC_Base_Pelvis/RightUpperLeg/RightLowerLeg/RightFoot/RightToes/CC_Base_R_PinkyToe1
+    m_Weight: 1
+  - m_Path: Armature/Hips/CC_Base_Pelvis/RightUpperLeg/RightLowerLeg/RightFoot/RightToes/CC_Base_R_RingToe1
+    m_Weight: 1
+  - m_Path: Armature/Hips/Spine
+    m_Weight: 1
+  - m_Path: Armature/Hips/Spine/Chest
+    m_Weight: 1
+  - m_Path: Armature/Hips/Spine/Chest/UpperChest
+    m_Weight: 1
+  - m_Path: Armature/Hips/Spine/Chest/UpperChest/CC_Base_L_RibsTwist
+    m_Weight: 1
+  - m_Path: Armature/Hips/Spine/Chest/UpperChest/CC_Base_L_RibsTwist/CC_Base_L_Breast
+    m_Weight: 1
+  - m_Path: Armature/Hips/Spine/Chest/UpperChest/CC_Base_R_RibsTwist
+    m_Weight: 1
+  - m_Path: Armature/Hips/Spine/Chest/UpperChest/CC_Base_R_RibsTwist/CC_Base_R_Breast
+    m_Weight: 1
+  - m_Path: Armature/Hips/Spine/Chest/UpperChest/LeftShoulder
+    m_Weight: 1
+  - m_Path: Armature/Hips/Spine/Chest/UpperChest/LeftShoulder/LeftUpperArm
+    m_Weight: 1
+  - m_Path: Armature/Hips/Spine/Chest/UpperChest/LeftShoulder/LeftUpperArm/CC_Base_L_UpperarmTwist01
+    m_Weight: 1
+  - m_Path: Armature/Hips/Spine/Chest/UpperChest/LeftShoulder/LeftUpperArm/CC_Base_L_UpperarmTwist01/CC_Base_L_UpperarmTwist02
+    m_Weight: 1
+  - m_Path: Armature/Hips/Spine/Chest/UpperChest/LeftShoulder/LeftUpperArm/LeftLowerArm
+    m_Weight: 1
+  - m_Path: Armature/Hips/Spine/Chest/UpperChest/LeftShoulder/LeftUpperArm/LeftLowerArm/CC_Base_L_ElbowShareBone
+    m_Weight: 1
+  - m_Path: Armature/Hips/Spine/Chest/UpperChest/LeftShoulder/LeftUpperArm/LeftLowerArm/CC_Base_L_ForearmTwist01
+    m_Weight: 1
+  - m_Path: Armature/Hips/Spine/Chest/UpperChest/LeftShoulder/LeftUpperArm/LeftLowerArm/CC_Base_L_ForearmTwist01/CC_Base_L_ForearmTwist02
+    m_Weight: 1
+  - m_Path: Armature/Hips/Spine/Chest/UpperChest/LeftShoulder/LeftUpperArm/LeftLowerArm/LeftHand
+    m_Weight: 1
+  - m_Path: Armature/Hips/Spine/Chest/UpperChest/LeftShoulder/LeftUpperArm/LeftLowerArm/LeftHand/LeftIndexProximal
+    m_Weight: 1
+  - m_Path: Armature/Hips/Spine/Chest/UpperChest/LeftShoulder/LeftUpperArm/LeftLowerArm/LeftHand/LeftIndexProximal/LeftIndexIntermediate
+    m_Weight: 1
+  - m_Path: Armature/Hips/Spine/Chest/UpperChest/LeftShoulder/LeftUpperArm/LeftLowerArm/LeftHand/LeftIndexProximal/LeftIndexIntermediate/LeftIndexDistal
+    m_Weight: 1
+  - m_Path: Armature/Hips/Spine/Chest/UpperChest/LeftShoulder/LeftUpperArm/LeftLowerArm/LeftHand/LeftLittleProximal
+    m_Weight: 1
+  - m_Path: Armature/Hips/Spine/Chest/UpperChest/LeftShoulder/LeftUpperArm/LeftLowerArm/LeftHand/LeftLittleProximal/LeftLittleIntermediate
+    m_Weight: 1
+  - m_Path: Armature/Hips/Spine/Chest/UpperChest/LeftShoulder/LeftUpperArm/LeftLowerArm/LeftHand/LeftLittleProximal/LeftLittleIntermediate/LeftLittleDistal
+    m_Weight: 1
+  - m_Path: Armature/Hips/Spine/Chest/UpperChest/LeftShoulder/LeftUpperArm/LeftLowerArm/LeftHand/LeftMiddleProximal
+    m_Weight: 1
+  - m_Path: Armature/Hips/Spine/Chest/UpperChest/LeftShoulder/LeftUpperArm/LeftLowerArm/LeftHand/LeftMiddleProximal/LeftMiddleIntermediate
+    m_Weight: 1
+  - m_Path: Armature/Hips/Spine/Chest/UpperChest/LeftShoulder/LeftUpperArm/LeftLowerArm/LeftHand/LeftMiddleProximal/LeftMiddleIntermediate/LeftMiddleDistal
+    m_Weight: 1
+  - m_Path: Armature/Hips/Spine/Chest/UpperChest/LeftShoulder/LeftUpperArm/LeftLowerArm/LeftHand/LeftThumbProximal
+    m_Weight: 1
+  - m_Path: Armature/Hips/Spine/Chest/UpperChest/LeftShoulder/LeftUpperArm/LeftLowerArm/LeftHand/LeftThumbProximal/LeftThumbIntermediate
+    m_Weight: 1
+  - m_Path: Armature/Hips/Spine/Chest/UpperChest/LeftShoulder/LeftUpperArm/LeftLowerArm/LeftHand/LeftThumbProximal/LeftThumbIntermediate/LeftThumbDistal
+    m_Weight: 1
+  - m_Path: Armature/Hips/Spine/Chest/UpperChest/LeftShoulder/LeftUpperArm/LeftLowerArm/LeftHand/MagicHand_L
+    m_Weight: 1
+  - m_Path: Armature/Hips/Spine/Chest/UpperChest/Neck
+    m_Weight: 1
+  - m_Path: Armature/Hips/Spine/Chest/UpperChest/Neck/CC_Base_NeckTwist02
+    m_Weight: 1
+  - m_Path: Armature/Hips/Spine/Chest/UpperChest/Neck/CC_Base_NeckTwist02/Head
+    m_Weight: 1
+  - m_Path: Armature/Hips/Spine/Chest/UpperChest/Neck/CC_Base_NeckTwist02/Head/CC_Base_FacialBone
+    m_Weight: 1
+  - m_Path: Armature/Hips/Spine/Chest/UpperChest/Neck/CC_Base_NeckTwist02/Head/CC_Base_FacialBone/CC_Base_JawRoot
+    m_Weight: 1
+  - m_Path: Armature/Hips/Spine/Chest/UpperChest/Neck/CC_Base_NeckTwist02/Head/CC_Base_FacialBone/CC_Base_JawRoot/CC_Base_Teeth02
+    m_Weight: 1
+  - m_Path: Armature/Hips/Spine/Chest/UpperChest/Neck/CC_Base_NeckTwist02/Head/CC_Base_FacialBone/CC_Base_JawRoot/CC_Base_Tongue01
+    m_Weight: 1
+  - m_Path: Armature/Hips/Spine/Chest/UpperChest/Neck/CC_Base_NeckTwist02/Head/CC_Base_FacialBone/CC_Base_JawRoot/CC_Base_Tongue01/CC_Base_Tongue02
+    m_Weight: 1
+  - m_Path: Armature/Hips/Spine/Chest/UpperChest/Neck/CC_Base_NeckTwist02/Head/CC_Base_FacialBone/CC_Base_JawRoot/CC_Base_Tongue01/CC_Base_Tongue02/CC_Base_Tongue03
+    m_Weight: 1
+  - m_Path: Armature/Hips/Spine/Chest/UpperChest/Neck/CC_Base_NeckTwist02/Head/CC_Base_FacialBone/CC_Base_L_Eye
+    m_Weight: 1
+  - m_Path: Armature/Hips/Spine/Chest/UpperChest/Neck/CC_Base_NeckTwist02/Head/CC_Base_FacialBone/CC_Base_R_Eye
+    m_Weight: 1
+  - m_Path: Armature/Hips/Spine/Chest/UpperChest/Neck/CC_Base_NeckTwist02/Head/CC_Base_FacialBone/CC_Base_UpperJaw
+    m_Weight: 1
+  - m_Path: Armature/Hips/Spine/Chest/UpperChest/Neck/CC_Base_NeckTwist02/Head/CC_Base_FacialBone/CC_Base_UpperJaw/CC_Base_Teeth01
+    m_Weight: 1
+  - m_Path: Armature/Hips/Spine/Chest/UpperChest/RightShoulder
+    m_Weight: 1
+  - m_Path: Armature/Hips/Spine/Chest/UpperChest/RightShoulder/RightUpperArm
+    m_Weight: 1
+  - m_Path: Armature/Hips/Spine/Chest/UpperChest/RightShoulder/RightUpperArm/CC_Base_R_UpperarmTwist01
+    m_Weight: 1
+  - m_Path: Armature/Hips/Spine/Chest/UpperChest/RightShoulder/RightUpperArm/CC_Base_R_UpperarmTwist01/CC_Base_R_UpperarmTwist02
+    m_Weight: 1
+  - m_Path: Armature/Hips/Spine/Chest/UpperChest/RightShoulder/RightUpperArm/RightLowerArm
+    m_Weight: 1
+  - m_Path: Armature/Hips/Spine/Chest/UpperChest/RightShoulder/RightUpperArm/RightLowerArm/CC_Base_R_ElbowShareBone
+    m_Weight: 1
+  - m_Path: Armature/Hips/Spine/Chest/UpperChest/RightShoulder/RightUpperArm/RightLowerArm/CC_Base_R_ForearmTwist01
+    m_Weight: 1
+  - m_Path: Armature/Hips/Spine/Chest/UpperChest/RightShoulder/RightUpperArm/RightLowerArm/CC_Base_R_ForearmTwist01/CC_Base_R_ForearmTwist02
+    m_Weight: 1
+  - m_Path: Armature/Hips/Spine/Chest/UpperChest/RightShoulder/RightUpperArm/RightLowerArm/RightHand
+    m_Weight: 1
+  - m_Path: Armature/Hips/Spine/Chest/UpperChest/RightShoulder/RightUpperArm/RightLowerArm/RightHand/MagicHand_R
+    m_Weight: 1
+  - m_Path: Armature/Hips/Spine/Chest/UpperChest/RightShoulder/RightUpperArm/RightLowerArm/RightHand/RightIndexProximal
+    m_Weight: 1
+  - m_Path: Armature/Hips/Spine/Chest/UpperChest/RightShoulder/RightUpperArm/RightLowerArm/RightHand/RightIndexProximal/RightIndexIntermediate
+    m_Weight: 1
+  - m_Path: Armature/Hips/Spine/Chest/UpperChest/RightShoulder/RightUpperArm/RightLowerArm/RightHand/RightIndexProximal/RightIndexIntermediate/RightIndexDistal
+    m_Weight: 1
+  - m_Path: Armature/Hips/Spine/Chest/UpperChest/RightShoulder/RightUpperArm/RightLowerArm/RightHand/RightLittleProximal
+    m_Weight: 1
+  - m_Path: Armature/Hips/Spine/Chest/UpperChest/RightShoulder/RightUpperArm/RightLowerArm/RightHand/RightLittleProximal/RightLittleIntermediate
+    m_Weight: 1
+  - m_Path: Armature/Hips/Spine/Chest/UpperChest/RightShoulder/RightUpperArm/RightLowerArm/RightHand/RightLittleProximal/RightLittleIntermediate/RightLittleDistal
+    m_Weight: 1
+  - m_Path: Armature/Hips/Spine/Chest/UpperChest/RightShoulder/RightUpperArm/RightLowerArm/RightHand/RightMiddleProximal
+    m_Weight: 1
+  - m_Path: Armature/Hips/Spine/Chest/UpperChest/RightShoulder/RightUpperArm/RightLowerArm/RightHand/RightMiddleProximal/RightMiddleIntermediate
+    m_Weight: 1
+  - m_Path: Armature/Hips/Spine/Chest/UpperChest/RightShoulder/RightUpperArm/RightLowerArm/RightHand/RightMiddleProximal/RightMiddleIntermediate/RightMiddleDistal
+    m_Weight: 1
+  - m_Path: Armature/Hips/Spine/Chest/UpperChest/RightShoulder/RightUpperArm/RightLowerArm/RightHand/RightThumbProximal
+    m_Weight: 1
+  - m_Path: Armature/Hips/Spine/Chest/UpperChest/RightShoulder/RightUpperArm/RightLowerArm/RightHand/RightThumbProximal/RightThumbIntermediate
+    m_Weight: 1
+  - m_Path: Armature/Hips/Spine/Chest/UpperChest/RightShoulder/RightUpperArm/RightLowerArm/RightHand/RightThumbProximal/RightThumbIntermediate/RightThumbDistal
+    m_Weight: 1
+  - m_Path: Armature/Hips/Spine/Chest/UpperChest/ShieldCenter
+    m_Weight: 1
+  - m_Path: Armature/Hips/Spine/Chest/UpperChest/Wing_L_1
+    m_Weight: 1
+  - m_Path: Armature/Hips/Spine/Chest/UpperChest/Wing_L_1/Wing_L_2
+    m_Weight: 1
+  - m_Path: Armature/Hips/Spine/Chest/UpperChest/Wing_L_1/Wing_L_2/Wing_L_3
+    m_Weight: 1
+  - m_Path: Armature/Hips/Spine/Chest/UpperChest/Wing_R_1
+    m_Weight: 1
+  - m_Path: Armature/Hips/Spine/Chest/UpperChest/Wing_R_1/Wing_R_2
+    m_Weight: 1
+  - m_Path: Armature/Hips/Spine/Chest/UpperChest/Wing_R_1/Wing_R_2/Wing_R_3
+    m_Weight: 1
+  - m_Path: Body
+    m_Weight: 1

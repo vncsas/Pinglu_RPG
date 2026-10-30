@@ -12,10 +12,26 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 45772ae0587a59f2abfe47e73b6fe1b9, type: 3}
   m_Name: 4_Personagem4
   m_EditorClassIdentifier: Assembly-CSharp::FichaPersonagem
-  nome: Personagem 4
-  descricao: "Personagem ainda em cria\xE7\xE3o."
-  habilidades: []
-  corDestaque: {r: 0.8, g: 0.6, b: 0.25, a: 1}
+  nome: Curandeiro
+  descricao: "Serafim de ossos com aur\xE9ola e asas rasgadas. Lan\xE7a uma luz que cura a ele e a todos os aliados por perto, se concentra para resistir aos golpes e voa sobre o campo de batalha para socorrer o grupo."
+  habilidades:
+  - "Cura em \xE1rea: aliados e ele mesmo (clique esquerdo)"
+  - "Concentra\xE7\xE3o: segura 50% do dano (bot\xE3o direito)"
+  - "Voo livre: F decola, Espa\xE7o sobe, C desce"
+  - "Investida r\xE1pida (Ctrl)"
+  corDestaque: {r: 0.35, g: 1, b: 0.55, a: 1}
   retrato: {fileID: 0}
-  prefabJogador: {fileID: 0}
-  disponivel: 0
+  titulo: O Serafim de Ossos
+  fonteNome: {fileID: 12800000, guid: 5e9db48ea4996b0baa4eefa8d86f332e, type: 3}
+  tamanhoNome: 76
+  corNome: {r: 0.8, g: 1, b: 0.86, a: 1}
+  forca: 2
+  defesa: 5
+  velocidade: 6
+  alcance: 6
+  modeloVisual: {fileID: 919132149155446097, guid: f9ba278357e7751c09db9c5ff74c02b6, type: 3}
+  animacaoParado: {fileID: -619547186965265060, guid: a1a413eb09052530bad5c92aab795247, type: 3}
+  animacaoEntrada: {fileID: -170192780973886395, guid: 95f4b7c1ef9a2645abf6189210efe7dc, type: 3}
+  animacaoAndar: {fileID: -1055766231766805323, guid: 9ca679163574e9c3098c4cdd8b7d486f, type: 3}
+  prefabJogador: {fileID: 4639087919298142734, guid: 8d7bd962575123084be165d3cbbb45bf, type: 3}
+  disponivel: 1

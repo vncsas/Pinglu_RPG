@@ -12,10 +12,26 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 45772ae0587a59f2abfe47e73b6fe1b9, type: 3}
   m_Name: 3_Personagem3
   m_EditorClassIdentifier: Assembly-CSharp::FichaPersonagem
-  nome: Personagem 3
-  descricao: "Personagem ainda em cria\xE7\xE3o."
-  habilidades: []
-  corDestaque: {r: 0.8, g: 0.6, b: 0.25, a: 1}
+  nome: Tanque
+  descricao: "Criatura alada de coura\xE7a viva. Fecha as asas num escudo de energia que segura quase todo o dano, esmaga o que est\xE1 \xE0 frente com pancadas de escudo e sobe aos ares para atravessar o campo de batalha."
+  habilidades:
+  - "Escudo de energia: segura 90% do dano (bot\xE3o direito)"
+  - "Pancada de escudo em \xE1rea (clique esquerdo)"
+  - "Voo livre: F decola, Espa\xE7o sobe, C desce"
+  - 'Muita vida: aguenta a linha de frente'
+  corDestaque: {r: 0.35, g: 0.65, b: 1, a: 1}
   retrato: {fileID: 0}
-  prefabJogador: {fileID: 0}
-  disponivel: 0
+  titulo: A Muralha Alada
+  fonteNome: {fileID: 12800000, guid: 5cb9fd40a4397df7e95b685423c93bc0, type: 3}
+  tamanhoNome: 78
+  corNome: {r: 0.78, g: 0.9, b: 1, a: 1}
+  forca: 6
+  defesa: 10
+  velocidade: 3
+  alcance: 3
+  modeloVisual: {fileID: 919132149155446097, guid: 733f4bc549caca0798ea54462c105b67, type: 3}
+  animacaoParado: {fileID: -619547186965265060, guid: b7e1fdbada33184b8a384c2044b5df2d, type: 3}
+  animacaoEntrada: {fileID: 5562112990743859121, guid: b372e0eec1bf404cf8d72485c654a288, type: 3}
+  animacaoAndar: {fileID: -1055766231766805323, guid: b97c896f5a875e896abde11e4641fefe, type: 3}
+  prefabJogador: {fileID: 9042936588447044564, guid: 27cea95004b975b748756771451c7f57, type: 3}
+  disponivel: 1
