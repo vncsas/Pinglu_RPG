@@ -200,7 +200,13 @@ public class MapaDoMundo : MonoBehaviour
 
         Vector3 delta = mouse - ultimoMouse;
         ultimoMouse = mouse;
-        if (Input.GetMouseButtonDown(0)) arrastando = !sobreUI;
+        if (Input.GetMouseButtonDown(0) && !sobreUI && (Input.GetKey(KeyCode.LeftControl) || Input.GetKey(KeyCode.RightControl)) && GPSDoMapa.Instancia != null)
+        {
+            // Ctrl + clique no chão do mapa: marca um ponto livre e traça o caminho
+            RaycastHit hit;
+            if (Physics.Raycast(camMapa.ScreenPointToRay(mouse), out hit, 6000f)) GPSDoMapa.Instancia.Definir(hit.point, "Ponto marcado", false, Vector3.zero);
+        }
+        else if (Input.GetMouseButtonDown(0)) arrastando = !sobreUI;
         if (!Input.GetMouseButton(0)) arrastando = false;
         Vector3 frente = Quaternion.Euler(0f, yaw, 0f) * Vector3.forward, direita = Quaternion.Euler(0f, yaw, 0f) * Vector3.right;
         if (arrastando) alvoPivo -= (direita * delta.x + frente * delta.y) * (dist * 0.0016f);
@@ -319,6 +325,7 @@ public class MapaDoMundo : MonoBehaviour
         if (aba != Aba.Pergaminho)
         {
             NomesDosBiomas(e);
+            RotaNoMapa(e);
             Marcadores(e, mouse);
         }
         PainelEsquerdo(e);
@@ -326,6 +333,34 @@ public class MapaDoMundo : MonoBehaviour
         Abas(e);
         Dicas(e);
         GUI.color = Color.white;
+    }
+
+    private void RotaNoMapa(float e)
+    {
+        GPSDoMapa gps = GPSDoMapa.Instancia;
+        if (gps == null || !gps.Ativo || gps.Rota.Count < 2) return;
+        // desenha em trechos contínuos (pula os pontos atrás da câmera)
+        List<List<Vector2>> trechos = new List<List<Vector2>>();
+        List<Vector2> atual = new List<Vector2>();
+        foreach (Vector3 p in gps.Rota)
+        {
+            Vector2 s;
+            if (NaTela(p + Vector3.up * 2.5f, out s)) atual.Add(s);
+            else if (atual.Count > 1) { trechos.Add(atual); atual = new List<Vector2>(); }
+            else atual.Clear();
+        }
+        if (atual.Count > 1) trechos.Add(atual);
+        foreach (List<Vector2> tr in trechos) DesenhoMapa.Linha(tr, 11f * e, new Color(0f, 0f, 0f, 0.8f));
+        foreach (List<Vector2> tr in trechos) DesenhoMapa.Linha(tr, 6.5f * e, new Color(1f, 0.80f, 0.22f, 1f));
+        Vector2 d;
+        if (NaTela(gps.Destino + Vector3.up * 6f, out d)) DesenhoMapa.Marca(d, 15f * e, new Color(1f, 0.80f, 0.22f, 1f));
+    }
+
+    private HashSet<string> NomesUnicosDeBiomas()
+    {
+        HashSet<string> r = new HashSet<string>();
+        if (biomas != null) foreach (ClimaDosBiomas.Bioma b in biomas.biomas) r.Add(b.nome);
+        return r;
     }
 
     private bool NaTela(Vector3 mundo, out Vector2 tela)
@@ -338,9 +373,10 @@ public class MapaDoMundo : MonoBehaviour
     private void NomesDosBiomas(float e)
     {
         if (biomas == null || miniMapa == null) return;
+        HashSet<string> jaDesenhado = new HashSet<string>();
         foreach (ClimaDosBiomas.Bioma b in biomas.biomas)
         {
-            if (!miniMapa.Descobertos.Contains(b.nome)) continue;
+            if (!miniMapa.Conhecido(b.nome) || !jaDesenhado.Add(b.nome)) continue;
             Vector2 p;
             if (!NaTela(b.centro + Vector3.up * 40f, out p)) continue;
             Rect r = new Rect(p.x - 220f * e, p.y - 22f * e, 440f * e, 44f * e);
@@ -365,7 +401,12 @@ public class MapaDoMundo : MonoBehaviour
             Texture2D ic = Icone(m.tipo);
             if (ic != null) GUI.DrawTexture(new Rect(rp.center.x - rp.width * 0.27f, rp.y + rp.height * 0.13f, rp.width * 0.54f, rp.width * 0.54f), ic);
             if (sobre || dist < 260f) Etiqueta(new Vector2(p.x, rp.y - 16f * e), m.nome, e);
-            if (sobre && Event.current.type == EventType.MouseDown && Event.current.button == 0) { VoarPara(m.posicao, 110f); Event.current.Use(); }
+            if (sobre && Event.current.type == EventType.MouseDown && Event.current.button == 0)
+            {
+                VoarPara(m.posicao, 110f);
+                if (GPSDoMapa.Instancia != null) GPSDoMapa.Instancia.DefinirPorMarcador(m);   // clicar no alfinete traça o caminho
+                Event.current.Use();
+            }
         }
         foreach (Transform a in aliados)
         {
@@ -417,8 +458,8 @@ public class MapaDoMundo : MonoBehaviour
         float w = 320f * e;
         float y0 = 130f * e;
         List<MiniMapa.Marcador> locais = miniMapa != null ? miniMapa.marcadores : new List<MiniMapa.Marcador>();
-        int nb = biomas != null ? biomas.biomas.Length : 0;
-        float h = (90f + (locais.Count + nb) * 34f + 40f) * e;
+        int nb = NomesUnicosDeBiomas().Count;
+        float h = (90f + (locais.Count + nb) * 34f + 40f + 80f) * e;
         rPainelEsq = new Rect(28f * e, y0, w, h);
         Painel(rPainelEsq, 0.82f);
         float x = rPainelEsq.x + 18f * e, y = y0 + 14f * e;
@@ -429,19 +470,37 @@ public class MapaDoMundo : MonoBehaviour
             Texture2D ic = Icone(m.tipo);
             if (ic != null) { Color a = GUI.color; if (!conhecido) GUI.color = new Color(0.5f, 0.5f, 0.5f, a.a); GUI.DrawTexture(new Rect(x, y + 3f * e, 24f * e, 24f * e), ic); GUI.color = a; }
             Rect rr = new Rect(x + 34f * e, y, w - 60f * e, 30f * e);
-            if (GUI.Button(rr, conhecido ? m.nome : "???", estItem) && conhecido) { aba = Aba.Mundo; VoarPara(m.posicao, 110f); }
+            if (GUI.Button(rr, conhecido ? m.nome : "???", estItem) && conhecido)
+            {
+                aba = Aba.Mundo; VoarPara(m.posicao, 110f);
+                if (GPSDoMapa.Instancia != null) GPSDoMapa.Instancia.DefinirPorMarcador(m);
+            }
             y += 34f * e;
         }
         if (biomas != null)
         {
             y += 8f * e;
             GUI.Label(new Rect(x, y, w, 30f * e), "BIOMAS", estTitulo); y += 38f * e;
+            HashSet<string> jaMostrado = new HashSet<string>();
             foreach (ClimaDosBiomas.Bioma b in biomas.biomas)
             {
-                bool conhecido = miniMapa != null && miniMapa.Descobertos.Contains(b.nome);
+                if (!jaMostrado.Add(b.nome)) continue;
+                bool conhecido = miniMapa != null && miniMapa.Conhecido(b.nome);
                 if (GUI.Button(new Rect(x + 34f * e, y, w - 60f * e, 30f * e), conhecido ? b.nome : "???", estItem) && conhecido) { aba = Aba.Mundo; VoarPara(b.centro, 420f); }
                 y += 34f * e;
             }
+        }
+        GPSDoMapa gps = GPSDoMapa.Instancia;
+        if (gps != null)
+        {
+            y += 10f * e;
+            GUI.Label(new Rect(x, y, w, 30f * e), "GPS", estTitulo); y += 36f * e;
+            if (gps.Ativo)
+            {
+                GUI.Label(new Rect(x, y, w - 20f * e, 30f * e), gps.NomeDoDestino + " • " + Mathf.RoundToInt(gps.DistanciaRestante) + " m", estItem); y += 32f * e;
+                if (GUI.Button(new Rect(x, y, w - 40f * e, 30f * e), "Cancelar GPS (X)", estItem)) gps.Cancelar();
+            }
+            else GUI.Label(new Rect(x, y, w - 20f * e, 30f * e), "Clique num lugar para traçar o caminho", estPequeno);
         }
     }
 
@@ -454,9 +513,10 @@ public class MapaDoMundo : MonoBehaviour
         GUI.Label(new Rect(x, y, w, 30f * e), "EXPLORAÇÃO", estTitulo); y += 42f * e;
         int locais = 0, conhecidos = 0;
         if (miniMapa != null) foreach (MiniMapa.Marcador m in miniMapa.marcadores) { locais++; if (miniMapa.Explorado(m.posicao)) conhecidos++; }
-        int nb = biomas != null ? biomas.biomas.Length : 0;
+        HashSet<string> unicos = NomesUnicosDeBiomas();
+        int nb = unicos.Count;
         int bd = 0;
-        if (biomas != null && miniMapa != null) foreach (ClimaDosBiomas.Bioma b in biomas.biomas) if (miniMapa.Descobertos.Contains(b.nome)) bd++;
+        if (miniMapa != null) foreach (string nomeBioma in unicos) if (miniMapa.Conhecido(nomeBioma)) bd++;
         float pct = miniMapa != null ? miniMapa.FracaoExplorada() * 100f : 0f;
         Linha(x, ref y, w, e, "Mapa explorado", Mathf.RoundToInt(pct) + "%");
         Linha(x, ref y, w, e, "Biomas descobertos", bd + " / " + nb);
@@ -495,6 +555,7 @@ public class MapaDoMundo : MonoBehaviour
         string txt = aba == Aba.Pergaminho
             ? teclaAba + ": trocar aba     " + tecla + " / Esc: fechar"
             : "Roda: zoom     Botão direito ou Q/E: girar     Botão esquerdo ou WASD: mover     " + teclaCentralizar + ": você     " + teclaAba + ": aba     " + tecla + " / Esc: fechar";
+        if (aba != Aba.Pergaminho) txt += "     Clique num alfinete: GPS     Ctrl + clique: marcar ponto     X: cancelar GPS";
         Vector2 tam = estPequeno.CalcSize(new GUIContent(txt));
         Rect r = new Rect((Screen.width - tam.x) * 0.5f - 20f * e, Screen.height - 58f * e, tam.x + 40f * e, 36f * e);
         Painel(r, 0.75f);

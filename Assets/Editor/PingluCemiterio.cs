@@ -267,6 +267,7 @@ public static partial class PingluVila
             GameObject[] variantes = CriarVariantesDeMonstros();
             CriarHordaGrande(variantes);
 
+            avisos.Add(PingluDesempenho.Otimizar());
             terreno.Flush();
             EditorUtility.SetDirty(dados);
             AssetDatabase.SaveAssets();
@@ -549,12 +550,13 @@ public static partial class PingluVila
         string[] troncos = { "dead_tree_trunk_02", "dead_tree_trunk" };
         string[] tocos = { "tree_stump_01", "tree_stump_02" };
         string[] pedras = { "rock_moss_set_01", "rock_moss_set_02" };
-        int[] cota = { 170, 140, 70, 110, 220 };
+        int[] cota = { 0, 0, 0, 24, 0 };   // só pedras com musgo (7 mil triângulos): troncos, tocos, raízes e galhos escaneados têm até 225 mil e travavam o jogo
         int[] feitos = new int[5];
         for (int tentativa = 0; tentativa < 4000; tentativa++)
         {
             int tipo = tentativa % 5;
             if (feitos[tipo] >= cota[tipo]) continue;
+            if (feitos[3] >= cota[3]) break;
             Vector3 p = PontoNaFlorestaCem(); if (p == Vector3.zero) continue;
             Vector3 loc = Quaternion.Inverse(cemRot) * (p - cemC);
             float yaw = Faixa(0f, 360f);

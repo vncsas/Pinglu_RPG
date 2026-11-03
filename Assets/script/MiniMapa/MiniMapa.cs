@@ -34,6 +34,8 @@ public class MiniMapa : MonoBehaviour
     public float distanciaParaVerInimigos = 70f;
 
     [Header("Exploração")]
+    [Tooltip("Mostra o mapa inteiro, sem nuvens/névoa (lugares e biomas sempre visíveis)")]
+    public bool revelarMapaTodo = true;
     public bool usarNevoa = true;
     public float raioRevelado = 50f;
 
@@ -57,7 +59,15 @@ public class MiniMapa : MonoBehaviour
     private string regiaoAtual = "";
     private readonly HashSet<string> descobertos = new HashSet<string>();
     private ClimaDosBiomas biomas;
-    private GUIStyle estiloRegiao, estiloNome, estiloLegenda;
+    private GUIStyle estiloRegiao, estiloNome, estiloLegenda, estiloNome2;
+    private readonly List<Vector2> bufferLinha = new List<Vector2>();
+    private static readonly Color COR_ESTRADA = new Color(0.40f, 0.27f, 0.12f, 0.6f);
+    private static readonly Color COR_GPS = new Color(1f, 0.80f, 0.22f, 1f);
+
+    private void Awake() { if (revelarMapaTodo) usarNevoa = false; }
+
+    // com o mapa todo revelado, todo lugar e bioma é "conhecido"
+    public bool Conhecido(string nome) { return !usarNevoa || descobertos.Contains(nome); }
 
     // usado pelo Mapa do Mundo
     public bool PergaminhoAberto { get { return mapaAberto; } set { mapaAberto = value; } }
@@ -184,6 +194,8 @@ public class MiniMapa : MonoBehaviour
         estiloRegiao.normal.textColor = new Color(0.93f, 0.80f, 0.55f);
         estiloNome = new GUIStyle(estiloRegiao) { fontSize = Mathf.RoundToInt(17 * e) };
         estiloNome.normal.textColor = new Color(0.20f, 0.14f, 0.08f);
+        estiloNome2 = new GUIStyle(estiloRegiao) { fontSize = Mathf.RoundToInt(16 * e) };
+        estiloNome2.normal.textColor = COR_GPS;
         estiloLegenda = new GUIStyle(GUI.skin.label) { fontSize = Mathf.RoundToInt(17 * e) };
         estiloLegenda.normal.textColor = new Color(0.93f, 0.85f, 0.7f);
     }
@@ -213,6 +225,8 @@ public class MiniMapa : MonoBehaviour
             return new Vector2(Vector2.Dot(d, dir), -Vector2.Dot(d, frente)) / metrosVisiveis * lado;
         };
 
+        RotasNoMiniMapa(NaTela, centro, raio * 0.97f, e);
+
         foreach (Marcador m in marcadores)
         {
             if (!Explorado(m.posicao)) continue;
@@ -240,6 +254,9 @@ public class MiniMapa : MonoBehaviour
         Icone(iconeNorte, centro + norte, 30f * e, 0f, 1f);
 
         GUI.Label(new Rect(r.x - 20f * e, r.yMax + 12f * e, lado + 40f * e, 30f * e), regiaoAtual, estiloRegiao);
+        GPSDoMapa gpsInfo = GPSDoMapa.Instancia;
+        if (gpsInfo != null && gpsInfo.Ativo)
+            GUI.Label(new Rect(r.x - 20f * e, r.yMax + 38f * e, lado + 40f * e, 28f * e), "GPS: " + gpsInfo.NomeDoDestino + "  •  " + Mathf.RoundToInt(gpsInfo.DistanciaRestante) + " m", estiloNome2);
 
         if (mapaAberto) MapaCompleto(e);
     }
@@ -274,11 +291,14 @@ public class MiniMapa : MonoBehaviour
         GUI.DrawTexture(r, rtGrande);
         System.Func<Vector3, Vector2> NoMapa = w => { Vector2 uv = ParaUV(w); return new Vector2(r.x + uv.x * r.width, r.yMax - uv.y * r.height); };
 
+        HashSet<string> jaDesenhado = new HashSet<string>();
         if (biomas != null)
             foreach (ClimaDosBiomas.Bioma b in biomas.biomas)
-                GUI.Label(new Rect(NoMapa(b.centro).x - 120f * e, NoMapa(b.centro).y - 15f * e, 240f * e, 30f * e), descobertos.Contains(b.nome) ? b.nome : "???", estiloNome);
+                if (jaDesenhado.Add(b.nome)) GUI.Label(new Rect(NoMapa(b.centro).x - 120f * e, NoMapa(b.centro).y - 15f * e, 240f * e, 30f * e), Conhecido(b.nome) ? b.nome : "???", estiloNome);
+        RotasNoPergaminho(NoMapa, e);
         foreach (Marcador m in marcadores)
             if (Explorado(m.posicao)) Icone(IconeDo(m.tipo), NoMapa(m.posicao), 30f * e, 0f, 1f);
+        CliquesDoPergaminho(r, NoMapa, e);
         foreach (Transform t in aliados) Icone(iconeAliado, NoMapa(t.position), 24f * e, t.eulerAngles.y, 1f);
         Icone(iconeJogador, NoMapa(jogador.position), 32f * e, jogador.eulerAngles.y, 1f);
 
@@ -294,6 +314,78 @@ public class MiniMapa : MonoBehaviour
             GUI.Label(new Rect(x + 36f * e, y, 220f * e, 30f * e), nomes[i], estiloLegenda);
             y += 34f * e;
         }
+    }
+
+    // ------------------------------------------------------------------
+    //  estradas e GPS
+    // ------------------------------------------------------------------
+    private void RotasNoMiniMapa(System.Func<Vector3, Vector2> naTela, Vector2 centro, float raio, float e)
+    {
+        RedeDeEstradas rede = RedeDeEstradas.Instancia;
+        if (rede != null)
+            foreach (RedeDeEstradas.Estrada est in rede.estradas)
+            {
+                if (est.pontos == null || est.pontos.Length < 2) continue;
+                bufferLinha.Clear();
+                foreach (Vector3 p in est.pontos) bufferLinha.Add(centro + naTela(p));
+                DesenhoMapa.LinhaNoCirculo(bufferLinha, 5f * e, COR_ESTRADA, centro, raio);
+            }
+        GPSDoMapa gps = GPSDoMapa.Instancia;
+        if (gps == null || !gps.Ativo || gps.Rota.Count < 2) return;
+        bufferLinha.Clear();
+        foreach (Vector3 p in gps.Rota) bufferLinha.Add(centro + naTela(p));
+        DesenhoMapa.LinhaNoCirculo(bufferLinha, 10f * e, new Color(0f, 0f, 0f, 0.8f), centro, raio);
+        DesenhoMapa.LinhaNoCirculo(bufferLinha, 6f * e, COR_GPS, centro, raio);
+        Vector2 d = naTela(gps.Destino);
+        bool fora = d.magnitude > raio * 0.93f;
+        if (fora) d = d.normalized * raio * 0.93f;
+        DesenhoMapa.Marca(centro + d, (fora ? 9f : 13f) * e, COR_GPS);
+    }
+
+    private void RotasNoPergaminho(System.Func<Vector3, Vector2> noMapa, float e)
+    {
+        RedeDeEstradas rede = RedeDeEstradas.Instancia;
+        if (rede != null)
+            foreach (RedeDeEstradas.Estrada est in rede.estradas)
+            {
+                if (est.pontos == null || est.pontos.Length < 2) continue;
+                bufferLinha.Clear();
+                foreach (Vector3 p in est.pontos) bufferLinha.Add(noMapa(p));
+                DesenhoMapa.Linha(bufferLinha, 3.5f * e, COR_ESTRADA);
+            }
+        GPSDoMapa gps = GPSDoMapa.Instancia;
+        if (gps == null || !gps.Ativo || gps.Rota.Count < 2) return;
+        bufferLinha.Clear();
+        foreach (Vector3 p in gps.Rota) bufferLinha.Add(noMapa(p));
+        DesenhoMapa.Linha(bufferLinha, 8f * e, new Color(0f, 0f, 0f, 0.8f));
+        DesenhoMapa.Linha(bufferLinha, 4.5f * e, COR_GPS);
+        DesenhoMapa.Marca(noMapa(gps.Destino), 12f * e, COR_GPS);
+    }
+
+    // clique num ícone = traçar caminho até ele; botão direito no mapa = marcar um ponto livre
+    private void CliquesDoPergaminho(Rect r, System.Func<Vector3, Vector2> noMapa, float e)
+    {
+        GPSDoMapa gps = GPSDoMapa.Instancia;
+        Event ev = Event.current;
+        if (gps != null && ev.type == EventType.MouseDown && r.Contains(ev.mousePosition))
+        {
+            if (ev.button == 0)
+            {
+                foreach (Marcador m in marcadores)
+                    if ((noMapa(m.posicao) - ev.mousePosition).magnitude < 24f * e) { gps.DefinirPorMarcador(m); ev.Use(); break; }
+            }
+            else if (ev.button == 1)
+            {
+                Vector2 uv = new Vector2((ev.mousePosition.x - r.x) / r.width, (r.yMax - ev.mousePosition.y) / r.height);
+                Vector3 w = new Vector3(origem.x + uv.x * tamanho.x, 0f, origem.y + uv.y * tamanho.y);
+                Terrain t = Terrain.activeTerrain;
+                if (t != null) w.y = t.SampleHeight(w) + t.transform.position.y;
+                gps.Definir(w, "Ponto marcado", false, Vector3.zero);
+                ev.Use();
+            }
+        }
+        string dica = "Clique num lugar: GPS   •   Botão direito: marcar ponto   •   X: cancelar";
+        GUI.Label(new Rect(r.x - 100f * e, r.y - 38f * e, r.width + 200f * e, 28f * e), dica, estiloNome2 ?? estiloLegenda);
     }
 
     private Texture2D IconeDo(Tipo t)
