@@ -1,0 +1,33 @@
+GOLEM DO CEMITERIO (mini-boss) - rig Humanoid + animacoes
+=========================================================
+Origem: gravestone-golem-cemetery-guardian (escultura unica do Tripo, 1,9M tris, sem esqueleto).
+Reduzido para 150 mil tris, ~2,4 m de altura (2,5 m com os espetos), pes no chao, de frente para -Y (Blender).
+
+ARQUIVOS
+  golem_rigged.fbx        modelo + esqueleto Humanoid (22 ossos de deformacao + encaixes MagicHand_L/R nos punhos e ShieldCenter no peito)
+  golem_rig.blend         o mesmo no Blender, com o rig de controle (IK pernas/bracos, CTRL_Root, polos)
+  texturas_unity/         golem_BaseColor, _Normal, _MetallicSmoothness (alpha = smoothness = 1 - roughness)
+  animacoes/              um FBX por clipe: golem@<Clipe>.fbx
+  unity/                  scripts de teste (menu "Golem > Montar tudo")
+  scripts/                pipeline completo (Blender 5.2): step1_norm > build > rig_b > retarget > golem_anim > export_anims
+  renders/                imagens de conferencia
+
+ANIMACOES (14)
+  Movimento: Parado, Andar, Correr (loops, captura de movimento Quaternius deixada mais lenta/pesada) | Levar_Golpe, Levar_Golpe_Forte, Morrer
+  Mini-boss (feitas a mao com poses-chave): Postura_Luta (loop), Esmagar (as duas maos), Soco_Pesado (gancho largo), Pisada, Rugir (bate no peito 3x), Atordoado (loop)
+  Captura de movimento: Soco_Direto, Varrer
+  Fonte da captura: Quaternius Universal Animation Library 1 e 2 (CC0), retargetada.
+
+ANIMATION EVENTS (criados pelo "Montar tudo")
+  ImpactoSoco    Soco_Direto, Soco_Pesado, Varrer, Esmagar (no quadro em que o golpe acerta)
+  ImpactoPisada  Pisada | ImpactoPeito  Rugir (3 batidas no peito)
+  No jogo, use os mesmos eventos para causar dano / tremer a camera / tocar som; os efeitos dos scripts sao so de teste.
+
+NO UNITY
+  1. Copie a pasta para Assets/Personagens/GolemCemiterio (a Unity gera os .meta - so UMA pessoa deve comitar os .meta).
+  2. Menu  Golem > Montar tudo   (Humanoid, material URP, clipes, Animator, cena Teste_Golem).
+  3. Abra a cena e de Play: botoes por animacao no canto esquerdo.
+
+LIMITACOES CONHECIDAS
+  - Andar/Correr/Soco_Direto/Varrer vem de captura humana generica: a postura fica um pouco "humana" num corpo tao largo.
+  - Sem dedos animados (a mao e uma peca so); pedras e pregos do modelo nao tem fisica propria.
