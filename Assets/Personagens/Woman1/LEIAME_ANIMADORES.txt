@@ -27,11 +27,14 @@ ESPECIFICACOES
 - Sem ossos de arma/encaixe: e um NPC desarmado.
 - Esqueleto: Hips > Spine > Chest > UpperChest > Neck > Head; ombros, bracos, maos e dedos; pernas, pes e Toes.
 
-SAIA (limitacao conhecida)
-  A saia e uma malha so, ligada as pernas pelo modelo original. Os pesos dela foram refeitos (metade quadril, metade pernas)
-  para nao rasgar na corrida nem afundar entre as coxas ao sentar. Mesmo assim, em pose parada com as pernas um pouco
-  abertas, a coxa pode aparecer por uma fresta na lateral da saia. Se incomodar: ajustar a saia no Blender (peso/malha).
-  As animacoes em pe ja foram feitas com as pernas um pouco mais juntas por causa disso.
+SAIA (8 ossos proprios)
+  A saia tem 8 ossos de deformacao (Skirt_FL, Skirt_FR, Skirt_SFL, Skirt_SFR, Skirt_SBL, Skirt_SBR, Skirt_BL, Skirt_BR; filhos do
+  Hips), com pesos refeitos por setor em volta da cintura. Em TODAS as animacoes esses ossos ja vem animados a partir do balanco
+  das coxas: o painel da frente levanta quando a perna vai pra frente, o de tras quando vai pra tras e os laterais abrem com a perna.
+  Assim a coxa nao atravessa o pano nem a saia rasga entre as pernas, e ao sentar ela cai sobre o colo.
+  Esses ossos nao sao do Humanoid: o menu Woman1 > Montar tudo ja cria a mascara com todos os ossos (Woman1_TodosOsOssos), senao o
+  Unity descarta as curvas da saia. Se for animar outro clipe nela, rode scripts/skirt_anim.py depois (gera os ossos da saia).
+  (Os ossos ficam em angulos que evitam +-90 graus em volta da cintura: nesse angulo o FBX perde a orientacao e o Unity deforma.)
 
 ANIMACOES (34)
   Movimento: Parado, Andar, Andar_Calmo, Correr, Correr_Desesperado (fuga em panico), Carregar_Andar, Agachado

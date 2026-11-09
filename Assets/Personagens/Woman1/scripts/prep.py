@@ -1,7 +1,7 @@
 # Stage 1 for Civilian 3 (comes with a Mixamo skeleton + weights): metres / Z-up, Unity-Humanoid bone names,
 # end bones folded into their parents, max 4 influences, 'Body' / 'Armature' names.
 # usage: blender -b -P prep.py -- <civilian.fbx> <out.blend>
-import bpy, sys, numpy as np
+import bpy, sys, math, numpy as np
 from mathutils import Matrix, Vector
 src, out = sys.argv[sys.argv.index("--")+1:][:2]
 bpy.ops.wm.read_factory_settings(use_empty=True)
@@ -57,26 +57,48 @@ for b in arm.data.bones:
     if b.name in vg: vg[b.name].name = nn
     b.name = nn
 print("BONES", len(arm.data.bones), [b.name for b in arm.data.bones])
-# --- skirt: the legs drag the hem into tears (running) and pull it between the thighs (sitting). Keep most of the
-# skirt on the hips: leg weights of the skirt vertices are scaled down and the rest goes to Hips.
-if "Top" in [m.name for m in me.data.materials]:
+def sm(t): t = min(max(t, 0.0), 1.0); return t*t*(3-2*t)
+# --- skirt: 8 deform bones around the waist (Skirt_FL/FR/SFL/SFR/SBL/SBR/BL/BR, children of Hips). The skirt vertices follow them instead of
+# the legs; skirt_anim.py animates them from the thigh swing (front panels lift when a leg goes forward, back panels when it goes back,
+# side panels open with the leg), so the thigh no longer pokes through the cloth nor drags it between the legs.
+SK_NAMES = ["Skirt_FL", "Skirt_FR", "Skirt_SFL", "Skirt_SFR", "Skirt_SBL", "Skirt_SBR", "Skirt_BL", "Skirt_BR"]
+SK_ANG = [22.5, -22.5, 67.5, -67.5, 112.5, -112.5, 157.5, -157.5]   # never exactly +-90: the FBX Euler angles of a bone aimed along X hit gimbal lock (Unity then binds it 97 degrees off)                      # azimuth in degrees: 0 = front (-Y), + = character left (+X)
+def add_skirt():
+    if "Top" not in [m.name for m in me.data.materials]: return
     ti = [m.name for m in me.data.materials].index("Top"); skirt = set()
     for pl in me.data.polygons:
         if pl.material_index == ti: skirt.update(pl.vertices)
+    low = [i for i in skirt if me.data.vertices[i].co.z < 1.08]
+    cx = float(np.mean([me.data.vertices[i].co.x for i in low])); cy = float(np.mean([me.data.vertices[i].co.y for i in low]))
+    gi = {g.index: g.name for g in me.vertex_groups}
     LEG = ("LeftUpperLeg", "LeftLowerLeg", "RightUpperLeg", "RightLowerLeg")
-    gi = {g.index: g.name for g in me.vertex_groups}; hips = me.vertex_groups["Hips"]; nfix = 0
-    def sm(t): t = min(max(t, 0.0), 1.0); return t*t*(3-2*t)
-    for vi in skirt:
-        v = me.data.vertices[vi]; z = v.co.z
-        if z > 1.08: continue
-        side = sm((abs(v.co.x)-0.05)/0.17)                    # 0 at the centre line (front/back seam between the legs) -> 1 over the leg
-        k = 1.0-sm((1.08-z)/0.12)*0.5           # centre follows the hips (no slit), the sides follow the legs
-        moved = 0.0
-        for e in list(v.groups):
-            if gi[e.group] in LEG:
-                w = e.weight; moved += w*(1.0-k); me.vertex_groups[gi[e.group]].add([vi], w*k, 'REPLACE')
-        if moved > 0: hips.add([vi], moved, 'ADD'); nfix += 1
-    print("SKIRT vertices re-weighted:", nfix)
+    sg = {n: me.vertex_groups.new(name=n) for n in SK_NAMES}; hips = me.vertex_groups["Hips"]
+    zmax = max(me.data.vertices[i].co.z for i in low); zmin = min(me.data.vertices[i].co.z for i in low)
+    for i in low:
+        v = me.data.vertices[i]; z = v.co.z
+        ws = 0.93*sm((1.08-z)/0.12)                                  # 0 at the belt -> 0.93 on the hem
+        if ws < 0.01: continue
+        al = math.degrees(math.atan2(v.co.x-cx, -(v.co.y-cy)))
+        k = []
+        for a in SK_ANG:
+            d = abs((al-a+180) % 360-180); k.append(max(0.0, 1.0-d/45.0))
+        t = sum(k)
+        if t < 1e-6: continue
+        keep = 1.0-ws
+        for e in list(v.groups):                                     # everything the vertex had so far keeps (1-ws) of its weight
+            me.vertex_groups[gi[e.group]].add([i], e.weight*keep, 'REPLACE')
+        for n, kk in zip(SK_NAMES, k):
+            if kk > 0: sg[n].add([i], ws*kk/t, 'REPLACE')
+    r = 0.15; top = 1.05
+    mode('EDIT', arm); eb = arm.data.edit_bones
+    for n, a in zip(SK_NAMES, SK_ANG):
+        ar = math.radians(a); out = Vector((math.sin(ar), -math.cos(ar), 0))
+        h = Vector((cx, cy, top))+out*r*0.8; b = eb.new(n); b.head = h; b.tail = h+out*0.03+Vector((0, 0, -0.28)); b.parent = eb["Hips"]; b.use_connect = False
+        b.align_roll(Vector((0, 0, 1)) if abs(out.z) < 0.9 else Vector((1, 0, 0)))
+    mode('OBJECT', arm)
+    print("SKIRT bones added, vertices re-weighted:", len(low), "center", round(cx, 3), round(cy, 3))
+mode('OBJECT', me)
+add_skirt()
 MOUTH_BELOW_TIP = 0.038
 # --- Jaw: Humanoid optional bone. Pivot behind the lips, weights on the lower lip / chin / beard (skin + beard only; the
 # upper lip, moustache, cheeks and hair stay on the Head). Geometry is found from the face itself.
