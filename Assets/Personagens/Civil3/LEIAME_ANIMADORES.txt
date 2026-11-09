@@ -21,13 +21,16 @@ ESPECIFICACOES
 - Altura: ~1,82 m, escala 1:1 (metros). Pes no chao. Olha para +Z no Unity.
 - Malha: 21 mil triangulos, 7 materiais (um por parte). Cabelo, barba e bigode usam recorte por alfa.
 - Dedos: as DUAS maos tem os 15 ossos de dedo do Humanoid.
+- Boca: osso Jaw (mandibula, osso opcional do Humanoid) pesado no labio inferior/queixo/barba. As animacoes Falar e
+  Sentado_Falando ja trazem a boca mexendo (1 a 9 graus, no ritmo de silabas). Para falar com outro corpo, gire o Jaw
+  no eixo X local (positivo abre), no maximo ~10 graus.
 - Sem ossos de arma/encaixe: e um NPC desarmado.
 - Esqueleto: Hips > Spine > Chest > UpperChest > Neck > Head; ombros, bracos, maos e dedos; pernas, pes e Toes.
 
 ANIMACOES (15)
   Parado, Andar, Andar_Calmo (andar de cidadao, mais ereto), Correr, Correr_Desesperado (fuga em panico:
   bracos jogados para cima, olhando para tras), Assustado (parado, com medo, maos na frente do rosto),
-  Falar (gesticulando, para conversar com outros NPCs), Ouvir (bracos cruzados), Concordar, Negar, Interagir,
+  Falar (gesticulando, para conversar com outros NPCs), Ouvir (maos juntas, escutando), Concordar, Negar, Interagir,
   Levar_Golpe, Levar_Golpe_Cabeca, Levar_Golpe_Forte (cambaleia para tras), Morrer.
   A maioria vem da Universal Animation Library 1 e 2 (Quaternius, CC0), refeita para este esqueleto.
   Correr_Desesperado e Assustado foram feitas a mao. Todas sao "no lugar" (o movimento vem do script).

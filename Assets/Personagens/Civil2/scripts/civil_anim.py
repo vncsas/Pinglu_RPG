@@ -29,6 +29,14 @@ def write(name, frames):
     sc.frame_start, sc.frame_end = 1, len(frames)
     print("ACTION", name, len(frames), "quadros")
 
+
+def jaw_deg(i, n):
+    """talking jaw (deg): syllables with pauses, 1-9 degrees; integer cycles so the loop closes"""
+    u = i/n
+    env = smooth(0.5+1.4*math.sin(TAU*2*u+0.4)); syl = max(0.0, math.sin(TAU*max(4, round(n/6))*u))**0.7
+    return 0.5+8.5*env*syl*(0.65+0.35*math.sin(TAU*5*u+1.0))
+TALK = ("Falar", "Sentado_Falando")
+
 # ------------------------------------------------------------------ panicked run
 src = bpy.data.actions["Correr_Base"]; set_action(src); n = int(src.frame_range[1]-src.frame_range[0]+1); f0 = int(src.frame_range[0])
 frames = []
@@ -81,7 +89,15 @@ for name, deg in ADDUCT.items():
     for i in range(n):
         sc.frame_set(f0+i)
         for S, sx in (("Left", 1), ("Right", -1)): K.rot_world(S+"UpperArm", 'Y', sx*deg)
+        if name in TALK: K.rot_local("Jaw", 'X', jaw_deg(i, n))
         fr.append(snap())
+    write(name, fr)
+
+for name in TALK:
+    if name in ADDUCT or name not in bpy.data.actions: continue
+    a = bpy.data.actions[name]; set_action(a); n = int(a.frame_range[1]-a.frame_range[0]+1); f0 = int(a.frame_range[0]); fr = []
+    for i in range(n):
+        sc.frame_set(f0+i); K.rot_local("Jaw", 'X', jaw_deg(i, n)); fr.append(snap())
     write(name, fr)
 
 # ------------------------------------------------------------------ Concordar: nods twice (on the idle), Ouvir: listening, hands clasped

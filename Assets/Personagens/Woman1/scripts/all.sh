@@ -1,0 +1,8 @@
+B="/c/Program Files/Blender Foundation/Blender 5.2/blender.exe"; D=C:/Users/Thiago/Documentos/rig-woman1
+"$B" -b -P $D/scripts/prep.py -- "$D/src/woman 1.fbx" $D/work/rig_a.blend 2>&1 | grep -E "max infl|Error|Trace|line [0-9]"
+"$B" -b $D/work/rig_a.blend -P $D/scripts/rig_b.py -- $D/saida/texturas_unity $D/saida 2>&1 | grep -E "^\[|Error|Trace|line [0-9]"
+U1="C:/Users/Thiago/Documentos/Universal Animation Library [Standard]/Animation Library[Standard]/Unity/AnimationLibrary_Unity_Standard.fbx"
+U2="C:/Users/Thiago/Documentos/Universal Animation Library 2[Standard]/Universal Animation Library 2[Standard]/Unity/UAL2_Standard.fbx"
+"$B" -b $D/saida/woman1_rig.blend -P $D/scripts/retarget.py -- "$U1" $D/work/rt1.blend Idle_Loop=Parado Walk_Loop=Andar Walk_Formal_Loop=Andar_Calmo Jog_Fwd_Loop=Correr Sprint_Loop=Correr_Base Idle_Talking_Loop=Falar Hit_Chest=Levar_Golpe Hit_Head=Levar_Golpe_Cabeca Death01=Morrer Interact=Interagir PickUp_Table=Pegar_Objeto Fixing_Kneeling=Consertar Sitting_Enter=Sentar_Entrar Sitting_Idle_Loop=Sentado Sitting_Exit=Sentar_Sair Sitting_Talking_Loop=Sentado_Falando Push_Loop=Empurrar Idle_Torch_Loop=Tocha Dance_Loop=Dancar Crouch_Idle_Loop=Agachado 2>&1 | grep -E "RETARGET|Error|Trace"
+"$B" -b $D/work/rt1.blend -P $D/scripts/retarget.py -- "$U2" $D/work/anim_rt.blend Hit_Knockback=Levar_Golpe_Forte Idle_No_Loop=Negar Consume=Beber Chest_Open=Abrir_Bau Farm_Harvest=Colher Farm_PlantSeed=Plantar Farm_Watering=Regar TreeChopping_Loop=Cortar_Lenha Walk_Carry_Loop=Carregar_Andar Idle_Lantern_Loop=Lanterna 2>&1 | grep -E "RETARGET|Error|Trace"
+"$B" -b $D/work/anim_rt.blend -P $D/scripts/civil_anim.py -- $D/scripts $D/work/anim_final.blend 2>&1 | grep -E "ACTION|DONE|Error|Trace|line [0-9]|File"

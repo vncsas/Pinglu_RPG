@@ -1,0 +1,62 @@
+MULHER 1 (NPC FEMININA, VESTIDO COM SAIA) - PACOTE DO ESQUELETO (RIG)
+===================================================
+
+ARQUIVOS
+- woman1_rigged.fbx    -> modelo + esqueleto + pesos (Unity, Maya, 3ds Max, Blender...)
+- woman1_rig.blend     -> mesma coisa no Blender 5.2, COM controles de animacao (IK) e os 7 materiais prontos
+- texturas_unity/     -> texturas por parte (Body, Top, Bottom, Shoes, Hair, Beard, Moustache):
+                         woman1_<Parte>_BaseColor / _Normal / _Specular (RGB = especular, ALFA = brilho)
+- scripts/            -> ferramentas do Blender (preparar o modelo, validar, refazer o rig, gerar as animacoes)
+- animacoes/          -> 34 animacoes (um .fbx cada) + animacoes.blend
+- unity/              -> DemoWoman1.cs (tela de teste), Woman1NPC.cs (controle simples de NPC),
+                         Editor/MontarWoman1.cs (menu Woman1 > Montar tudo: configura tudo e cria a cena de teste)
+
+ORIGEM
+O modelo "Woman 1" ja veio com um esqueleto no padrao Mixamo (com pesos). Foi convertido: unidades em metros,
+ossos renomeados para o padrao Humanoid do Unity (iguais aos dos outros personagens), ossos de ponta removidos
+(o peso deles foi para o osso anterior), no maximo 4 ossos por vertice, mesma pose de repouso (T-pose com
+joelhos e cotovelos ~7 graus dobrados de proposito, para o IK ficar estavel) e rig de controle no Blender.
+
+ESPECIFICACOES
+- Altura: ~1,80 m, escala 1:1 (metros). Pes no chao. Olha para +Z no Unity.
+- Malha: 25 mil triangulos, 4 materiais (Body, Top, Shoes, Hair), todos com mapa de opacidade (recorte por alfa).
+- Dedos: as DUAS maos tem os 15 ossos de dedo do Humanoid.
+- Boca: osso Jaw (mandibula, osso opcional do Humanoid) pesado no labio inferior/queixo/barba. As animacoes Falar e
+  Sentado_Falando ja trazem a boca mexendo (1 a 9 graus, no ritmo de silabas). Para falar com outro corpo, gire o Jaw
+  no eixo X local (positivo abre), no maximo ~10 graus.
+- Sem ossos de arma/encaixe: e um NPC desarmado.
+- Esqueleto: Hips > Spine > Chest > UpperChest > Neck > Head; ombros, bracos, maos e dedos; pernas, pes e Toes.
+
+SAIA (limitacao conhecida)
+  A saia e uma malha so, ligada as pernas pelo modelo original. Os pesos dela foram refeitos (metade quadril, metade pernas)
+  para nao rasgar na corrida nem afundar entre as coxas ao sentar. Mesmo assim, em pose parada com as pernas um pouco
+  abertas, a coxa pode aparecer por uma fresta na lateral da saia. Se incomodar: ajustar a saia no Blender (peso/malha).
+  As animacoes em pe ja foram feitas com as pernas um pouco mais juntas por causa disso.
+
+ANIMACOES (34)
+  Movimento: Parado, Andar, Andar_Calmo, Correr, Correr_Desesperado (fuga em panico), Carregar_Andar, Agachado
+  Conversa: Falar, Ouvir (maos juntas), Concordar (acena com a cabeca), Negar, Interagir, Assustado, Dancar
+  Dia a dia: Beber, Varrer, Cortar_Lenha, Colher, Plantar, Regar, Consertar, Abrir_Bau, Pegar_Objeto, Empurrar,
+            Tocha, Lanterna
+  Sentar: Sentar_Entrar (termina em Sentado), Sentado, Sentado_Falando, Sentar_Sair
+  Dano: Levar_Golpe, Levar_Golpe_Cabeca, Levar_Golpe_Forte, Morrer
+  A maioria vem da Universal Animation Library 1 e 2 (Quaternius, CC0), refeita para este esqueleto.
+  Varrer, Correr_Desesperado, Assustado, Ouvir e Concordar foram feitas a mao. Todas sao "no lugar" (o movimento
+  vem do script). Os objetos (vassoura, caneca, machado, caixa, lanterna, cadeira) NAO estao no pacote: o jogo
+  coloca na mao do personagem (osso RightHand / LeftHand). Sentar_* e Sentado esperam uma cadeira/banco ~45 cm.
+
+IMPORTAR NO UNITY - PASSO A PASSO
+  Antes: Git LFS instalado e o projeto aberto no Unity 6000.6.1f1.
+  0. Arquivos .meta: so UMA pessoa abre primeiro e da commit dos .meta gerados (evita conflito).
+  1. Menu  Woman1 > Montar tudo  (configura Humanoid, texturas, os 7 materiais URP, importa as animacoes,
+     cria o Animator "Woman1.controller" e a cena Teste_Woman1.unity). Abra a cena e de Play.
+  2. Para usar o NPC no jogo: arraste woman1_rigged para a cena, ponha o Animator Controller "Woman1" e o
+     script Woman1NPC; chame npc.Andar(), npc.CorrerDesesperado(), npc.Falar(), npc.LevarGolpe()...
+  Manual (sem o menu): woman1_rigged > aba Rig > Humanoid > Create From This Model > Apply; texturas _Normal como
+  "Normal map"; _Specular sem sRGB; materiais URP/Lit em modo Specular com SpecGlossMap = _Specular.
+
+  Animacoes de outros personagens (Mixamo, as dos cavaleiros...) tambem tocam nele: no FBX da animacao use
+  Rig > Humanoid > Copy From Other Avatar > woman1_riggedAvatar.
+
+REFAZER O RIG (Blender 5.2): scripts/all.sh (prep.py -> rig_b.py -> retarget.py -> woman1_anim.py), depois
+  export_anims.py e validate.py. Validacao do FBX: 0 FAIL / 0 WARN.
