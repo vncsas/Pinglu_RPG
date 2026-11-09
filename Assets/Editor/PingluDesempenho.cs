@@ -148,11 +148,11 @@ public static class PingluDesempenho
         t.treeDistance = 600f;
         t.treeBillboardDistance = 40f;
         t.basemapDistance = 100f;
-        t.heightmapPixelError = 10f;
+        t.heightmapPixelError = 6f;
         t.drawInstanced = true;
         t.shadowCastingMode = ShadowCastingMode.Off;
         EditorUtility.SetDirty(t);
-        return "Terreno: grama a 60 m com metade da densidade, pixel error 10, instanciado, sem projetar sombra";
+        return "Terreno: grama a 60 m com metade da densidade, pixel error 6, instanciado, sem projetar sombra";
     }
 
     // ------------------------------------------------------------------
@@ -223,6 +223,7 @@ public static class PingluDesempenho
     static int CortarObjeto(Transform t)
     {
         GameObject go = t.gameObject;
+        for (Transform x = t; x != null; x = x.parent) if (x.name.ToLower().Contains("portal")) return 0;   // o portal nunca é cortado
         if (go.GetComponentInParent<LODGroup>() != null || go.GetComponentInChildren<LODGroup>() != null) return 0;
         if (go.GetComponentInChildren<ParticleSystem>() != null || go.GetComponentInChildren<Light>() != null) return 0;
         Renderer[] rs = go.GetComponentsInChildren<Renderer>();

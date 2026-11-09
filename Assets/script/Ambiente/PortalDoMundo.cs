@@ -208,7 +208,6 @@ public class PortalDoMundo : MonoBehaviour
                 estado = Estado.Apagado;
                 Mostrar(false);
                 Estouro();
-                if (avisar) HUDJogador.Mostrar("O portal se fechou atrás de você...", 4f);
                 avisar = false;
                 return;
             }

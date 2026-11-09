@@ -471,12 +471,14 @@ public static partial class PingluVila
         m.Caixa(new Vector3(0f, 0.95f, 0f), new Vector3(0.45f, 0.2f, 0.25f), COURO);
     }
 
+    static bool semFumacaNoFogo;
     static void Fogo(Transform pai, Vector3 local)
     {
         Material mat = AssetDatabase.LoadAssetAtPath<Material>(MATERIAL_PARTICULA_URP);
         for (int k = 0; k < 2; k++)
         {
             bool fumaca = k == 1;
+            if (fumaca && semFumacaNoFogo) continue;
             GameObject go = new GameObject(fumaca ? "Fumaca" : "Fogo");
             go.transform.SetParent(pai, false);
             go.transform.localPosition = local + (fumaca ? Vector3.up * 0.6f : Vector3.zero);

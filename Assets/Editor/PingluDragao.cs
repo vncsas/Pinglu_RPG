@@ -168,9 +168,19 @@ public static class PingluDragao
         }
         Undo.RecordObject(d, "Dragao");
         d.modelo = modelo;
-        d.animVoo = Escolher(clipes, new[] { "fly", "flap", "voar", "voo", "wing" });
-        d.animPlanar = Escolher(clipes, new[] { "glide", "planar", "hover", "soar" }, d.animVoo);
-        d.animSopro = Escolher(clipes, new[] { "fire", "breath", "flame", "sopro", "fogo", "attack", "roar" }, d.animVoo);
+        d.animVoo = Escolher(clipes, new[] { "flighttest", "fly", "flap", "voar", "voo", "wing" });
+        d.animPlanar = Escolher(clipes, new[] { "angryflightpose", "glide", "planar", "hover", "soar" }, d.animVoo);
+        d.animSopro = Escolher(clipes, new[] { "flight_fire", "fire", "breath", "flame", "sopro", "fogo", "attack", "roar" }, d.animVoo);
+        // o dragão novo é grande: voa mais alto e em círculo maior, com a cabeça virada para a frente do voo
+        d.orientarAutomaticamente = true;
+        d.rotacaoDoModelo = Vector3.zero;
+        // a câmera do palco fica a ~1,4 m do chão, olha para -Z com campo de visão de 30°; o céu pintado é um anel a 150 m: o dragão precisa voar baixo e DENTRO desse anel
+        d.comprimentoDoModelo = 30f;
+        d.centroDoVoo = new Vector3(0f, 0f, -100f);
+        d.alturaDoVoo = 15f;
+        d.raiosDoVoo = new Vector2(50f, 16f);
+        d.velocidadeDoVoo = 14f;
+        d.intervaloDoSopro = 9f;
         if (d.animVoo == null && clipes.Length > 0) d.animVoo = clipes[0];
         if (d.materialParticula == null) d.materialParticula = AssetDatabase.LoadAssetAtPath<Material>("Packages/com.unity.render-pipelines.universal/Runtime/Materials/ParticlesUnlit.mat");
         EditorUtility.SetDirty(d);

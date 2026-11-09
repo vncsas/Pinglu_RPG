@@ -15,6 +15,8 @@ public class DragaoDistante : MonoBehaviour
     public AnimationClip animVoo, animPlanar, animSopro;
     [Tooltip("Corrige a direção do modelo, se ele voar de lado ou de costas")]
     public Vector3 rotacaoDoModelo = Vector3.zero;
+    [Tooltip("Vira o modelo sozinho para a cabeça apontar para a frente do voo (usa os ossos 'head' e 'tail')")]
+    public bool orientarAutomaticamente = true;
     [Tooltip("Tamanho do dragão no lobby (maior medida, em metros)")]
     public float comprimentoDoModelo = 34f;
 
@@ -43,10 +45,32 @@ public class DragaoDistante : MonoBehaviour
     private Light luzDoSopro;
     // modelo importado
     private bool usandoModelo;
+    private Transform ossoMandibula;
+    private readonly List<Transform> asasOssos = new List<Transform>(), maosOssos = new List<Transform>();
+    private readonly List<int> ladoAsa = new List<int>();
+    private float aberturaBoca, fase, proximoRelatorio;
+
+    // diagnóstico: aparece no Console a cada 5 s para saber se o dragão está à vista
+    private void Relatorio()
+    {
+        Camera cam = Camera.main;
+        string txt = "[Dragao] pos=" + corpo.position.ToString("F0") + " camera=" + (cam != null ? cam.transform.position.ToString("F0") + " dist=" + Vector3.Distance(cam.transform.position, corpo.position).ToString("F0") + " m" : "nenhuma");
+        int total = 0, visiveis = 0; string shaders = "";
+        foreach (Renderer r in corpo.GetComponentsInChildren<Renderer>())
+        {
+            if (r is ParticleSystemRenderer) continue;
+            total++; if (r.isVisible) visiveis++;
+            if (shaders.Length < 200 && r.sharedMaterial != null) shaders += r.sharedMaterial.shader.name + "; ";
+            if (total == 1) txt += " | escala=" + r.transform.lossyScale.ToString("F2") + " bounds=" + r.bounds.size.ToString("F1") + " ativo=" + r.enabled;
+        }
+        Debug.Log(txt + " | renderers=" + total + " visiveis=" + visiveis + " | " + shaders);
+    }
     private Transform osso_boca;
     private PlayableGraph grafo;
     private AnimationMixerPlayable mixer;
     private float pesoSopro, pesoPlanar;
+    private readonly AnimationClipPlayable[] tocadores = new AnimationClipPlayable[3];
+    private readonly AnimationClip[] clipesTocando = new AnimationClip[3];
 
     // ------------------------------------------------------------------
     //  montagem
@@ -117,18 +141,49 @@ public class DragaoDistante : MonoBehaviour
         m.transform.localPosition = Vector3.zero;
         m.transform.localRotation = Quaternion.Euler(rotacaoDoModelo);
         m.transform.localScale = Vector3.one;
-        // ajusta o tamanho e centraliza
-        Bounds b = new Bounds(); bool tem = false;
+        if (orientarAutomaticamente)
+        {
+            Transform cab = Achar(m.transform, new[] { "head" }), cauda = Achar(m.transform, new[] { "tail" });
+            if (cab != null && cauda != null)
+            {
+                Vector3 v = corpo.InverseTransformDirection(cab.position - cauda.position); v.y = 0f;
+                if (v.sqrMagnitude > 0.01f) m.transform.localRotation = Quaternion.Euler(0f, -Mathf.Atan2(v.x, v.z) * Mathf.Rad2Deg, 0f) * m.transform.localRotation;
+            }
+        }
+        // ajusta o tamanho e centraliza usando a posição dos ossos (r.bounds não é confiável em rig com escala 100)
         foreach (Renderer r in m.GetComponentsInChildren<Renderer>())
         {
             r.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
             if (r is SkinnedMeshRenderer) ((SkinnedMeshRenderer)r).updateWhenOffscreen = true;
-            if (!tem) { b = r.bounds; tem = true; } else b.Encapsulate(r.bounds);
         }
-        float maior = tem ? Mathf.Max(b.size.x, Mathf.Max(b.size.y, b.size.z)) : 1f;
-        float esc = comprimentoDoModelo / Mathf.Max(0.01f, maior);
+        List<Vector3> pts = new List<Vector3>();
+        foreach (Transform t in m.GetComponentsInChildren<Transform>()) pts.Add(corpo.InverseTransformPoint(t.position));
+        Vector3 mn = Vector3.zero, mx = Vector3.zero;
+        if (pts.Count > 0)
+        {
+            float[] xs = new float[pts.Count], ys = new float[pts.Count], zs = new float[pts.Count];
+            for (int i = 0; i < pts.Count; i++) { xs[i] = pts[i].x; ys[i] = pts[i].y; zs[i] = pts[i].z; }
+            System.Array.Sort(xs); System.Array.Sort(ys); System.Array.Sort(zs);
+            int lo = Mathf.FloorToInt(pts.Count * 0.03f), hi = pts.Count - 1 - lo; // ignora ossos de controle muito distantes
+            mn = new Vector3(xs[lo], ys[lo], zs[lo]); mx = new Vector3(xs[hi], ys[hi], zs[hi]);
+        }
+        Vector3 tam = mx - mn;
+        float maior = Mathf.Max(0.01f, Mathf.Max(tam.x, Mathf.Max(tam.y, tam.z)));
+        float esc = comprimentoDoModelo / maior;
         m.transform.localScale = Vector3.one * esc;
-        if (tem) m.transform.position += corpo.position - (corpo.position + (b.center - corpo.position) * esc);
+        m.transform.localPosition = -((mn + mx) * 0.5f) * esc;
+        Debug.Log("[Dragao] tamanho dos ossos " + tam.ToString("F2") + " -> escala " + esc.ToString("F3") + " (comprimento final " + comprimentoDoModelo + " m)");
+
+        // ossos que o código move para bater as asas e abrir a boca
+        asasOssos.Clear(); maosOssos.Clear(); ladoAsa.Clear();
+        foreach (Transform t in m.GetComponentsInChildren<Transform>())
+        {
+            string n = t.name.ToLower();
+            if (n.StartsWith("upperwing")) { asasOssos.Add(t); ladoAsa.Add(corpo.InverseTransformPoint(t.position).x >= 0f ? 1 : -1); }
+            else if (n.StartsWith("winghand")) maosOssos.Add(t);
+            else if (n.StartsWith("jaw") && ossoMandibula == null) ossoMandibula = t;
+        }
+        Debug.Log("[Dragao] asas=" + asasOssos.Count + " maos=" + maosOssos.Count + " mandibula=" + (ossoMandibula != null));
 
         osso_boca = Achar(m.transform, new[] { "jaw", "mouth", "tongue", "boca", "mandibula", "head", "cabeca" });
         // animações
@@ -144,7 +199,12 @@ public class DragaoDistante : MonoBehaviour
             mixer = AnimationMixerPlayable.Create(grafo, 3);
             AnimationClip[] c = { animVoo, animPlanar != null ? animPlanar : animVoo, animSopro != null ? animSopro : animVoo };
             for (int i = 0; i < 3; i++)
-                if (c[i] != null) grafo.Connect(AnimationClipPlayable.Create(grafo, c[i]), 0, mixer, i);
+                if (c[i] != null)
+                {
+                    tocadores[i] = AnimationClipPlayable.Create(grafo, c[i]);
+                    clipesTocando[i] = c[i];
+                    grafo.Connect(tocadores[i], 0, mixer, i);
+                }
             mixer.SetInputWeight(0, 1f);
             AnimationPlayableOutput.Create(grafo, "Saida", an).SetSourcePlayable(mixer);
             grafo.Play();
@@ -168,6 +228,37 @@ public class DragaoDistante : MonoBehaviour
         return null;
     }
 
+    // roda depois do Animator: bate as asas e abre a boca por cima da pose do arquivo
+    private void LateUpdate()
+    {
+        if (!usandoModelo || corpo == null) return;
+        fase += Time.unscaledDeltaTime;
+        bool soprando = Time.unscaledTime < fimDoFogo;
+        aberturaBoca = Mathf.MoveTowards(aberturaBoca, soprando ? 1f : 0f, Time.unscaledDeltaTime * 3f);
+        float amp = soprando ? 14f : 30f;
+        float ondaAsa = Mathf.Sin(fase * Mathf.PI * 2f * 0.75f);
+        Vector3 eixo = corpo.forward;
+        // posições dos ombros antes de mexer em qualquer osso
+        Vector3[] pivos = new Vector3[asasOssos.Count];
+        for (int i = 0; i < asasOssos.Count; i++) pivos[i] = asasOssos[i].position;
+        for (int i = 0; i < asasOssos.Count; i++)
+        {
+            float ang = (ondaAsa * amp + 6f) * ladoAsa[i];
+            Quaternion d = Quaternion.AngleAxis(ang, eixo);
+            asasOssos[i].rotation = d * asasOssos[i].rotation;
+            // as mãos/dedos ficam em outra hierarquia: giram junto, em volta do mesmo ombro
+            foreach (Transform h in maosOssos)
+            {
+                bool dessaAsa = (corpo.InverseTransformPoint(h.position).x >= 0f ? 1 : -1) == ladoAsa[i];
+                if (!dessaAsa) continue;
+                h.position = pivos[i] + d * (h.position - pivos[i]);
+                h.rotation = d * h.rotation;
+            }
+        }
+        if (ossoMandibula != null && aberturaBoca > 0.001f)
+            ossoMandibula.rotation = Quaternion.AngleAxis(32f * aberturaBoca, corpo.right) * ossoMandibula.rotation;
+    }
+
     private void OnDestroy() { if (grafo.IsValid()) grafo.Destroy(); }
 
     private void AnimarModelo(float dt, bool soprando, bool jato)
@@ -176,6 +267,13 @@ public class DragaoDistante : MonoBehaviour
         if (osso_boca != null) mandibula.position = osso_boca.position + corpo.forward * comprimentoDoModelo * 0.02f;
         chamas.transform.rotation = Quaternion.LookRotation((corpo.forward + Vector3.down * 0.9f).normalized);
         if (!mixer.IsValid()) return;
+        // os clipes do .glb não vêm em loop: volta ao começo quando acabam
+        for (int i = 0; i < 3; i++)
+        {
+            if (clipesTocando[i] == null || !tocadores[i].IsValid() || clipesTocando[i].length < 0.05f) continue;
+            double tt = tocadores[i].GetTime();
+            if (tt >= clipesTocando[i].length) tocadores[i].SetTime(tt % clipesTocando[i].length);
+        }
         bool planando = Mathf.PerlinNoise(Time.unscaledTime * 0.15f, 3f) > 0.62f && !soprando && animPlanar != null;
         pesoSopro = Mathf.MoveTowards(pesoSopro, soprando && animSopro != null ? 1f : 0f, dt * 2.5f);
         pesoPlanar = Mathf.MoveTowards(pesoPlanar, planando ? 1f : 0f, dt * 1.2f);
@@ -371,6 +469,7 @@ public class DragaoDistante : MonoBehaviour
 
         if (usandoModelo)
         {
+            if (Time.unscaledTime > proximoRelatorio) { proximoRelatorio = Time.unscaledTime + 5f; Relatorio(); }
             corpo.position = pos;
             corpo.rotation = Quaternion.LookRotation(frente, Vector3.up) * Quaternion.Euler(soprando ? 12f : 0f, 0f, rolagem);
             bool jatoM = soprando && Time.unscaledTime > fimDoFogo - 2.0f;

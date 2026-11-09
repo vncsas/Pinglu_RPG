@@ -56,6 +56,28 @@ public class PlayerLocomotion : MonoBehaviour
     private CharacterController controller;
     private Animator animator;
 
+    // quem controla este corpo: EntradaHumana (teclado) ou, nos companheiros, EntradaCPU.
+    // Se ninguém colocou uma entrada antes, cria a humana na primeira vez que for usada.
+    private EntradaDoPersonagem entrada;
+    public EntradaDoPersonagem Entrada
+    {
+        get
+        {
+            if (entrada == null)
+            {
+                entrada = GetComponent<EntradaDoPersonagem>();
+                if (entrada == null) { EntradaHumana h = gameObject.AddComponent<EntradaHumana>(); h.teclaGuardarSacar = teclaGuardarSacar; entrada = h; }
+            }
+            return entrada;
+        }
+    }
+    public void TrocarEntrada(EntradaDoPersonagem nova)
+    {
+        EntradaHumana antiga = GetComponent<EntradaHumana>();
+        if (antiga != null && antiga != nova) Destroy(antiga);
+        entrada = nova;
+    }
+
     private float currentAnimSpeed;   // valor suavizado enviado pro Animator (0 a 1)
     private float verticalVelocity;
 
@@ -80,6 +102,7 @@ public class PlayerLocomotion : MonoBehaviour
     public bool Rolando => isRolling;
     public int GolpeAtual => golpeAtual;            // 0, 1, 2 = combo ; -1 = pesado
     public bool Controlavel { get; set; } = true;   // falso quando morto
+    public bool Companheiro { get; set; }           // true nos aventureiros controlados pela CPU (não são "o jogador local")
     // voo (usado pelo Tanque): sem gravidade, sobe/desce na velocidade pedida e não ataca nem defende
     public bool Voando { get; set; }
     public float VelocidadeVerticalDeVoo { get; set; }
@@ -177,12 +200,14 @@ public class PlayerLocomotion : MonoBehaviour
         }
 
         // --- Input de movimento ---
-        float h = Input.GetAxis("Horizontal"); // A/D ou setas
-        float v = Input.GetAxis("Vertical");   // W/S ou setas
+        EntradaDoPersonagem ent = Entrada;
+        Vector2 mover = ent.Mover;
+        float h = mover.x; // A/D ou setas
+        float v = mover.y; // W/S ou setas
         Vector3 inputDir = new Vector3(h, 0f, v);
         float inputMagnitude = Mathf.Clamp01(inputDir.magnitude);
 
-        bool isRunning = Input.GetKey(KeyCode.LeftShift);
+        bool isRunning = ent.Correr;
 
         // Direção de movimento relativa à câmera principal (se houver)
         Vector3 moveDir;
@@ -199,12 +224,21 @@ public class PlayerLocomotion : MonoBehaviour
         {
             moveDir = transform.forward * v + transform.right * h;
         }
+        // companheiros CPU andam direto em direções do mundo, sem câmera
+        if (ent.TemDirecaoDeMundo)
+        {
+            Vector3 dm = ent.DirecaoDeMundo; dm.y = 0f;
+            inputMagnitude = Mathf.Clamp01(dm.magnitude);
+            moveDir = dm;
+            if (ent.TemFrenteDeMira) { Vector3 fm = ent.FrenteDeMira; fm.y = 0f; if (fm.sqrMagnitude > 0.001f) frenteCamera = fm.normalized; }
+            else if (dm.sqrMagnitude > 0.001f) frenteCamera = dm.normalized;
+        }
         if (moveDir.sqrMagnitude > 0.001f) moveDir.Normalize();
 
         // --- Rolagem (Esquiva) --- (cancela o combo)
         if (rollCooldownTimer > 0f) rollCooldownTimer -= Time.deltaTime;
 
-        if (Input.GetKeyDown(KeyCode.LeftControl) && !isRolling && rollCooldownTimer <= 0f && !Voando)
+        if (ent.RolarApertou && !isRolling && rollCooldownTimer <= 0f && !Voando)
         {
             // Rola na direção que o jogador está segurando (WASD); se não estiver segurando nada, rola pra frente
             rollDirection = moveDir.sqrMagnitude > 0.001f ? moveDir : transform.forward;
@@ -213,7 +247,7 @@ public class PlayerLocomotion : MonoBehaviour
         }
 
         // --- Pulo ---
-        if (Input.GetKeyDown(KeyCode.Space) && controller.isGrounded && !isRolling && !atacando && !Voando)
+        if (ent.PularApertou && controller.isGrounded && !isRolling && !atacando && !Voando)
         {
             verticalVelocity = Mathf.Sqrt(jumpHeight * -2f * gravity);
             if (animator != null) animator.SetTrigger("Jump");
@@ -223,12 +257,12 @@ public class PlayerLocomotion : MonoBehaviour
         // --- Guardar/sacar a espada ---
         if (usaBainha)
         {
-            if (Input.GetKeyDown(teclaGuardarSacar) && !atacando && !isRolling) { if (armado) Guardar(); else Sacar(); }
+            if (ent.GuardarSacarApertou && !atacando && !isRolling) { if (armado) Guardar(); else Sacar(); }
             else if (armado && !atacando && !isBlocking && Time.time - ultimoCombate > tempoParaGuardar) Guardar();
         }
 
         // --- Defesa com escudo (botão direito ou Q, segurando) ---
-        bool querDefender = (Input.GetMouseButton(1) || Input.GetKey(KeyCode.Q)) && !Voando;
+        bool querDefender = ent.DefenderSegurando && !Voando;
         if (querDefender && usaBainha) { MarcarCombate(); if (!armado) Sacar(); }
         bool espadaPronta = !usaBainha || (armado && Time.time >= prontoEm);
         if (querDefender && atacando && !isRolling)
@@ -301,7 +335,7 @@ public class PlayerLocomotion : MonoBehaviour
         // Sem os states de combo no Animator: comportamento antigo (um golpe por clique)
         if (golpesDisponiveis == 0)
         {
-            if (!isRolling && !isBlocking && Input.GetMouseButtonDown(0)) animator.SetTrigger("AttackLight");
+            if (!isRolling && !isBlocking && Entrada.AtaqueApertou) animator.SetTrigger("AttackLight");
             return;
         }
 
@@ -322,7 +356,7 @@ public class PlayerLocomotion : MonoBehaviour
         // espada guardada: o clique saca e o golpe sai assim que a espada chega na mão
         if (usaBainha)
         {
-            if (podeAtacar && Input.GetMouseButtonDown(0) && (!armado || Time.time < prontoEm))
+            if (podeAtacar && Entrada.AtaqueApertou && (!armado || Time.time < prontoEm))
             {
                 MarcarCombate();
                 Sacar();
@@ -337,7 +371,7 @@ public class PlayerLocomotion : MonoBehaviour
             }
         }
 
-        if (podeAtacar && Input.GetMouseButtonDown(0))
+        if (podeAtacar && Entrada.AtaqueApertou)
         {
             MarcarCombate();
             if (!atacando) Golpe(0, direcaoGolpe);
@@ -435,6 +469,13 @@ public class PlayerLocomotion : MonoBehaviour
         else if (codigo == 2) animator.SetTrigger("Roll");
         else if (codigo == 3 && TemEstado("hit")) animator.CrossFadeInFixedTime("hit", 0.08f, 0, 0f);
         else if (codigo == 4 && TemEstado("death")) animator.CrossFadeInFixedTime("death", 0.15f, 0, 0f);
+    }
+
+    // solta o personagem de qualquer estado preso (golpe, rolagem, defesa, atordoamento)
+    public void ResetarEstado()
+    {
+        TerminarCombo(); isRolling = false; isBlocking = false; atordoadoAte = 0f; empurrao = Vector3.zero;
+        if (animator != null) { animator.SetBool("Rolling", false); animator.SetBool("Block", false); }
     }
 
     private void TerminarCombo()

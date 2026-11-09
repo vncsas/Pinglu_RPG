@@ -150,7 +150,7 @@ public class HUDJogador : MonoBehaviour
             GUI.Label(new Rect(0, Screen.height * 0.4f, Screen.width, 90 * esc), "VOCÊ MORREU", estiloGrande);
             string onda = g != null && g.OndaAtual > 0 ? "Você chegou até a onda " + g.OndaAtual + ". " : "";
             GUIStyle centro = new GUIStyle(estiloMenor) { alignment = TextAnchor.MiddleCenter };
-            GUI.Label(new Rect(0, Screen.height * 0.4f + 90 * esc, Screen.width, 40 * esc), onda + "Aperte R para tentar de novo.", centro);
+            GUI.Label(new Rect(0, Screen.height * 0.4f + 90 * esc, Screen.width, 40 * esc), onda + "Aperte R para tentar de novo" + (g != null && g.OndaAtual > 0 ? " (volta na onda " + g.OndaAtual + ")." : "."), centro);
         }
     }
 

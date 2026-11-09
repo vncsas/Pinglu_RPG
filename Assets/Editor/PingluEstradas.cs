@@ -49,6 +49,8 @@ public static partial class PingluVila
             if (interativo && !EditorUtility.DisplayDialog("Pinglu", "As estradas já existem. Quer refazer?", "Sim", "Cancelar")) return;
             DesfazerEstradas(false);
         }
+        terreno = Terrain.activeTerrain; dados = terreno.terrainData;
+        try { AplicarRelevoSeFalta(); } catch (System.Exception e) { Debug.LogException(e); }   // relevo dos campos (menu 50): antes das rotas e do backup
         if (interativo && !EditorUtility.DisplayDialog("Pinglu - Estradas e GPS",
             "Vou ligar o portal, a vila, as ruínas, os acampamentos e o cemitério com estradas de terra (pintadas no terreno, sem árvores em cima) e preparar o GPS do mapa.\n\nAntes guardo um backup do terreno.", "Pode fazer", "Cancelar")) return;
 
@@ -70,6 +72,10 @@ public static partial class PingluVila
             }
             GameObject mundo = GameObject.Find(NOME_RAIZ_MUNDO);
             Transform estrutura = mundo != null ? mundo.transform.Find("Cemiterio/Cemiterio") : null;
+            // castelo destruído (menu 45): a estrada vai até o portão e o mapa desenha a muralha
+            Transform castelo = mundo != null ? mundo.transform.Find(NOME_CASTELO) : null;
+            Transform estruturaCastelo = castelo != null ? castelo.Find("Estrutura") : null, entradaCastelo = castelo != null ? castelo.Find("Entrada") : null;
+            if (entradaCastelo != null) { ruinas = entradaCastelo.position; temRuinas = true; }
             GameObject portalGo = GameObject.Find("Portal de Ruina");
             Vector3 portal = portalGo != null ? portalGo.transform.position : (temVila ? vila : terreno.transform.position + dados.size * 0.5f);
             if (!temVila) { avisos.Add("Não achei a vila no mini-mapa; as estradas ficam sem ela."); vila = portal; }
@@ -77,7 +83,7 @@ public static partial class PingluVila
             List<KeyValuePair<string, List<Vector3>>> estradas = new List<KeyValuePair<string, List<Vector3>>>();
             System.Action<string, Vector3, Vector3> ligar = (nome, a, b) => estradas.Add(new KeyValuePair<string, List<Vector3>>(nome, plano.Rota(a, b, false)));
             if ((portal - vila).sqrMagnitude > 400f) ligar("Portal - Vila", portal, vila);
-            if (temRuinas) ligar("Vila - Ruínas da Fortaleza", vila, ruinas);
+            if (temRuinas) ligar(entradaCastelo != null ? "Vila - Castelo Destruído" : "Vila - Ruínas da Fortaleza", vila, ruinas);
             for (int i = 0; i < acamp.Count; i++) ligar("Vila - Acampamento " + (i + 1), vila, acamp[i].posicao);
 
             Vector3 cemC = Vector3.zero, entrada = Vector3.zero; bool temCem = estrutura != null;
@@ -90,7 +96,7 @@ public static partial class PingluVila
                 // dentro do cemitério e pela trilha reta da floresta
                 List<Vector3> trilha = new List<Vector3>();
                 float fim = CEM_RAIO_FRENTE - 20f;
-                for (float d = 4f; d <= fim; d += 12f)
+                for (float d = CEM_PR + 6f; d <= fim; d += 12f)
                 {
                     Vector3 p = cemC + frente * d;
                     if (!DentroDoTerreno(p, 4f)) break;
@@ -143,7 +149,15 @@ public static partial class PingluVila
             {
                 bool cem = m.tipo == MiniMapa.Tipo.Cemiterio;
                 if (cem && temCem) m.posicao = cemC;     // o alfinete fica no cemitério, não no meio da floresta
-                rede.destinos.Add(new RedeDeEstradas.Destino { nome = m.nome, tipo = m.tipo, posicao = cem && temCem ? cemC : m.posicao, temEntrada = cem && temCem, entrada = cem && temCem ? entrada : Vector3.zero });
+                RedeDeEstradas.Destino dest = new RedeDeEstradas.Destino { nome = m.nome, tipo = m.tipo, posicao = cem && temCem ? cemC : m.posicao, temEntrada = cem && temCem, entrada = cem && temCem ? entrada : Vector3.zero };
+                if (cem && temCem) { dest.temArea = true; dest.areaTamanho = new Vector2(CEM_L, CEM_P); dest.areaYaw = estrutura.eulerAngles.y; }   // o mapa desenha a muralha do cemitério
+                if (m.tipo == MiniMapa.Tipo.Ruinas && estruturaCastelo != null && entradaCastelo != null)
+                {
+                    m.posicao = estruturaCastelo.position; dest.posicao = estruturaCastelo.position;
+                    dest.temEntrada = true; dest.entrada = entradaCastelo.position;
+                    dest.temArea = true; dest.areaTamanho = new Vector2(CAST_L, CAST_P); dest.areaYaw = estruturaCastelo.eulerAngles.y;
+                }
+                rede.destinos.Add(dest);
             }
             EditorUtility.SetDirty(mm);
             EditorSceneManager.MarkSceneDirty(g.scene);
@@ -152,6 +166,9 @@ public static partial class PingluVila
         catch (System.Exception e) { Debug.LogException(e); avisos.Add("Deu um erro: " + e.Message + " (veja o Console). Use Pinglu > 40."); }
         finally { EditorUtility.ClearProgressBar(); prefixoOculto = PREFIXO_OCULTO; }
 
+        // as estradas desfazem o terreno para um backup de antes da vegetação: refaz a vegetação (sem árvores em cima das estradas)
+        PingluTerreno.CaminhosPrecisamSuavizar();     // estrada recém-pintada: o terreno novo suaviza as bordas
+        try { if (PingluVegetacao.JaFoiCriada()) PingluVegetacao.RefazerSilencioso(); else if (PingluTerreno.Ativo()) PingluTerreno.RefazerSilencioso(); } catch (System.Exception ev) { Debug.LogException(ev); }
         string msg = "Estradas prontas!\n\n- Estradas de terra ligando portal, vila, ruínas, acampamentos e cemitério\n" +
                      "- No mapa (M), clique num lugar para traçar o caminho (GPS); ele aparece também no mini-mapa\n- Mapa e mini-mapa sem nuvens: tudo aparece\n\n" +
                      "Salve com Ctrl + S." + (avisos.Count > 0 ? "\n\n" + string.Join("\n", avisos) : "");
@@ -178,6 +195,7 @@ public static partial class PingluVila
                     if (!vegetacao) continue;
                 }
                 if (t.GetComponent<Renderer>() == null && t.GetComponent<LODGroup>() == null) continue;
+                if (TemPortalNoNome(t)) continue;
                 bool noCaminho = false;
                 foreach (Forma f in formas) if (Distancia(f, t.position) < f.raio + 1.8f) { noCaminho = true; break; }
                 if (!noCaminho) continue;
@@ -205,6 +223,7 @@ public static partial class PingluVila
         }
         AssetDatabase.SaveAssets();
         if (terreno != null) EditorSceneManager.MarkSceneDirty(terreno.gameObject.scene);
+        if (perguntar) { try { if (PingluVegetacao.JaFoiCriada()) PingluVegetacao.RefazerSilencioso(); } catch (System.Exception ev) { Debug.LogException(ev); } }
         if (perguntar) EditorUtility.DisplayDialog("Pinglu", "Estradas removidas. Salve a cena com Ctrl + S.", "OK");
     }
 }

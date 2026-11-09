@@ -34,10 +34,10 @@ Material:
     m_Ints: []
     m_Floats:
     - _Circulo: 1
-    - _Rot: 0
+    - _Rot: 5.3538437
     - _Zoom: 0.16
     m_Colors:
-    - _Centro: {r: 0.60503995, g: 0.28653, b: 0, a: 0}
+    - _Centro: {r: 0.7442524, g: 0.4056919, b: 0, a: 0}
     - _CorNevoa: {r: 0.15999997, g: 0.12999997, b: 0.09999997, a: 1}
   m_BuildTextureStacks: []
   m_AllowLocking: 1

@@ -154,6 +154,14 @@ public static class PingluMiniMapa
     static Color CorDaCamada(TerrainLayer l)
     {
         string n = l != null ? l.name : "";
+        if (n.Contains("Soil_Rocks")) return new Color(0.76f, 0.62f, 0.42f);   // estradas
+        if (n == "Campo" || n == "CampoVivo") return new Color(0.40f, 0.57f, 0.26f);
+        if (n == "CampoSeco") return new Color(0.58f, 0.52f, 0.28f);
+        if (n == "TerraMorta") return new Color(0.44f, 0.42f, 0.40f);
+        if (n == "Mata") return new Color(0.42f, 0.36f, 0.24f);
+        if (n == "MataSombria") return new Color(0.20f, 0.20f, 0.22f);
+        if (n == "MusgoSombrio") return new Color(0.22f, 0.32f, 0.22f);
+        if (n == "Rocha") return new Color(0.52f, 0.50f, 0.47f);
         if (n.Contains("Grass_Dry")) return new Color(0.66f, 0.60f, 0.40f);
         if (n.Contains("Grass_Moss")) return new Color(0.34f, 0.42f, 0.27f);
         if (n.Contains("Muddy")) return new Color(0.38f, 0.36f, 0.25f);

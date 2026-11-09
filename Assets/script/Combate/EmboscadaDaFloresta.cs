@@ -24,6 +24,16 @@ public class EmboscadaDaFloresta : MonoBehaviour
     [Tooltip("Metade da largura da faixa de floresta na frente do cemitério")]
     [SerializeField] private float larguraDoCaminho = 120f;
 
+    [Header("Setor do fundo (a floresta que enche o canto do mapa)")]
+    [Tooltip("Raio do setor em volta do cemitério (0 = sem setor)")]
+    [SerializeField] private float raioDoSetor = 0f;
+    [Tooltip("Meio-ângulo do setor a partir da direção da frente (graus)")]
+    [SerializeField] private float anguloDoSetor = 85f;
+
+    [Header("Onde NUNCA aparecem monstros (x, y, z, raio)")]
+    [Tooltip("Início do mapa, vila, ruínas, acampamentos: os monstros da floresta ficam só na floresta")]
+    [SerializeField] private Vector4[] zonasSemMonstros = new Vector4[0];
+
     [Header("Quanto")]
     [SerializeField] private int maximoVivos = 10;
     [SerializeField] private int maximoExtraPorJogador = 4;
@@ -91,9 +101,18 @@ public class EmboscadaDaFloresta : MonoBehaviour
     private bool DentroDaFloresta(Vector3 p, out float intensidade)
     {
         intensidade = 0f;
+        if (EmZonaProtegida(p)) return false;
         Vector3 d = p - transform.position; d.y = 0f;
         float dist = d.magnitude;
         if (dist <= raioInterno) return false;
+        // a Floresta Sombria marcada no mapa (menu 43): os monstros ficam dentro desse contorno
+        LimiteDaFloresta lim = LimiteDaFloresta.Instancia;
+        if (lim != null && lim.Valido)
+        {
+            if (!lim.Contem(p.x, p.z)) return false;
+            intensidade = Mathf.Lerp(1f, 0.3f, Mathf.Clamp01(dist / 800f));
+            return true;
+        }
         float alcance = raioLados > 0f ? raioLados : raioExterno;
         bool dentro = dist < alcance;
         if (raioLados > 0f && direcaoDaFrente.sqrMagnitude > 0.01f)
@@ -103,9 +122,23 @@ public class EmboscadaDaFloresta : MonoBehaviour
             float lat = Mathf.Abs(d.x * f.z - d.z * f.x);
             if (ao > 0f && ao < raioExterno && lat < larguraDoCaminho) { dentro = true; alcance = Mathf.Max(alcance, raioExterno); }
         }
+        if (raioDoSetor > 0f && direcaoDaFrente.sqrMagnitude > 0.01f && dist < raioDoSetor && Vector3.Angle(d, direcaoDaFrente) < anguloDoSetor)
+        {
+            dentro = true; alcance = Mathf.Max(alcance, raioDoSetor);
+        }
         if (!dentro) return false;
         intensidade = 1f - Mathf.InverseLerp(raioInterno, alcance, dist);
         return true;
+    }
+
+    private bool EmZonaProtegida(Vector3 p)
+    {
+        foreach (Vector4 z in zonasSemMonstros)
+        {
+            float dx = p.x - z.x, dz = p.z - z.z;
+            if (dx * dx + dz * dz < z.w * z.w) return true;
+        }
+        return false;
     }
 
     private float Distancia(Vector3 p)
@@ -129,6 +162,7 @@ public class EmboscadaDaFloresta : MonoBehaviour
         {
             Vector3 pos = centro + new Vector3(Random.Range(-4f, 4f), 0f, Random.Range(-4f, 4f));
             if (Distancia(pos) < raioInterno - 6f) continue; // não nasce dentro do cemitério
+            if (EmZonaProtegida(pos)) continue;               // nem perto do início, da vila ou de acampamentos
             Terrain t = Terrain.activeTerrain;
             if (t != null) pos.y = t.SampleHeight(pos) + t.transform.position.y;
 

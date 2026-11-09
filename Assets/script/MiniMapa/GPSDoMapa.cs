@@ -50,6 +50,12 @@ public class GPSDoMapa : MonoBehaviour
         else Definir(m.posicao, m.nome, false, Vector3.zero);
     }
 
+    // clicar de novo no mesmo lugar desmarca (como em GTA V e RDR2)
+    public void AlternarPorMarcador(MiniMapa.Marcador m)
+    {
+        if (Ativo && NomeDoDestino == m.nome) Cancelar(); else DefinirPorMarcador(m);
+    }
+
     public void Cancelar() { Ativo = false; rota.Clear(); DistanciaRestante = 0f; }
 
     // ------------------------------------------------------------------
@@ -60,7 +66,7 @@ public class GPSDoMapa : MonoBehaviour
             proximaBusca = Time.unscaledTime + 0.5f;
             jogador = null;
             foreach (PlayerLocomotion p in Resources.FindObjectsOfTypeAll<PlayerLocomotion>())
-                if (p != null && p.enabled && p.gameObject.scene.IsValid() && p.gameObject.activeInHierarchy) { jogador = p.transform; break; }
+                if (p != null && p.enabled && !p.Companheiro && p.gameObject.scene.IsValid() && p.gameObject.activeInHierarchy) { jogador = p.transform; break; }
         }
         if (!Ativo) return;
         if (Input.GetKeyDown(teclaCancelar) && SessaoDeJogo.MenuAberto) { Cancelar(); return; }
@@ -73,6 +79,7 @@ public class GPSDoMapa : MonoBehaviour
             Cancelar();
             return;
         }
+        Aparar(jp);   // o que você já percorreu some da linha, em tempo real
         if (Time.unscaledTime < proximoCalculo) return;
         proximoCalculo = Time.unscaledTime + 1f;
 
@@ -81,9 +88,30 @@ public class GPSDoMapa : MonoBehaviour
         else AtualizarDistancia(jp);
     }
 
+    // apaga o trecho já percorrido: a linha começa sempre no ponto da rota mais perto do jogador
+    private void Aparar(Vector3 jp)
+    {
+        if (rota.Count < 2) return;
+        int limite = Mathf.Min(rota.Count - 1, 40);
+        float melhor = float.MaxValue; int idx = 0; Vector3 proj = rota[0];
+        for (int i = 0; i < limite; i++)
+        {
+            Vector3 a = rota[i], b = rota[i + 1];
+            Vector2 ab = new Vector2(b.x - a.x, b.z - a.z);
+            float l2 = ab.sqrMagnitude;
+            float t = l2 < 0.0001f ? 0f : Mathf.Clamp01(Vector2.Dot(new Vector2(jp.x - a.x, jp.z - a.z), ab) / l2);
+            Vector3 p = Vector3.Lerp(a, b, t);
+            float d = new Vector2(p.x - jp.x, p.z - jp.z).sqrMagnitude;
+            if (d < melhor) { melhor = d; idx = i; proj = p; }
+        }
+        if (idx > 0) rota.RemoveRange(0, idx);
+        rota[0] = proj;
+        if (Time.frameCount % 15 == 0) AtualizarDistancia(jp);
+    }
+
     private void Recalcular()
     {
-        if (jogador == null) { foreach (PlayerLocomotion p in Resources.FindObjectsOfTypeAll<PlayerLocomotion>()) if (p != null && p.enabled && p.gameObject.scene.IsValid() && p.gameObject.activeInHierarchy) { jogador = p.transform; break; } }
+        if (jogador == null) { foreach (PlayerLocomotion p in Resources.FindObjectsOfTypeAll<PlayerLocomotion>()) if (p != null && p.enabled && !p.Companheiro && p.gameObject.scene.IsValid() && p.gameObject.activeInHierarchy) { jogador = p.transform; break; } }
         Terrain t = Terrain.activeTerrain;
         if (jogador == null || t == null) return;
         if (plano == null)

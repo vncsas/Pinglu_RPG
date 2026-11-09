@@ -1,0 +1,17 @@
+fileFormatVersion: 2
+guid: 64eef4268a155460b516362cc668da1e
+labels:
+- Authored
+NativeFormatImporter:
+  externalObjects: {}
+  mainObjectFileID: 7400000
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 415578
+  packageName: WIld Boar - Free sample Ultrarealistic Forest Animals
+  packageVersion: 1.1
+  assetPath: Assets/Wild Boar/Animals/Wild_Boar/Animations/Run.anim
+  uploadId: 1040004

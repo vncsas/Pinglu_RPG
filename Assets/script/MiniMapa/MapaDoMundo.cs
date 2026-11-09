@@ -54,7 +54,8 @@ public class MapaDoMundo : MonoBehaviour
     private GUIStyle estTitulo, estItem, estPequeno, estBioma, estAba, estRotulo;
     private Rect rPainelEsq, rPainelDir, rAbas;
     private Vector3 ultimoMouse;
-    private bool arrastando;
+    private bool arrastando, cliqueValido, cliqueTratado;
+    private Vector3 cliqueMouse;
 
     public bool Aberto { get { return aberto; } }
 
@@ -200,13 +201,10 @@ public class MapaDoMundo : MonoBehaviour
 
         Vector3 delta = mouse - ultimoMouse;
         ultimoMouse = mouse;
-        if (Input.GetMouseButtonDown(0) && !sobreUI && (Input.GetKey(KeyCode.LeftControl) || Input.GetKey(KeyCode.RightControl)) && GPSDoMapa.Instancia != null)
-        {
-            // Ctrl + clique no chão do mapa: marca um ponto livre e traça o caminho
-            RaycastHit hit;
-            if (Physics.Raycast(camMapa.ScreenPointToRay(mouse), out hit, 6000f)) GPSDoMapa.Instancia.Definir(hit.point, "Ponto marcado", false, Vector3.zero);
-        }
-        else if (Input.GetMouseButtonDown(0)) arrastando = !sobreUI;
+        if (Input.GetMouseButtonDown(0)) { arrastando = !sobreUI; cliqueValido = !sobreUI; cliqueMouse = mouse; cliqueTratado = false; }
+        if (Input.GetMouseButton(0) && cliqueValido && (mouse - cliqueMouse).magnitude > 6f) cliqueValido = false;   // arrastou: não é clique
+        if (Input.GetMouseButtonUp(0) && cliqueValido && !cliqueTratado) CliqueNoMapa(mouse);
+        if (Input.GetMouseButtonUp(0)) cliqueValido = false;
         if (!Input.GetMouseButton(0)) arrastando = false;
         Vector3 frente = Quaternion.Euler(0f, yaw, 0f) * Vector3.forward, direita = Quaternion.Euler(0f, yaw, 0f) * Vector3.right;
         if (arrastando) alvoPivo -= (direita * delta.x + frente * delta.y) * (dist * 0.0016f);
@@ -226,6 +224,22 @@ public class MapaDoMundo : MonoBehaviour
             alvoPivo.x = Mathf.Clamp(alvoPivo.x, o.x, o.x + s.x);
             alvoPivo.z = Mathf.Clamp(alvoPivo.z, o.z, o.z + s.z);
         }
+    }
+
+    // clique simples no mapa: marca o GPS ali; clicar de novo no ponto marcado desmarca
+    private void CliqueNoMapa(Vector3 mouse)
+    {
+        GPSDoMapa gps = GPSDoMapa.Instancia;
+        if (gps == null || camMapa == null) return;
+        Vector2 mg = new Vector2(mouse.x, Screen.height - mouse.y);
+        float e = Screen.height / 1080f;
+        if (gps.Ativo)
+        {
+            Vector2 d;
+            if (NaTela(gps.Destino + Vector3.up * 6f, out d) && (d - mg).magnitude < 36f * e) { gps.Cancelar(); return; }
+        }
+        RaycastHit hit;
+        if (Physics.Raycast(camMapa.ScreenPointToRay(mouse), out hit, 6000f)) gps.Definir(hit.point, "Ponto marcado", false, Vector3.zero);
     }
 
     private void Abrir()
@@ -283,7 +297,7 @@ public class MapaDoMundo : MonoBehaviour
     private Transform AcharJogador()
     {
         foreach (PlayerLocomotion p in Resources.FindObjectsOfTypeAll<PlayerLocomotion>())
-            if (p != null && p.gameObject.scene.IsValid() && p.gameObject.activeInHierarchy && p.enabled) return p.transform;
+            if (p != null && p.gameObject.scene.IsValid() && p.gameObject.activeInHierarchy && p.enabled && !p.Companheiro) return p.transform;
         return null;
     }
 
@@ -404,7 +418,8 @@ public class MapaDoMundo : MonoBehaviour
             if (sobre && Event.current.type == EventType.MouseDown && Event.current.button == 0)
             {
                 VoarPara(m.posicao, 110f);
-                if (GPSDoMapa.Instancia != null) GPSDoMapa.Instancia.DefinirPorMarcador(m);   // clicar no alfinete traça o caminho
+                if (GPSDoMapa.Instancia != null) GPSDoMapa.Instancia.AlternarPorMarcador(m);   // clicar no alfinete traça o caminho; de novo, desmarca
+                cliqueTratado = true;
                 Event.current.Use();
             }
         }
@@ -473,7 +488,7 @@ public class MapaDoMundo : MonoBehaviour
             if (GUI.Button(rr, conhecido ? m.nome : "???", estItem) && conhecido)
             {
                 aba = Aba.Mundo; VoarPara(m.posicao, 110f);
-                if (GPSDoMapa.Instancia != null) GPSDoMapa.Instancia.DefinirPorMarcador(m);
+                if (GPSDoMapa.Instancia != null) GPSDoMapa.Instancia.AlternarPorMarcador(m);
             }
             y += 34f * e;
         }
@@ -555,7 +570,7 @@ public class MapaDoMundo : MonoBehaviour
         string txt = aba == Aba.Pergaminho
             ? teclaAba + ": trocar aba     " + tecla + " / Esc: fechar"
             : "Roda: zoom     Botão direito ou Q/E: girar     Botão esquerdo ou WASD: mover     " + teclaCentralizar + ": você     " + teclaAba + ": aba     " + tecla + " / Esc: fechar";
-        if (aba != Aba.Pergaminho) txt += "     Clique num alfinete: GPS     Ctrl + clique: marcar ponto     X: cancelar GPS";
+        if (aba != Aba.Pergaminho) txt += "     Clique no mapa: marcar GPS     Clique no ponto de novo: desmarcar     X: cancelar";
         Vector2 tam = estPequeno.CalcSize(new GUIContent(txt));
         Rect r = new Rect((Screen.width - tam.x) * 0.5f - 20f * e, Screen.height - 58f * e, tam.x + 40f * e, 36f * e);
         Painel(r, 0.75f);

@@ -21,6 +21,18 @@ public class TesteDoGPS : MonoBehaviour
         MethodInfo entrar = menu.GetType().GetMethod("EntrarSozinho", PRIV);
         entrar.Invoke(menu, null);
         yield return new WaitForSecondsRealtime(13f);
+        // F2: leva à entrada da floresta?
+        GerenciadorDeOndas ger0 = FindAnyObjectByType<GerenciadorDeOndas>();
+        PlayerLocomotion p0 = null;
+        foreach (PlayerLocomotion p in Resources.FindObjectsOfTypeAll<PlayerLocomotion>()) if (p != null && p.enabled && p.gameObject.scene.IsValid() && p.gameObject.activeInHierarchy) { p0 = p; break; }
+        if (ger0 != null && p0 != null)
+        {
+            MethodInfo f2 = ger0.GetType().GetMethod("LevarJogadorAteAqui", PRIV);
+            f2.Invoke(ger0, new object[] { p0.transform });
+            Vector3 d = p0.transform.position - ger0.transform.position; d.y = 0f;
+            Debug.Log("[GPS] F2 levou o jogador a " + d.magnitude.ToString("0") + " m do centro do cemitério (cemitério em " + ger0.transform.position + ")");
+            yield return new WaitForSecondsRealtime(1f);
+        }
         // câmera fixa atrás do jogador (o mouse preso no Linux gira a câmera do jogo)
         ThirdPersonCameraFollow follow = FindAnyObjectByType<ThirdPersonCameraFollow>();
         if (follow != null) follow.enabled = false;
@@ -29,6 +41,9 @@ public class TesteDoGPS : MonoBehaviour
         foreach (PlayerLocomotion p in Resources.FindObjectsOfTypeAll<PlayerLocomotion>()) if (p != null && p.enabled && p.gameObject.scene.IsValid() && p.gameObject.activeInHierarchy) { jog = p; break; }
         Debug.Log("[GPS] menuAberto=" + SessaoDeJogo.MenuAberto + " jogador=" + (jog != null));
 
+        GameObject portalGo = null;
+        foreach (GameObject g in Resources.FindObjectsOfTypeAll<GameObject>()) if (g != null && g.scene.IsValid() && g.name.Contains("Portal de Ruina")) { portalGo = g; break; }
+        Debug.Log("[GPS] portal: " + (portalGo != null ? portalGo.name + " ativo=" + portalGo.activeInHierarchy : "NAO ENCONTRADO"));
         MiniMapa mm = FindAnyObjectByType<MiniMapa>();
         GPSDoMapa gps = GPSDoMapa.Instancia;
         Debug.Log("[GPS] minimapa=" + (mm != null) + " gps=" + (gps != null) + " rede=" + (RedeDeEstradas.Instancia != null ? RedeDeEstradas.Instancia.estradas.Count + " estradas, " + RedeDeEstradas.Instancia.destinos.Count + " destinos" : "NENHUMA") + " usarNevoa=" + (mm != null && mm.usarNevoa));
@@ -51,7 +66,9 @@ public class TesteDoGPS : MonoBehaviour
         if (mapa != null)
         {
             mapa.GetType().GetMethod("Abrir", PRIV).Invoke(mapa, null);
-            yield return new WaitForSecondsRealtime(2.5f);
+            yield return new WaitForSecondsRealtime(1.5f);
+            mapa.GetType().GetMethod("VoarPara", PRIV).Invoke(mapa, new object[] { new Vector3(500f, 0f, 560f), 900f });
+            yield return new WaitForSecondsRealtime(3.5f);
             Foto("mapa3d");
             // enquadra a rota: voa para o meio dela
             if (gps.Rota.Count > 1) { Vector3 meio = gps.Rota[gps.Rota.Count / 2]; mapa.GetType().GetMethod("VoarPara", PRIV).Invoke(mapa, new object[] { meio, 700f }); }

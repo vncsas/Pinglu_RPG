@@ -1,0 +1,15 @@
+fileFormatVersion: 2
+guid: aa9394cc41818524ba21af8c8e917a21
+NativeFormatImporter:
+  externalObjects: {}
+  mainObjectFileID: 11400000
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 393316
+  packageName: Furry Squirrel - FurBrush Showcase (URP + HDRP)
+  packageVersion: 1.0
+  assetPath: Assets/Furry Squirrel/Demo/HDRP_Demo/SkyandFogSettingsProfile.asset
+  uploadId: 953350

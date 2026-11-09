@@ -62,6 +62,7 @@ public class InimigoEsqueleto : MonoBehaviour
 
     public event System.Action<InimigoEsqueleto> AoMorrer;
     public Vida Vida => vida;
+    public bool Lutando { get { return estado != Estado.Surgindo && estado != Estado.Morto; } }
 
     // multiplayer: nos PCs que não são o host, o esqueleto só mostra o que o host manda
     [System.NonSerialized] public bool SoVisual;

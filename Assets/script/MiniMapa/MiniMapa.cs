@@ -123,7 +123,7 @@ public class MiniMapa : MonoBehaviour
         foreach (PlayerLocomotion p in Resources.FindObjectsOfTypeAll<PlayerLocomotion>())
         {
             if (p == null || !p.gameObject.scene.IsValid() || !p.gameObject.activeInHierarchy) continue;
-            if (p.enabled && local == null) local = p.transform; else aliados.Add(p.transform);
+            if (p.enabled && !p.Companheiro && local == null) local = p.transform; else aliados.Add(p.transform);
         }
         jogador = local;
         foreach (InimigoEsqueleto e in Resources.FindObjectsOfTypeAll<InimigoEsqueleto>())
@@ -178,7 +178,7 @@ public class MiniMapa : MonoBehaviour
                 float w = 1f - Mathf.InverseLerp(b.raio * 0.8f, b.raio + 20f, PlanoDist(p, b.centro));
                 if (w > melhor) { melhor = w; nome = b.nome; }
             }
-            if (nome != "Campos" && descobertos.Add(nome)) HUDJogador.Mostrar("Você descobriu: " + nome, 4f);
+            if (nome != "Campos") descobertos.Add(nome);      // conta para o "Biomas descobertos" do mapa (sem aviso na tela)
         }
         regiaoAtual = nome;
     }
@@ -319,8 +319,38 @@ public class MiniMapa : MonoBehaviour
     // ------------------------------------------------------------------
     //  estradas e GPS
     // ------------------------------------------------------------------
+    // área murada dos lugares grandes (cemitério): preenchimento suave + contorno
+    private readonly List<Vector2> doisPontos = new List<Vector2> { Vector2.zero, Vector2.zero };
+    private void DesenharAreas(System.Func<Vector3, Vector2> aTela, bool recortar, Vector2 centro, float raio, float e)
+    {
+        RedeDeEstradas rede = RedeDeEstradas.Instancia;
+        if (rede == null) return;
+        foreach (RedeDeEstradas.Destino d in rede.destinos)
+        {
+            if (!d.temArea) continue;
+            Quaternion q = Quaternion.Euler(0f, d.areaYaw, 0f);
+            float hx = d.areaTamanho.x * 0.5f, hz = d.areaTamanho.y * 0.5f;
+            Vector2[] c = new Vector2[4];
+            c[0] = aTela(d.posicao + q * new Vector3(-hx, 0f, -hz)); c[1] = aTela(d.posicao + q * new Vector3(hx, 0f, -hz));
+            c[2] = aTela(d.posicao + q * new Vector3(hx, 0f, hz));   c[3] = aTela(d.posicao + q * new Vector3(-hx, 0f, hz));
+            int n = 56;
+            float larg = Mathf.Max(2f, (c[1] - c[0]).magnitude / n * 1.04f);
+            Color fundo = new Color(0.55f, 0.28f, 0.25f, 0.26f), borda = new Color(0.32f, 0.17f, 0.14f, 0.95f);
+            for (int k = 0; k < n; k++)
+            {
+                float t = (k + 0.5f) / n;
+                doisPontos[0] = Vector2.Lerp(c[0], c[3], t); doisPontos[1] = Vector2.Lerp(c[1], c[2], t);
+                if (recortar) DesenhoMapa.LinhaNoCirculo(doisPontos, larg, fundo, centro, raio); else DesenhoMapa.Linha(doisPontos, larg, fundo);
+            }
+            bufferLinha.Clear();
+            bufferLinha.Add(c[0]); bufferLinha.Add(c[1]); bufferLinha.Add(c[2]); bufferLinha.Add(c[3]); bufferLinha.Add(c[0]);
+            if (recortar) DesenhoMapa.LinhaNoCirculo(bufferLinha, 5f * e, borda, centro, raio); else DesenhoMapa.Linha(bufferLinha, 4f * e, borda);
+        }
+    }
+
     private void RotasNoMiniMapa(System.Func<Vector3, Vector2> naTela, Vector2 centro, float raio, float e)
     {
+        DesenharAreas(w => centro + naTela(w), true, centro, raio, e);
         RedeDeEstradas rede = RedeDeEstradas.Instancia;
         if (rede != null)
             foreach (RedeDeEstradas.Estrada est in rede.estradas)
@@ -344,6 +374,7 @@ public class MiniMapa : MonoBehaviour
 
     private void RotasNoPergaminho(System.Func<Vector3, Vector2> noMapa, float e)
     {
+        DesenharAreas(noMapa, false, Vector2.zero, 0f, e);
         RedeDeEstradas rede = RedeDeEstradas.Instancia;
         if (rede != null)
             foreach (RedeDeEstradas.Estrada est in rede.estradas)
@@ -367,24 +398,27 @@ public class MiniMapa : MonoBehaviour
     {
         GPSDoMapa gps = GPSDoMapa.Instancia;
         Event ev = Event.current;
-        if (gps != null && ev.type == EventType.MouseDown && r.Contains(ev.mousePosition))
+        if (gps != null && ev.type == EventType.MouseDown && r.Contains(ev.mousePosition) && (ev.button == 0 || ev.button == 1))
         {
-            if (ev.button == 0)
+            bool tratou = false;
+            foreach (Marcador m in marcadores)
+                if ((noMapa(m.posicao) - ev.mousePosition).magnitude < 24f * e) { gps.AlternarPorMarcador(m); tratou = true; break; }
+            if (!tratou)
             {
-                foreach (Marcador m in marcadores)
-                    if ((noMapa(m.posicao) - ev.mousePosition).magnitude < 24f * e) { gps.DefinirPorMarcador(m); ev.Use(); break; }
+                // clicar perto do ponto já marcado desmarca; em qualquer outro lugar marca um ponto novo
+                if (gps.Ativo && (noMapa(gps.Destino) - ev.mousePosition).magnitude < 26f * e) gps.Cancelar();
+                else
+                {
+                    Vector2 uv = new Vector2((ev.mousePosition.x - r.x) / r.width, (r.yMax - ev.mousePosition.y) / r.height);
+                    Vector3 w = new Vector3(origem.x + uv.x * tamanho.x, 0f, origem.y + uv.y * tamanho.y);
+                    Terrain t = Terrain.activeTerrain;
+                    if (t != null) w.y = t.SampleHeight(w) + t.transform.position.y;
+                    gps.Definir(w, "Ponto marcado", false, Vector3.zero);
+                }
             }
-            else if (ev.button == 1)
-            {
-                Vector2 uv = new Vector2((ev.mousePosition.x - r.x) / r.width, (r.yMax - ev.mousePosition.y) / r.height);
-                Vector3 w = new Vector3(origem.x + uv.x * tamanho.x, 0f, origem.y + uv.y * tamanho.y);
-                Terrain t = Terrain.activeTerrain;
-                if (t != null) w.y = t.SampleHeight(w) + t.transform.position.y;
-                gps.Definir(w, "Ponto marcado", false, Vector3.zero);
-                ev.Use();
-            }
+            ev.Use();
         }
-        string dica = "Clique num lugar: GPS   •   Botão direito: marcar ponto   •   X: cancelar";
+        string dica = "Clique no mapa: marcar o GPS   •   Clique de novo no ponto: desmarcar   •   X: cancelar";
         GUI.Label(new Rect(r.x - 100f * e, r.y - 38f * e, r.width + 200f * e, 28f * e), dica, estiloNome2 ?? estiloLegenda);
     }
 

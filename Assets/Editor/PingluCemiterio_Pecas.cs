@@ -14,8 +14,10 @@ using UnityEngine;
 
 public static partial class PingluVila
 {
-    const float CEM_L = 64f;   // largura (eixo X)
-    const float CEM_P = 56f;   // profundidade (eixo Z)
+    const float CEM_L = 192f;  // largura (eixo X): três vezes o cemitério antigo
+    const float CEM_P = 168f;  // profundidade (eixo Z)
+    const float CEM_PR = 34f;  // raio da praça central (a arena da batalha)
+    static readonly List<Vector4> cemOcupados = new List<Vector4>();   // x, z, raio: onde não entram lápides nem sorteios
 
     static Vector3 cemC;
     static Quaternion cemRot;
@@ -122,7 +124,7 @@ public static partial class PingluVila
             }
             pedra.Caixa(new Vector3(meio.x, gy + h + 0.06f, meio.z), new Vector3(0.68f, 0.12f, L + 0.02f), rd, CEM_PEDRA);
             float yb = gy + h + 0.12f;
-            int barras = Mathf.Max(3, Mathf.RoundToInt(L / 0.2f));
+            int barras = Mathf.Max(3, Mathf.RoundToInt(L / 0.27f));
             for (int k = 0; k < barras; k++)
             {
                 Vector3 q = p0 + d * (0.41f + L * (k + 0.5f) / barras);
@@ -355,54 +357,72 @@ public static partial class PingluVila
     // ==================================================================
     static void CemPraca(Malha m, Transform pastaLuzes)
     {
-        float y = Gy(0f, 0f);
-        m.Cilindro(new Vector3(0f, y - 0.4f, 0f), 11.8f, 0.5f, 36, CEM_PEDRA, Quaternion.identity);
-        m.Cilindro(new Vector3(0f, y - 0.4f, 0f), 11.2f, 0.56f, 36, CEM_PRACA, Quaternion.identity);
-        m.Cilindro(new Vector3(0f, y - 0.4f, 0f), 7.2f, 0.62f, 32, CEM_PISO, Quaternion.identity);
-        m.Cilindro(new Vector3(0f, y - 0.4f, 0f), 6.6f, 0.66f, 32, CEM_PRACA, Quaternion.identity);
-        // monumento central: degraus, coluna e cruz celta
-        CemCamadas(m, new Vector3(0f, y + 0.27f, 0f), Quaternion.identity, 3.3f, 3.3f, new[] { 0.28f, 0.28f, 0.28f }, new[] { 0.9f, 0.55f, 0.2f }, CEM_PEDRA);
-        CemCamadas(m, new Vector3(0f, y + 1.11f, 0f), Quaternion.identity, 1.4f, 1.4f, BASE_H, BASE_S, CEM_PEDRA);
-        m.Caixa(new Vector3(0f, y + 2.35f, 0f), new Vector3(1.3f, 1.8f, 1.3f), CEM_LAPIDE);
-        float hc = CemCamadas(m, new Vector3(0f, y + 3.25f, 0f), Quaternion.identity, 1.3f, 1.3f, CORN_H, CORN_S, CEM_PEDRA);
-        float yc = y + 3.25f + hc;
-        m.Caixa(new Vector3(0f, yc + 1.7f, 0f), new Vector3(0.55f, 3.4f, 0.42f), CEM_LAPIDE);
-        m.Caixa(new Vector3(0f, yc + 2.5f, 0f), new Vector3(2.3f, 0.55f, 0.42f), CEM_LAPIDE);
+        float y = Gy(0f, 0f), R = CEM_PR, k = 1.9f;
+        m.Cilindro(new Vector3(0f, y - 0.4f, 0f), R + 0.9f, 0.5f, 64, CEM_PEDRA, Quaternion.identity);
+        m.Cilindro(new Vector3(0f, y - 0.4f, 0f), R, 0.56f, 64, CEM_PRACA, Quaternion.identity);
+        m.Cilindro(new Vector3(0f, y - 0.4f, 0f), R * 0.64f, 0.62f, 56, CEM_PISO, Quaternion.identity);
+        m.Cilindro(new Vector3(0f, y - 0.4f, 0f), R * 0.58f, 0.66f, 56, CEM_PRACA, Quaternion.identity);
+        // faixas de pedra saindo do centro (oito raios)
+        for (int i = 0; i < 8; i++)
+        {
+            Quaternion q = Quaternion.Euler(0f, i * 45f, 0f);
+            m.Caixa(new Vector3(0f, y + 0.18f, 0f) + q * new Vector3(0f, 0f, R * 0.8f), new Vector3(1.4f, 0.12f, R * 0.5f), q, CEM_PEDRA);
+        }
+        // monumento central (grande): degraus, coluna e cruz celta
+        CemCamadas(m, new Vector3(0f, y + 0.27f * k, 0f), Quaternion.identity, 3.3f * k, 3.3f * k, new[] { 0.28f * k, 0.28f * k, 0.28f * k }, new[] { 0.9f * k, 0.55f * k, 0.2f * k }, CEM_PEDRA);
+        CemCamadas(m, new Vector3(0f, y + 1.11f * k, 0f), Quaternion.identity, 1.4f * k, 1.4f * k, new[] { 0.22f * k, 0.12f * k, 0.1f * k }, new[] { 0.22f * k, 0.13f * k, 0.06f * k }, CEM_PEDRA);
+        m.Caixa(new Vector3(0f, y + 2.35f * k, 0f), new Vector3(1.3f, 1.8f, 1.3f) * k, CEM_LAPIDE);
+        float hc = CemCamadas(m, new Vector3(0f, y + 3.25f * k, 0f), Quaternion.identity, 1.3f * k, 1.3f * k, new[] { 0.12f * k, 0.08f * k, 0.14f * k, 0.10f * k, 0.20f * k }, new[] { 0.04f * k, 0.10f * k, 0.06f * k, 0.17f * k, 0.26f * k }, CEM_PEDRA);
+        float yc = y + 3.25f * k + hc;
+        m.Caixa(new Vector3(0f, yc + 1.7f * k, 0f), new Vector3(0.55f, 3.4f, 0.42f) * k, CEM_LAPIDE);
+        m.Caixa(new Vector3(0f, yc + 2.5f * k, 0f), new Vector3(2.3f, 0.55f, 0.42f) * k, CEM_LAPIDE);
         for (int g = 0; g < 16; g++)
         {
             float a = g * Mathf.PI * 2f / 16f;
-            m.Caixa(new Vector3(Mathf.Cos(a) * 0.8f, yc + 2.5f + Mathf.Sin(a) * 0.8f, 0f), new Vector3(0.2f, 0.4f, 0.36f), Quaternion.Euler(0f, 0f, a * Mathf.Rad2Deg), CEM_PEDRA);
+            m.Caixa(new Vector3(Mathf.Cos(a) * 0.8f * k, yc + 2.5f * k + Mathf.Sin(a) * 0.8f * k, 0f), new Vector3(0.2f, 0.4f, 0.36f) * k, Quaternion.Euler(0f, 0f, a * Mathf.Rad2Deg), CEM_PEDRA);
         }
-        m.Caixa(new Vector3(0f, yc + 3.55f, 0f), new Vector3(0.42f, 0.42f, 0.36f), Quaternion.Euler(0f, 0f, 45f), CEM_PEDRA);
-        for (int k = 0; k < 4; k++)
+        m.Caixa(new Vector3(0f, yc + 3.55f * k, 0f), new Vector3(0.42f, 0.42f, 0.36f) * k, Quaternion.Euler(0f, 0f, 45f), CEM_PEDRA);
+        for (int c = 0; c < 8; c++)
         {
-            float a = k * Mathf.PI * 0.5f + Mathf.PI * 0.25f;
-            CemVelas(m, new Vector3(Mathf.Cos(a) * 2.1f, y + 0.6f, Mathf.Sin(a) * 2.1f), 6, 0.35f);
+            float a = c * Mathf.PI * 0.25f + Mathf.PI * 0.125f;
+            CemVelas(m, new Vector3(Mathf.Cos(a) * 3.3f * k, y + 0.6f, Mathf.Sin(a) * 3.3f * k), 7, 0.4f);
         }
-        CemLuz(pastaLuzes, new Vector3(0f, 2.2f, 0f), new Color(1f, 0.72f, 0.45f), 16f, 2.6f);
+        // braseiros de pedra em volta da arena, para iluminar a batalha
+        for (int i = 0; i < 6; i++)
+        {
+            float a = i * Mathf.PI * 2f / 6f;
+            Vector3 b = new Vector3(Mathf.Cos(a) * (R - 2.5f), 0f, Mathf.Sin(a) * (R - 2.5f));
+            float yb = Gy(b.x, b.z);
+            CemCamadas(m, new Vector3(b.x, yb, b.z), Quaternion.identity, 0.9f, 0.9f, BASE_H, BASE_S, CEM_PEDRA);
+            m.Cilindro(new Vector3(b.x, yb + 0.44f, b.z), 0.4f, 0.9f, 10, CEM_LAPIDE, Quaternion.identity);
+            m.Cilindro(new Vector3(b.x, yb + 1.34f, b.z), 0.55f, 0.18f, 12, CEM_PEDRA, Quaternion.identity);
+            m.Piramide(new Vector3(b.x, yb + 1.52f, b.z), 0.2f, 0.45f, BRASA);
+            CemLuz(pastaLuzes, new Vector3(b.x, yb + 2.2f, b.z), new Color(1f, 0.55f, 0.25f), 16f, 3f);
+        }
+        CemLuz(pastaLuzes, new Vector3(0f, 2.4f * k, 0f), new Color(1f, 0.72f, 0.45f), 30f, 3f);
     }
 
     static void CemAltar(Malha m, Transform pastaLuzes)
     {
-        float z = -14f, y = Gy(0f, z);
-        CemCamadas(m, new Vector3(0f, y - 0.05f, z), Quaternion.identity, 5.8f, 2.6f, BASE_H, BASE_S, CEM_PEDRA);
-        m.Caixa(new Vector3(0f, y + 0.9f, z), new Vector3(5.6f, 1.2f, 2.4f), CEM_PEDRA);
-        for (int k = -1; k <= 1; k++)
-            m.Caixa(new Vector3(k * 1.8f, y + 0.85f, z + 1.22f), new Vector3(1.4f, 0.8f, 0.08f), CEM_LAPIDE);
-        CemCamadas(m, new Vector3(0f, y + 1.5f, z), Quaternion.identity, 5.6f, 2.4f, CORN_H, CORN_S, CEM_PEDRA);
-        m.Caixa(new Vector3(0f, y + 3.5f, z - 0.8f), new Vector3(0.9f, 3.6f, 0.5f), CEM_LAPIDE);
-        m.Caixa(new Vector3(0f, y + 4.1f, z - 0.8f), new Vector3(2.8f, 0.7f, 0.5f), CEM_LAPIDE);
-        for (int k = 0; k < 5; k++) CemVelas(m, new Vector3(-2.2f + k * 1.1f, y + 2.3f, z + Faixa(-0.5f, 0.5f)), 5, 0.3f);
+        float z = -(CEM_P * 0.5f - 27f), y = Gy(0f, z), k = 1.7f;
+        CemCamadas(m, new Vector3(0f, y - 0.05f, z), Quaternion.identity, 5.8f * k, 2.6f * k, BASE_H, BASE_S, CEM_PEDRA);
+        m.Caixa(new Vector3(0f, y + 0.9f * k, z), new Vector3(5.6f, 1.2f, 2.4f) * k, CEM_PEDRA);
+        for (int c = -1; c <= 1; c++)
+            m.Caixa(new Vector3(c * 1.8f * k, y + 0.85f * k, z + 1.22f * k), new Vector3(1.4f, 0.8f, 0.08f) * k, CEM_LAPIDE);
+        CemCamadas(m, new Vector3(0f, y + 1.5f * k, z), Quaternion.identity, 5.6f * k, 2.4f * k, CORN_H, CORN_S, CEM_PEDRA);
+        m.Caixa(new Vector3(0f, y + 3.5f * k, z - 0.8f * k), new Vector3(0.9f, 3.6f, 0.5f) * k, CEM_LAPIDE);
+        m.Caixa(new Vector3(0f, y + 4.1f * k, z - 0.8f * k), new Vector3(2.8f, 0.7f, 0.5f) * k, CEM_LAPIDE);
+        for (int c = 0; c < 7; c++) CemVelas(m, new Vector3(-3.3f * k + c * 1.1f * k, y + 2.3f * k, z + Faixa(-0.5f, 0.5f)), 6, 0.35f);
         foreach (int s in new[] { -1, 1 })
         {
-            float x = s * 6.8f;
-            CemCamadas(m, new Vector3(x, y - 0.05f, z - 1.2f), Quaternion.identity, 1.3f, 1.3f, BASE_H, BASE_S, CEM_PEDRA);
-            m.Caixa(new Vector3(x, y + 1.7f, z - 1.2f), new Vector3(1.0f, 2.2f, 1.0f), CEM_LAPIDE);
-            m.Caixa(new Vector3(x, y + 3.7f, z - 1.2f), new Vector3(0.38f, 1.9f, 0.3f), CEM_LAPIDE);
-            m.Caixa(new Vector3(x, y + 4.15f, z - 1.2f), new Vector3(1.4f, 0.38f, 0.3f), CEM_LAPIDE);
-            CemVelas(m, new Vector3(x, y + 0.9f, z - 0.4f), 5, 0.4f);
+            float x = s * 6.8f * k;
+            CemCamadas(m, new Vector3(x, y - 0.05f, z - 1.2f * k), Quaternion.identity, 1.3f * k, 1.3f * k, BASE_H, BASE_S, CEM_PEDRA);
+            m.Caixa(new Vector3(x, y + 1.7f * k, z - 1.2f * k), new Vector3(1.0f, 2.2f, 1.0f) * k, CEM_LAPIDE);
+            m.Caixa(new Vector3(x, y + 3.7f * k, z - 1.2f * k), new Vector3(0.38f, 1.9f, 0.3f) * k, CEM_LAPIDE);
+            m.Caixa(new Vector3(x, y + 4.15f * k, z - 1.2f * k), new Vector3(1.4f, 0.38f, 0.3f) * k, CEM_LAPIDE);
+            CemVelas(m, new Vector3(x, y + 0.9f * k, z - 0.4f * k), 6, 0.4f);
         }
-        CemLuz(pastaLuzes, new Vector3(0f, 2.8f, z + 1.5f), new Color(1f, 0.7f, 0.42f), 14f, 2.6f);
+        CemLuz(pastaLuzes, new Vector3(0f, 2.8f * k, z + 1.5f * k), new Color(1f, 0.7f, 0.42f), 22f, 3f);
     }
 
     // ==================================================================
@@ -410,7 +430,7 @@ public static partial class PingluVila
     // ==================================================================
     static void CemCaminho(Malha m)
     {
-        float z0 = CEM_P * 0.5f + 2f, z1 = 11f;
+        float z0 = CEM_P * 0.5f + 2f, z1 = CEM_PR + 1.5f;
         for (float z = z0; z > z1; z -= 4f)
         {
             float zc = z - 2f, comp = Mathf.Min(4f, z - z1);

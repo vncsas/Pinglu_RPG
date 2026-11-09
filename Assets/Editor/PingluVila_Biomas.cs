@@ -24,7 +24,7 @@ public static partial class PingluVila
     const string CAMADAS_TS = "Assets/TerrainSampleAssets/TerrainLayers/";
     const string DETALHES_TS = "Assets/TerrainSampleAssets/Prefabs/";
     const int CAMPOS = 0, FLORESTA = 1, PANTANO = 2, QUEIMADAS = 3, COLINAS = 4;
-    static readonly string[] NOMES_BIOMAS = { "Campos", "Floresta Sombria", "Pantano", "Terras Queimadas", "Colinas de Pedra" };
+    static readonly string[] NOMES_BIOMAS = { "Campos", "Floresta Sombria", "Pantano", "Terras Queimadas", "Reino Destruído" };
 
     static Vector3[] centroBioma = new Vector3[5];
     static float[] raioBioma = new float[5];
@@ -45,7 +45,7 @@ public static partial class PingluVila
             if (!EditorUtility.DisplayDialog("Pinglu", "Os biomas já foram criados. Quer refazer?", "Sim", "Cancelar")) return;
             DesfazerBiomas(false);
         }
-        if (!EditorUtility.DisplayDialog("Pinglu - Biomas", "Vou criar 4 biomas (Floresta Sombria, Pântano, Terras Queimadas e Colinas de Pedra), " +
+        if (!EditorUtility.DisplayDialog("Pinglu - Biomas", "Vou criar 4 biomas (Floresta Sombria, Pântano, Terras Queimadas e Reino Destruído), " +
             "repintar o chão do mapa todo com cores mais sombrias e trocar a vegetação.\n\nAntes, guardo um backup do terreno. Pode demorar alguns minutos.", "Pode fazer", "Cancelar")) return;
 
         avisos.Clear(); formas.Clear(); zonas = new List<Zona>(); tamanhoPrefab.Clear();

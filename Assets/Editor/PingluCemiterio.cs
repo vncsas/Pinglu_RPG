@@ -30,7 +30,9 @@ public static partial class PingluVila
     const string NOME_ANTIGO_CEM = "Camposanto_Antigo_Oculto";
     const string NOME_BIOMA_CEM = "Floresta Assombrada";
     const float CEM_RAIO_FLORESTA = 260f;   // nas laterais e atrás
-    const float CEM_RAIO_FRENTE = 480f;     // na frente (rumo ao início do mapa): a travessia longa
+    const float CEM_RAIO_FUNDO = 820f;      // a floresta também enche o setor do mapa entre o cemitério e o resto do mundo
+    const float CEM_ANGULO_FUNDO = 85f;     // meio-ângulo do setor (graus, a partir da frente do cemitério)
+    const float CEM_RAIO_FRENTE = 560f;     // na frente (rumo ao início do mapa): a travessia longa
 
     const string PREFAB_ESQUELETO = "Assets/Personagens/Inimigos/Esqueleto/Esqueleto.prefab";
     const string PASTA_VARIANTES = "Assets/Personagens/Inimigos/Esqueleto/Variantes";
@@ -38,8 +40,17 @@ public static partial class PingluVila
     const float CEM_LARGURA_CAMINHO = 120f; // metade da largura da faixa de floresta ao longo da trilha
 
     // densidade da floresta num ponto (0 = fora). Círculo em volta do cemitério + faixa longa na frente
+    // a Floresta Sombria marcada no mapa (criada pelo menu 43): fora do contorno não nasce árvore sinistra
+    static LimiteDaFloresta limiteFlorestaCache; static bool limiteFlorestaProcurado;
+    static bool ForaDoLimiteDaFloresta(Vector3 p)
+    {
+        if (!limiteFlorestaProcurado) { limiteFlorestaCache = Object.FindFirstObjectByType<LimiteDaFloresta>(); limiteFlorestaProcurado = true; }
+        return limiteFlorestaCache != null && limiteFlorestaCache.Valido && !limiteFlorestaCache.Contem(p.x, p.z);
+    }
+
     static float CemDensidade(Vector3 p)
     {
+        if (ForaDoLimiteDaFloresta(p)) return 0f;
         Vector3 d = p - cemC; d.y = 0f;
         float dist = d.magnitude;
         float dens = 0f;
@@ -94,17 +105,24 @@ public static partial class PingluVila
     //  MENU 31
     // ==================================================================
     [MenuItem("Pinglu/31. Cemitério grande e floresta")]
-    public static void ConstruirCemiterioGrande()
+    public static void ConstruirCemiterioGrandeMenu() { ConstruirCemiterioGrande(true); }
+
+    static void ConstruirCemiterioGrande(bool interativo)
     {
+        limiteFlorestaProcurado = false;
         if (EditorApplication.isPlaying) { EditorUtility.DisplayDialog("Pinglu", "Pare o Play primeiro.\n\nO que muda na cena durante o Play é perdido.", "OK"); return; }
         terreno = Terrain.activeTerrain;
         if (terreno == null) { EditorUtility.DisplayDialog("Pinglu", "Não achei o Terrain. Abra a SampleScene.", "OK"); return; }
         dados = terreno.terrainData;
 
+        // as estradas guardam um backup do terreno de QUANDO foram feitas: desfazê-las antes mantém o terreno coerente
+        if (GameObject.Find("Estradas") != null) DesfazerEstradas(false);
+        terreno = Terrain.activeTerrain; dados = terreno.terrainData;
+
         Transform existente = CemRaiz();
         if (existente != null && existente.Find("Muralha") != null)
         {
-            if (!EditorUtility.DisplayDialog("Pinglu", "O cemitério grande já existe. Quer refazer?", "Sim, refazer", "Cancelar")) return;
+            if (interativo && !EditorUtility.DisplayDialog("Pinglu", "O cemitério grande já existe. Quer refazer?", "Sim, refazer", "Cancelar")) return;
             DesfazerCemiterioGrande(false);
         }
         Transform antigo = CemRaiz();
@@ -113,8 +131,8 @@ public static partial class PingluVila
             EditorUtility.DisplayDialog("Pinglu", "Não achei o cemitério atual (Mundo_Gerado > Cemiterio).\nRode antes o Pinglu > 9. Espalhar pontos pelo mapa.", "OK");
             return;
         }
-        if (!EditorUtility.DisplayDialog("Pinglu - Cemitério grande",
-            "Vou trocar o cemitério pequeno por um cemitério enorme no mesmo lugar, plantar uma floresta de árvores mortas em volta (175 m), " +
+        if (interativo && !EditorUtility.DisplayDialog("Pinglu - Cemitério grande",
+            "Vou construir o cemitério enorme no fundo do mapa, bem longe do início, e plantar a floresta de árvores mortas entre ele e a vila (o jogador precisa atravessá-la), " +
             "criar novos monstros e a emboscada da floresta.\n\nAntes guardo um backup do terreno. Pode demorar alguns minutos.", "Pode fazer", "Cancelar")) return;
 
         avisos.Clear(); formas.Clear(); zonas = new List<Zona>(); tamanhoPrefab.Clear();
@@ -158,8 +176,8 @@ public static partial class PingluVila
             EditorUtility.DisplayProgressBar("Pinglu", "Aplainando e limpando o terreno...", 0.12f);
             Vector3 frente = cemRot * Vector3.forward;
             Vector3 portao = cemC + frente * (CEM_P * 0.5f);
-            AplainarLocal(cemC, 48f, 72f, 0.97f);
-            formas.Add(Circulo(cemC, 33f, 1));
+            AplainarLocal(cemC, 140f, 195f, 1f);   // peso 1: o chão do cemitério fica perfeitamente plano
+            formas.Add(Circulo(cemC, 112f, 1));
             formas.Add(Segmento(portao, portao + frente * (CEM_RAIO_FRENTE - 10f), 2.6f, 1));
             LimparArvores(cemC, CEM_RAIO_FLORESTA);
             for (float k = 200f; k <= CEM_RAIO_FRENTE; k += 100f)
@@ -184,80 +202,147 @@ public static partial class PingluVila
             CemCaminho(pedra);
 
             EditorUtility.DisplayProgressBar("Pinglu", "Praça, altar e mausoléus...", 0.34f);
+            float HX = CEM_L * 0.5f, HZ = CEM_P * 0.5f;
+            cemOcupados.Clear();
             CemPraca(pedra, luzes);
             CemAltar(pedra, luzes);
+            cemOcupados.Add(new Vector4(0f, -(HZ - 27f), 0f, 16f));                      // altar
             Malha maus = new Malha();
-            CemMausoleu(maus, new Vector3(-23.5f, 0f, 9f), 90f, 1f, luzes);
-            CemMausoleu(maus, new Vector3(23.5f, 0f, 9f), -90f, 1f, luzes);
-            CemMausoleu(maus, new Vector3(-23.5f, 0f, -11f), 90f, 1f, luzes);
-            CemMausoleu(maus, new Vector3(23.5f, 0f, -11f), -90f, 1f, luzes);
-            CemMausoleu(maus, new Vector3(0f, 0f, -22f), 0f, 1.25f, luzes);
+            System.Action<Vector3, float, float> mausoleu = (pos, yaw, esc) =>
+            {
+                CemMausoleu(maus, pos, yaw, esc, luzes);
+                cemOcupados.Add(new Vector4(pos.x, pos.z, 0f, 9.5f * esc));
+            };
+            foreach (int sd in new[] { -1, 1 })
+                foreach (float zz in new[] { 46f, 6f, -34f })
+                    mausoleu(new Vector3(sd * (HX - 16f), 0f, zz), sd > 0 ? -90f : 90f, 1.3f);
+            mausoleu(new Vector3(-50f, 0f, -HZ + 14f), 0f, 1.5f);
+            mausoleu(new Vector3(50f, 0f, -HZ + 14f), 0f, 1.5f);
+            mausoleu(new Vector3(0f, 0f, -HZ + 13f), 0f, 1.9f);
 
             EditorUtility.DisplayProgressBar("Pinglu", "Estátuas e sarcófagos...", 0.45f);
             Malha estatuas = new Malha();
-            // estátuas (modelo real) em volta da praça e bustos nas colunas ao longo do caminho
-            for (int i = 0; i < 8; i++)
+            // estátuas (modelo real) em volta da arena e ao longo do caminho; bustos nas colunas
+            for (int i = 0; i < 16; i++)
             {
-                float a = i * Mathf.PI * 2f / 8f + Mathf.PI / 8f;
-                Vector3 p = new Vector3(Mathf.Cos(a) * 14f, 0f, Mathf.Sin(a) * 14f);
-                if (p.z < -9f && Mathf.Abs(p.x) < 9f) continue; // não bloqueia o altar
+                float a = i * Mathf.PI * 2f / 16f + Mathf.PI / 16f;
+                Vector3 p = new Vector3(Mathf.Cos(a) * (CEM_PR + 7f), 0f, Mathf.Sin(a) * (CEM_PR + 7f));
+                if (p.z > 18f && Mathf.Abs(p.x) < 10f) continue;          // não bloqueia o caminho
+                if (p.z < -38f && Mathf.Abs(p.x) < 24f) continue;         // nem o altar
                 CemEstatua(estatuas, p, Mathf.Atan2(-p.x, -p.z) * Mathf.Rad2Deg, Faixa(0.92f, 1.1f));
+                cemOcupados.Add(new Vector4(p.x, p.z, 0f, 3.5f));
             }
-            foreach (int s in new[] { -1, 1 })
+            foreach (int sd in new[] { -1, 1 })
             {
-                CemEstatua(estatuas, new Vector3(s * 7.5f, 0f, 23.5f), s > 0 ? 200f : 160f, 1f);
-                for (int i = 0; i < 3; i++) CemBusto(estatuas, new Vector3(s * 4.3f, 0f, 20f - i * 3.2f), s > 0 ? 250f : 110f);
+                foreach (float zz in new[] { HZ - 14f, HZ - 30f, HZ - 46f })
+                {
+                    CemEstatua(estatuas, new Vector3(sd * 10f, 0f, zz), sd > 0 ? 200f : 160f, 1f);
+                    cemOcupados.Add(new Vector4(sd * 10f, zz, 0f, 3.5f));
+                }
+                for (float zz = HZ - 8f; zz > CEM_PR + 4f; zz -= 8f) CemBusto(estatuas, new Vector3(sd * 5.8f, 0f, zz), sd > 0 ? 250f : 110f);
             }
             Malha sarc = new Malha();
-            CemSarcofago(sarc, new Vector3(-9f, 0f, -3.5f), 20f, 0);
-            CemSarcofago(sarc, new Vector3(10f, 0f, 3f), -15f, 1);
-            CemSarcofago(sarc, new Vector3(-12f, 0f, 14f), 70f, 1);
-            CemSarcofago(sarc, new Vector3(12.5f, 0f, -6f), 100f, 0);
-            CemSarcofago(sarc, new Vector3(-6f, 0f, -20f), 5f, 1);
-            CemSarcofago(sarc, new Vector3(7.5f, 0f, -20f), -8f, 0);
-            CemCova(sarc, new Vector3(-16f, 0f, -2f), 10f);
-            CemCova(sarc, new Vector3(16.5f, 0f, 20f), -20f);
-            CemCova(sarc, new Vector3(-17f, 0f, -20f), 35f);
+            Malha carro = new Malha(), carroFerro = new Malha();
+            // sarcófagos, covas abertas e carros funerários espalhados pelos campos de lápides
+            System.Func<float, Vector3?> sortear = raio =>
+            {
+                for (int tent = 0; tent < 60; tent++)
+                {
+                    Vector3 q = new Vector3(Faixa(-HX + 9f, HX - 9f), 0f, Faixa(-HZ + 9f, HZ - 9f));
+                    if (new Vector2(q.x, q.z).magnitude < CEM_PR + 6f + raio) continue;
+                    if (Mathf.Abs(q.x) < 6f + raio && q.z > 0f) continue;
+                    bool ruim = false;
+                    foreach (Vector4 o in cemOcupados) if (new Vector2(q.x - o.x, q.z - o.y).magnitude < o.w + raio) { ruim = true; break; }
+                    if (ruim) continue;
+                    cemOcupados.Add(new Vector4(q.x, q.z, 0f, raio));
+                    return q;
+                }
+                return null;
+            };
+            for (int i = 0; i < 18; i++) { Vector3? q = sortear(3.2f); if (q.HasValue) CemSarcofago(sarc, q.Value, Faixa(0f, 360f), i % 2); }
+            for (int i = 0; i < 14; i++) { Vector3? q = sortear(3f); if (q.HasValue) CemCova(sarc, q.Value, Faixa(0f, 360f)); }
+            for (int i = 0; i < 2; i++) { Vector3? q = sortear(5f); if (q.HasValue) CemCarro(carro, carroFerro, q.Value, Faixa(0f, 360f)); }
+
+            EditorUtility.DisplayProgressBar("Pinglu", "Capelas, jazigos, chafarizes e outros detalhes...", 0.5f);
+            Malha extras = new Malha();
+            System.Func<Vector3, float> paraOCentro = pq => Mathf.Atan2(-pq.x, -pq.z) * Mathf.Rad2Deg;
+            for (int i = 0; i < 2; i++) { Vector3? q = sortear(15f); if (q.HasValue) CemCapela(maus, q.Value, paraOCentro(q.Value) + Faixa(-25f, 25f), 1f, luzes); }
+            for (int i = 0; i < 5; i++) { Vector3? q = sortear(3f); if (q.HasValue) CemAlcapao(extras, q.Value, Faixa(0f, 360f)); }
+            for (int i = 0; i < 2; i++) { Vector3? q = sortear(5.5f); if (q.HasValue) CemChafariz(extras, q.Value); }
+            for (int i = 0; i < 2; i++) { Vector3? q = sortear(6f); if (q.HasValue) CemCalvario(extras, q.Value, paraOCentro(q.Value)); }
+            for (int i = 0; i < 9; i++) { Vector3? q = sortear(5f); if (q.HasValue) CemJazigo(extras, q.Value, Faixa(0f, 360f)); }
+            for (int i = 0; i < 8; i++) { Vector3? q = sortear(2.8f); if (q.HasValue) CemOssario(extras, q.Value); }
+            for (int i = 0; i < 5; i++) { Vector3? q = sortear(3f); if (q.HasValue) CemForca(extras, q.Value, Faixa(0f, 360f), luzes, i < 2); }
+            for (int i = 0; i < 6; i++) { Vector3? q = sortear(4f); if (q.HasValue) CemArcoQuebrado(extras, q.Value, Faixa(0f, 360f)); }
+            for (int i = 0; i < 6; i++) { Vector3? q = sortear(2.6f); if (q.HasValue) CemCatafalco(extras, q.Value, Faixa(0f, 360f)); }
+            for (int i = 0; i < 6; i++) { Vector3? q = sortear(2.6f); if (q.HasValue) CemObeliscoAlto(extras, q.Value); }
+            for (int i = 0; i < 24; i++) { Vector3? q = sortear(1.1f); if (q.HasValue) CemUrnaEmPedestal(extras, q.Value, Faixa(0f, 360f)); }
+            // bancos em volta da arena e ao longo do caminho
+            for (int i = 0; i < 14; i++)
+            {
+                float ang = i * Mathf.PI * 2f / 14f + 0.2f;
+                Vector3 bp = new Vector3(Mathf.Cos(ang) * (CEM_PR + 2.8f), 0f, Mathf.Sin(ang) * (CEM_PR + 2.8f));
+                if (bp.z > 14f && Mathf.Abs(bp.x) < 10f) continue;
+                if (bp.z < -30f && Mathf.Abs(bp.x) < 26f) continue;
+                CemBanco(extras, bp, paraOCentro(bp));
+            }
+            foreach (int sd in new[] { -1, 1 })
+                for (float zz = HZ - 12f; zz > CEM_PR + 8f; zz -= 16f) CemBanco(extras, new Vector3(sd * 8.5f, 0f, zz), sd > 0 ? 90f : -90f);
+            // muros de nichos (colunários) por dentro da muralha da frente, dos dois lados do portão
+            foreach (int sd in new[] { -1, 1 })
+            {
+                CemColunario(extras, new Vector3(sd * 40f, 0f, HZ - 3.5f), 180f, 44f);
+                for (int i = -2; i <= 2; i++) cemOcupados.Add(new Vector4(sd * 40f + i * 10f, HZ - 6f, 0f, 7f));
+            }
+            CemCaminhosSecundarios(pedra);
 
             EditorUtility.DisplayProgressBar("Pinglu", "Lápides...", 0.55f);
-            Malha tumulos = new Malha();
-            for (int j = 0; j < 12; j++)
-                for (int k = 0; k < 6; k++)
-                    foreach (int s in new[] { -1, 1 })
-                    {
-                        float x = s * (14.5f + k * 2.4f) + Faixa(-0.3f, 0.3f);
-                        float z = 21f - j * 3.2f + Faixa(-0.3f, 0.3f);
-                        if (rng.NextDouble() < 0.3) continue;
-                        if (Mathf.Abs(x) > 19.5f && (Mathf.Abs(z - 9f) < 5f || Mathf.Abs(z + 11f) < 5f)) continue; // mausoléus
-                        if (new Vector2(x, z).magnitude < 12.5f) continue;
-                        if (Mathf.Abs(x) < 14f && z > 18f) continue;
-                        if (z < -17f && Mathf.Abs(x) < 10f) continue;
-                        CemTumulo(tumulos, new Vector3(x, 0f, z), rng.Next(0, 8));
-                    }
-
-            Malha carro = new Malha(), carroFerro = new Malha();
-            CemCarro(carro, carroFerro, new Vector3(-17.5f, 0f, 18f), 135f);
+            Malha[] quadrantes = { new Malha(), new Malha(), new Malha(), new Malha() };
+            float deslocamento = Faixa(0f, 100f);
+            for (float x = -HX + 6f; x < HX - 6f; x += 3.1f)
+                for (float z = -HZ + 6f; z < HZ - 6f; z += 3.7f)
+                {
+                    Vector3 q = new Vector3(x + Faixa(-0.4f, 0.4f), 0f, z + Faixa(-0.4f, 0.4f));
+                    if (new Vector2(q.x, q.z).magnitude < CEM_PR + 5f) continue;                       // arena livre
+                    if (Mathf.Abs(q.x) < 5.5f && q.z > 0f) continue;                                    // caminho
+                    if (Mathf.Abs(q.z) < 3.8f && Mathf.Abs(q.x) > CEM_PR) continue;                     // caminhos laterais
+                    if (Mathf.Abs(q.x) < 3.8f && q.z < 0f) continue;                                    // caminho do altar
+                    float ruido = Mathf.PerlinNoise((q.x + deslocamento) * 0.045f, (q.z + deslocamento) * 0.045f);
+                    double dens = ruido > 0.56f ? 0.75 : (ruido > 0.38f ? 0.3 : 0.05);                  // manchas de lápides e clareiras
+                    if (rng.NextDouble() > dens) continue;
+                    bool ruim = false;
+                    foreach (Vector4 o in cemOcupados) if (new Vector2(q.x - o.x, q.z - o.y).magnitude < o.w + 1.2f) { ruim = true; break; }
+                    if (ruim) continue;
+                    CemTumulo(quadrantes[(q.x < 0f ? 0 : 1) + (q.z < 0f ? 0 : 2)], q, rng.Next(0, 8));
+                }
+            Malha tumulos = quadrantes[0];
 
             EditorUtility.DisplayProgressBar("Pinglu", "Criando os objetos da cena...", 0.62f);
             Instanciar(pedra, "Cemiterio", cemC, cemRot, raiz, true);
             Instanciar(ferro, "Muralha", cemC, cemRot, raiz, false);
-            Instanciar(maus, "Mausoleus", cemC, cemRot, raiz, true);
+            Instanciar(maus, "Mausoleus e capelas", cemC, cemRot, raiz, true);
+            Instanciar(extras, "Elementos do cemiterio", cemC, cemRot, raiz, true);
             Instanciar(estatuas, "Estatuas", cemC, cemRot, raiz, true);
             Instanciar(sarc, "Sarcofagos", cemC, cemRot, raiz, true);
-            Instanciar(tumulos, "Tumulos", cemC, cemRot, raiz, true);
+            for (int qd = 0; qd < 4; qd++) Instanciar(quadrantes[qd], "Tumulos " + (qd + 1), cemC, cemRot, raiz, true);
             Instanciar(carro, "Carro Funerario", cemC, cemRot, raiz, true);
             Instanciar(carroFerro, "Carro Funerario (ferro)", cemC, cemRot, raiz, false);
 
             // postes com lanterna ao longo do caminho e árvores gigantes dentro dos muros
             Transform arvores = Pasta("Arvores do Cemiterio");
-            for (int i = 0; i < 3; i++)
-                foreach (int s in new[] { -1, 1 })
-                    Poste(luzes, MundoDe(new Vector3(s * 3.4f, 0f, 24f - i * 6f)), cemRot * Quaternion.Euler(0f, -s * 90f, 0f));
-            Vector3[] gigantes = { new Vector3(-27f, 0f, 22f), new Vector3(28f, 0f, 20f), new Vector3(-28f, 0f, -22f), new Vector3(27f, 0f, -24f), new Vector3(-8f, 0f, 24f), new Vector3(0f, 0f, -27f) };
-            foreach (Vector3 g in gigantes) ColocarArvoreSinistra(arvores, MundoDe(g), Faixa(1.4f, 1.9f), rng.Next(0, 6));
+            for (int i = 0; i < 4; i++)
+                foreach (int sd in new[] { -1, 1 })
+                    Poste(luzes, MundoDe(new Vector3(sd * 4.2f, 0f, HZ - 8f - i * 14f)), cemRot * Quaternion.Euler(0f, -sd * 90f, 0f));
+            for (int i = 0; i < 16; i++)
+            {
+                Vector3? q = sortear(5f);
+                if (q.HasValue) ColocarArvoreSinistra(arvores, MundoDe(q.Value), Faixa(1.3f, 1.9f), rng.Next(0, 6));
+            }
 
             EditorUtility.DisplayProgressBar("Pinglu", "Plantando a floresta assombrada...", 0.72f);
             PlantarFlorestaAssombrada();
+            EditorUtility.DisplayProgressBar("Pinglu", "Enchendo o fundo do mapa de floresta...", 0.78f);
+            PlantarFlorestaDeFundo();
 
             EditorUtility.DisplayProgressBar("Pinglu", "Neblina...", 0.84f);
             CriarNevoaDoCemiterio();
@@ -285,18 +370,33 @@ public static partial class PingluVila
             pastaMalhas = PASTA_MALHAS; prefixoOculto = PREFIXO_OCULTO;
         }
 
+        // as estradas e o GPS dependem do lugar do cemitério: refaz junto (assim nunca ficam desencontrados)
+        List<string> avisosCemiterio = new List<string>(avisos);
+        ConstruirEstradas(false);
+        avisos.InsertRange(0, avisosCemiterio);
+
         string msg = "Cemitério grande pronto!\n\n" +
                      "- Na Hierarchy: Mundo_Gerado > Cemiterio (dê dois cliques para ir até lá)\n" +
                      "- Horda do Cemiterio: 5 tipos de monstro, ondas por orçamento, chefe a cada 5 ondas\n" +
                      "- Emboscada da Floresta: esqueletos saem das árvores quando você se aproxima\n\n" +
-                     "Salve com Ctrl + S, dê Play e aperte F2 para ir ao cemitério.";
+                     "As estradas e o GPS também foram refeitos para o novo lugar.\nSalve com Ctrl + S, dê Play e aperte F2 para ir à entrada da floresta.";
         if (avisos.Count > 0) msg += "\n\nAvisos:\n- " + string.Join("\n- ", avisos);
-        EditorUtility.DisplayDialog("Pinglu", msg, "OK");
+        if (interativo) EditorUtility.DisplayDialog("Pinglu", msg, "OK"); else Debug.Log("[Cemiterio] " + string.Join(" | ", avisos));
     }
 
     // ==================================================================
     //  MENU 32
     // ==================================================================
+    // para rodar sem ninguém: Unity -batchmode -executeMethod PingluVila.RefazerCemiterioEEstradasEFechar
+    public static void RefazerCemiterioEEstradasEFechar()
+    {
+        EditorSceneManager.OpenScene("Assets/Scenes/SampleScene.unity");
+        ConstruirCemiterioGrande(false);   // já desfaz e refaz as estradas
+        EditorSceneManager.SaveOpenScenes();
+        AssetDatabase.SaveAssets();
+        EditorApplication.Exit(0);
+    }
+
     [MenuItem("Pinglu/32. Desfazer cemitério grande")]
     public static void DesfazerCemiterioGrandeMenu() { DesfazerCemiterioGrande(true); }
 
@@ -364,7 +464,7 @@ public static partial class PingluVila
     {
         escolhido = reserva;
         Vector3 o = terreno.transform.position, s = dados.size;
-        float[] margens = { 260f, 180f, 110f };
+        float[] margens = { 70f, 50f };   // bem no fundo do mapa, mas com o cemitério INTEIRO dentro do terreno
         foreach (float margem in margens)
         {
             if (s.x < margem * 2f + 60f || s.z < margem * 2f + 60f) continue;
@@ -373,18 +473,27 @@ public static partial class PingluVila
                 for (float z = o.z + margem; z <= o.z + s.z - margem; z += 30f)
                 {
                     Vector3 c = new Vector3(x, 0f, z);
+                    // o retângulo murado (e a floresta em volta dele) tem de caber inteiro no terreno
+                    Vector3 paraIni = Plano(spawn - c);
+                    Quaternion rotTeste = paraIni.sqrMagnitude > 1f ? Quaternion.LookRotation(paraIni.normalized, Vector3.up) : Quaternion.identity;
+                    bool cabe = true;
+                    foreach (int sx in new[] { -1, 1 })
+                        foreach (int sz in new[] { -1, 1 })
+                            if (!DentroDoTerreno(c + rotTeste * new Vector3(sx * (CEM_L * 0.5f + 45f), 0f, sz * (CEM_P * 0.5f + 45f)), 5f)) cabe = false;
+                    if (!cabe) continue;
                     bool ruim = false;
                     foreach (Zona zn in zonas) if (Plano(c - zn.pos).magnitude < zn.raio + 80f) { ruim = true; break; }
                     if (ruim) continue;
                     float min = float.MaxValue, max = float.MinValue;
-                    for (float dx = -50f; dx <= 50f; dx += 12.5f)
-                        for (float dz = -50f; dz <= 50f; dz += 12.5f)
+                    for (float dx = -135f; dx <= 135f; dx += 27f)
+                        for (float dz = -135f; dz <= 135f; dz += 27f)
                         {
                             float h = Altura(c.x + dx, c.z + dz);
                             min = Mathf.Min(min, h); max = Mathf.Max(max, h);
                         }
                     float dist = Plano(c - spawn).magnitude;
-                    float nota = (max - min) * 1.5f - Mathf.Min(dist, 800f) * 0.03f;
+                    if (max - min > 34f) continue;   // terreno muito irregular (a área é grande, o menu aplaina o resto)
+                    float nota = (max - min) * 0.8f - Mathf.Min(dist, 1300f) * 0.12f;   // quanto mais longe do início, melhor
                     if (nota < melhor) { melhor = nota; escolhido = new Vector3(x, Altura(x, z), z); achou = true; }
                 }
             if (achou)
@@ -420,7 +529,7 @@ public static partial class PingluVila
             default: comp = 8.5f; raio = 0.85f; entorta = 0.22f; afina = 0.45f; pRamo = 0.7f; fatorRamo = 0.6f; anguloMin = 40f; anguloMax = 85f; subida = 0f; maxNivel = 3; break;
         }
         if (simples) { maxNivel = Mathf.Max(1, maxNivel - 1); pRamo *= 0.6f; }
-        raioTroncoSinistra[variante] = raio * 0.9f;
+        raioTroncoSinistra[variante] = Mathf.Clamp(raio * 2.6f, 0.6f, 1.5f);   // cobre as raízes grossas na base (o colisor segue a escala da árvore)
 
         if (tipo == 4)
             for (int s = -1; s <= 1; s += 2)
@@ -492,6 +601,7 @@ public static partial class PingluVila
     // ==================================================================
     static void PlantarFlorestaAssombrada()
     {
+        { string zl = ""; foreach (Zona zz in zonas) zl += "(" + Mathf.RoundToInt(zz.pos.x) + "," + Mathf.RoundToInt(zz.pos.z) + " r" + Mathf.RoundToInt(zz.raio) + ") "; avisos.Add("Zonas protegidas: " + zl); }
         Transform floresta = Pasta("Floresta Assombrada");
         Transform detalhes = Pasta("Detalhes da Floresta");
         malhaSinistra = new Mesh[12]; matsSinistra = new Material[12][]; raioTroncoSinistra = new float[12];
@@ -532,6 +642,7 @@ public static partial class PingluVila
                 dist = Plano(p - cemC).magnitude;
             }
             if (!DentroDoTerreno(p, 6f)) continue;
+            if (DentroDoCemiterio(p, 9f)) continue;
             if (rng.NextDouble() > CemDensidade(p)) continue;
             if (!LivreDeZonas(p)) continue;
             if (Distancia(corredor, p) < 4.5f) continue;
@@ -575,6 +686,109 @@ public static partial class PingluVila
         avisos.Add("Floresta: " + arvores + " árvores sinistras, " + feitos[0] + " troncos, " + feitos[1] + " tocos, " + feitos[2] + " raízes, " + feitos[3] + " pedras, " + feitos[4] + " galhos.");
     }
 
+    // ==================================================================
+    //  FLORESTA DE FUNDO: árvores do TERRENO (instanciadas, com LOD e corte por distância),
+    //  baratas para milhares de árvores. Enche o setor do mapa entre o cemitério e o resto do mundo.
+    // ==================================================================
+    const string PASTA_ARVORES_TERRENO = PASTA_CEM + "/ArvoresTerreno";
+
+    static TreePrototype[] CriarPrototiposDeArvores()
+    {
+        if (AssetDatabase.IsValidFolder(PASTA_ARVORES_TERRENO)) AssetDatabase.DeleteAsset(PASTA_ARVORES_TERRENO);
+        AssetDatabase.CreateFolder(PASTA_CEM, "ArvoresTerreno");
+        TreePrototype[] protos = new TreePrototype[6];
+        for (int v = 0; v < 6; v++)
+        {
+            Mesh[] ms = new Mesh[2]; Material[][] mats2 = new Material[2][];
+            for (int k = 0; k < 2; k++)
+            {
+                Malha m = new Malha();
+                ArvoreSinistra(m, v + 6 * k);
+                ms[k] = m.Gerar("ArvoreSinistra_" + v + (k == 0 ? "_LOD0" : "_LOD1"));
+                mats2[k] = m.Materiais(mats);
+                AssetDatabase.CreateAsset(ms[k], PASTA_ARVORES_TERRENO + "/" + ms[k].name + ".asset");
+            }
+            GameObject raizArv = new GameObject("ArvoreSinistra_" + v);
+            Renderer[] rs = new Renderer[2];
+            for (int k = 0; k < 2; k++)
+            {
+                GameObject filho = new GameObject("LOD" + k);
+                filho.transform.SetParent(raizArv.transform, false);
+                filho.AddComponent<MeshFilter>().sharedMesh = ms[k];
+                MeshRenderer mr = filho.AddComponent<MeshRenderer>();
+                mr.sharedMaterials = mats2[k];
+                if (k == 1) mr.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
+                rs[k] = mr;
+            }
+            LODGroup lg = raizArv.AddComponent<LODGroup>();
+            lg.SetLODs(new[] { new LOD(0.10f, new[] { rs[0] }), new LOD(0.045f, new[] { rs[1] }) });   // abaixo de 4,5% da tela: some
+            lg.RecalculateBounds();
+            CapsuleCollider cc = raizArv.AddComponent<CapsuleCollider>();
+            cc.radius = raioTroncoSinistra[v]; cc.height = 6f; cc.center = Vector3.up * 3f;
+            GameObject prefab = PrefabUtility.SaveAsPrefabAsset(raizArv, PASTA_ARVORES_TERRENO + "/ArvoreSinistra_" + v + ".prefab");
+            Object.DestroyImmediate(raizArv);
+            protos[v] = new TreePrototype { prefab = prefab };
+        }
+        return protos;
+    }
+
+    static void PlantarFlorestaDeFundo()
+    {
+        Vector3 frente = cemRot * Vector3.forward;
+        Vector3 portao = cemC + frente * (CEM_P * 0.5f);
+        Forma corredor = Segmento(portao, portao + frente * CEM_RAIO_FRENTE, 0f, 0);
+
+        // registra os 6 tipos de árvore no terreno
+        TreePrototype[] novos = CriarPrototiposDeArvores();
+        List<TreePrototype> lista = new List<TreePrototype>(dados.treePrototypes);
+        for (int i = lista.Count - 1; i >= 0; i--) if (lista[i].prefab == null || lista[i].prefab.name.StartsWith("ArvoreSinistra_")) lista.RemoveAt(i);
+        int primeiro = lista.Count;
+        lista.AddRange(novos);
+        // as árvores existentes guardam o índice do tipo: se removemos algum prototype, é preciso reindexar
+        TreeInstance[] existentes = dados.treeInstances;
+        dados.treePrototypes = lista.ToArray();
+
+        List<TreeInstance> todas = new List<TreeInstance>(existentes);
+        Vector3 o = terreno.transform.position, tam = dados.size;
+        const float PASSO = 6.5f;
+        int criadas = 0;
+        for (float x = o.x + 4f; x < o.x + tam.x - 4f; x += PASSO)
+            for (float z = o.z + 4f; z < o.z + tam.z - 4f; z += PASSO)
+            {
+                Vector3 p = new Vector3(x + Faixa(-2.8f, 2.8f), 0f, z + Faixa(-2.8f, 2.8f));
+                Vector3 d = p - cemC; d.y = 0f;
+                float dist = d.magnitude;
+                if (dist < 120f || dist > CEM_RAIO_FUNDO) continue;
+                if (Vector3.Angle(d, frente) > CEM_ANGULO_FUNDO) continue;
+                if (ForaDoLimiteDaFloresta(p)) continue;
+                if (CemDensidade(p) > 0f || DentroDoCemiterio(p, 9f)) continue;   // aí já tem as árvores grandes (ou é o cemitério)
+                float prob = Mathf.Lerp(1f, 0.2f, Mathf.InverseLerp(CEM_RAIO_FUNDO * 0.55f, CEM_RAIO_FUNDO, dist));
+                if (rng.NextDouble() > prob) continue;
+                if (!DentroDoTerreno(p, 4f) || !LivreDeZonas(p)) continue;
+                if (Distancia(corredor, p) < 5f) continue;
+                float esc = Faixa(1.0f, 2.1f);
+                todas.Add(new TreeInstance
+                {
+                    position = new Vector3((p.x - o.x) / tam.x, 0f, (p.z - o.z) / tam.z),
+                    prototypeIndex = primeiro + rng.Next(0, 6),
+                    widthScale = esc, heightScale = esc * Faixa(0.9f, 1.15f),
+                    rotation = Faixa(0f, Mathf.PI * 2f),
+                    color = Color.white, lightmapColor = Color.white
+                });
+                criadas++;
+            }
+        dados.SetTreeInstances(todas.ToArray(), true);
+        terreno.treeMaximumFullLODCount = 400;
+        avisos.Add("Floresta de fundo: " + criadas + " árvores do terreno (setor de " + Mathf.RoundToInt(CEM_RAIO_FUNDO) + " m).");
+    }
+
+    // ponto dentro (ou perto) do retângulo murado do cemitério? (as árvores da floresta ficam do lado de fora)
+    static bool DentroDoCemiterio(Vector3 p, float margem)
+    {
+        Vector3 l = Quaternion.Inverse(cemRot) * (p - cemC);
+        return Mathf.Abs(l.x) < CEM_L * 0.5f + margem && Mathf.Abs(l.z) < CEM_P * 0.5f + margem;
+    }
+
     static bool LivreDeZonas(Vector3 p)
     {
         foreach (Zona z in zonas) if (Plano(p - z.pos).magnitude < z.raio) return false;
@@ -592,7 +806,7 @@ public static partial class PingluVila
             p = cemC + new Vector3(Mathf.Cos(ang), 0f, Mathf.Sin(ang)) * dist;
         }
         else p = cemC + frente0 * Faixa(40f, CEM_RAIO_FRENTE) + (cemRot * Vector3.right) * Faixa(-CEM_LARGURA_CAMINHO, CEM_LARGURA_CAMINHO);
-        if (CemDensidade(p) <= 0f) return Vector3.zero;
+        if (CemDensidade(p) <= 0f || DentroDoCemiterio(p, 10f)) return Vector3.zero;
         Vector3 frente = cemRot * Vector3.forward;
         Vector3 portao = cemC + frente * (CEM_P * 0.5f);
         if (!DentroDoTerreno(p, 8f) || !LivreDeZonas(p)) return Vector3.zero;
@@ -699,16 +913,24 @@ public static partial class PingluVila
         SerializedProperty arr = so.FindProperty("biomas");
         for (int i = arr.arraySize - 1; i >= 0; i--)
             if (arr.GetArrayElementAtIndex(i).FindPropertyRelative("nome").stringValue == NOME_BIOMA_CEM) arr.DeleteArrayElementAtIndex(i);
-        // um círculo no cemitério e três ao longo da trilha (a neblina forte acompanha a floresta)
-        float[] ao = { 0f, 200f, 330f, 440f };
-        float[] raios = { 300f, 150f, 150f, 140f };
-        for (int i = 0; i < ao.Length; i++)
+        // um círculo no cemitério e uma grade de círculos pelo setor da floresta (a neblina forte acompanha as árvores)
+        List<Vector4> circulos = new List<Vector4>();   // x, y, z, raio
+        circulos.Add(new Vector4(cemC.x, cemC.y, cemC.z, 300f));
+        Vector3 f0 = cemRot * Vector3.forward;
+        foreach (float r in new[] { 260f, 520f, 760f })
+            foreach (float ang in new[] { -70f, -35f, 0f, 35f, 70f })
+            {
+                Vector3 c = cemC + Quaternion.Euler(0f, ang, 0f) * f0 * r;
+                if (!DentroDoTerreno(c, -150f)) continue;
+                circulos.Add(new Vector4(c.x, c.y, c.z, 240f));
+            }
+        foreach (Vector4 c in circulos)
         {
             arr.arraySize++;
             SerializedProperty b = arr.GetArrayElementAtIndex(arr.arraySize - 1);
             b.FindPropertyRelative("nome").stringValue = NOME_BIOMA_CEM;
-            b.FindPropertyRelative("centro").vector3Value = cemC + cemRot * Vector3.forward * ao[i];
-            b.FindPropertyRelative("raio").floatValue = raios[i];
+            b.FindPropertyRelative("centro").vector3Value = new Vector3(c.x, c.y, c.z);
+            b.FindPropertyRelative("raio").floatValue = c.w;
             b.FindPropertyRelative("corDaNeblina").colorValue = new Color(0.30f, 0.42f, 0.46f, 1f);
             b.FindPropertyRelative("forcaDaNeblina").floatValue = 3.0f;
             b.FindPropertyRelative("vento").floatValue = 0.3f;
@@ -803,20 +1025,25 @@ public static partial class PingluVila
         g.transform.SetPositionAndRotation(cemC, cemRot);
         GerenciadorDeOndas ger = g.AddComponent<GerenciadorDeOndas>();
 
-        // pontos de surgimento: entre as fileiras de lápides, longe do portão e dos mausoléus
+        // pontos de surgimento: em anéis em volta da arena, dentro dos muros e longe dos mausoléus
         List<Transform> pontos = new List<Transform>();
         List<Vector3> candidatos = new List<Vector3>();
-        for (int j = 0; j < 11; j++)
-            for (int k = 0; k < 5; k++)
-                foreach (int s in new[] { -1, 1 })
-                {
-                    float x = s * (15.7f + k * 2.4f), z = 19.4f - j * 3.2f;
-                    if (Mathf.Abs(x) > 19f && (Mathf.Abs(z - 9f) < 5.5f || Mathf.Abs(z + 11f) < 5.5f)) continue;
-                    if (Mathf.Abs(x) < 15f && z > 14f) continue;
-                    candidatos.Add(new Vector3(x, 0f, z));
-                }
-        for (int i = 0; i < 6; i++) { float a = (i + 0.5f) * Mathf.PI * 2f / 6f; candidatos.Add(new Vector3(Mathf.Cos(a) * 15f, 0f, Mathf.Sin(a) * 15f - 2f)); }
-        int passo = Mathf.Max(1, candidatos.Count / 28);
+        float hx = CEM_L * 0.5f - 9f, hz = CEM_P * 0.5f - 9f;
+        foreach (float raioAnel in new[] { CEM_PR + 14f, CEM_PR + 30f, CEM_PR + 46f })
+        {
+            int nAnel = Mathf.RoundToInt(raioAnel * 0.35f);
+            for (int i = 0; i < nAnel; i++)
+            {
+                float ang = i * Mathf.PI * 2f / nAnel;
+                Vector3 q = new Vector3(Mathf.Cos(ang) * raioAnel, 0f, Mathf.Sin(ang) * raioAnel);
+                if (Mathf.Abs(q.x) > hx || Mathf.Abs(q.z) > hz) continue;
+                if (Mathf.Abs(q.x) < 7f && q.z > 0f) continue;       // caminho do portão
+                bool perto = false;
+                foreach (Vector4 o in cemOcupados) if (new Vector2(q.x - o.x, q.z - o.y).magnitude < o.w + 2f) { perto = true; break; }
+                if (!perto) candidatos.Add(q);
+            }
+        }
+        int passo = Mathf.Max(1, candidatos.Count / 40);
         for (int i = 0; i < candidatos.Count; i += passo)
         {
             GameObject p = new GameObject("Ponto de Surgimento");
@@ -836,7 +1063,8 @@ public static partial class PingluVila
         SerializedObject so = new SerializedObject(ger);
         so.FindProperty("prefabInimigo").objectReferenceValue = prefabs[0];
         so.FindProperty("pontoDeChegada").objectReferenceValue = chegada.transform;
-        so.FindProperty("distanciaParaComecar").floatValue = 30f;
+        so.FindProperty("distanciaParaComecar").floatValue = 80f;
+        so.FindProperty("raioDosMonstros").floatValue = 175f;
         SerializedProperty arr = so.FindProperty("pontosDeSurgimento");
         arr.arraySize = pontos.Count;
         for (int i = 0; i < pontos.Count; i++) arr.GetArrayElementAtIndex(i).objectReferenceValue = pontos[i];
@@ -865,11 +1093,17 @@ public static partial class PingluVila
         int quantos = Mathf.Min(3, prefabs.Length);
         lp.arraySize = quantos;
         for (int i = 0; i < quantos; i++) lp.GetArrayElementAtIndex(i).objectReferenceValue = prefabs[i];
-        se.FindProperty("raioInterno").floatValue = 42f;
+        se.FindProperty("raioInterno").floatValue = 140f;   // a muralha tem ~128 m de meia diagonal
         se.FindProperty("raioExterno").floatValue = CEM_RAIO_FRENTE;
         se.FindProperty("raioLados").floatValue = CEM_RAIO_FLORESTA;
         se.FindProperty("larguraDoCaminho").floatValue = CEM_LARGURA_CAMINHO;
         se.FindProperty("direcaoDaFrente").vector3Value = cemRot * Vector3.forward;
+        se.FindProperty("raioDoSetor").floatValue = CEM_RAIO_FUNDO;
+        se.FindProperty("anguloDoSetor").floatValue = CEM_ANGULO_FUNDO;
+        // lugares onde nunca aparecem monstros da floresta (início do mapa, vila, ruínas, acampamentos)
+        SerializedProperty zp = se.FindProperty("zonasSemMonstros");
+        zp.arraySize = zonas.Count;
+        for (int i = 0; i < zonas.Count; i++) zp.GetArrayElementAtIndex(i).vector4Value = new Vector4(zonas[i].pos.x, zonas[i].pos.y, zonas[i].pos.z, zonas[i].raio + 15f);
         se.ApplyModifiedPropertiesWithoutUndo();
         EditorSceneManager.MarkSceneDirty(g.scene);
     }

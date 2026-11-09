@@ -38,7 +38,8 @@ public static partial class PingluVila
     const string BACKUP = PASTA + "/Backup_Terreno_Vila.asset";
     const string NOME_RAIZ = "Vila_Gerada";
     const string PREFIXO_OCULTO = "[oculto pela vila] ";
-    const string CAMADA_ESTRADA = "Assets/TerrainSampleAssets/TerrainLayers/Soil_Rocks_TerrainLayer.terrainlayer";
+    const string CAMADA_ESTRADA_ANTIGA = "Assets/TerrainSampleAssets/TerrainLayers/Soil_Rocks_TerrainLayer.terrainlayer";
+    static string CAMADA_ESTRADA { get { return PingluTerreno.Ativo() ? PingluTerreno.CAMADA_CAMINHO : CAMADA_ESTRADA_ANTIGA; } }   // com o terreno novo (menu 54) as estradas usam o caminho novo
     const string CAMADA_PRACA = "Assets/TerrainSampleAssets/TerrainLayers/Pebbles_A_TerrainLayer.terrainlayer";
 
     // índices dos materiais
@@ -293,7 +294,7 @@ public static partial class PingluVila
         d[AGUA] = D("Agua", null, new Color(0.05f, 0.10f, 0.12f), 0.95f, 1f);
         d[FOLHAGEM] = D("Folhagem", "palha", new Color(0.35f, 0.55f, 0.25f), 0.05f, 0.6f);
         d[BRASA] = D("Brasa", null, new Color(0.15f, 0.04f, 0.02f), 0.3f, 1f); d[BRASA].emis = new Color(1f, 0.35f, 0.08f) * 3f;
-        d[LANTERNA] = D("Lanterna", null, new Color(1f, 0.85f, 0.5f), 0.5f, 1f); d[LANTERNA].emis = new Color(1f, 0.65f, 0.28f) * 2.5f;
+        d[LANTERNA] = D("Lanterna", null, new Color(1f, 0.85f, 0.5f), 0.5f, 1f); d[LANTERNA].emis = new Color(1f, 0.65f, 0.28f) * 6f;
         d[P_JANELA_ARCO] = D("Janela_Arco", "p_janela_arco", Color.white, 0.6f, 0f); d[P_JANELA_ARCO].recorte = true; d[P_JANELA_ARCO].emisTex = "p_janela_arco_emissao"; d[P_JANELA_ARCO].emis = Color.white * 1.3f;
         d[P_VITRAL] = D("Vitral", "p_vitral", Color.white, 0.6f, 0f); d[P_VITRAL].emisTex = "p_vitral_emissao"; d[P_VITRAL].emis = Color.white * 1.3f;
         d[P_GRADE] = D("Janela_Grade", "p_grade", Color.white, 0.3f, 0f);
@@ -665,6 +666,9 @@ public static partial class PingluVila
         foreach (Transform t in cen.GetComponentsInChildren<Transform>())
         {
             if (!PrefabUtility.IsAnyPrefabInstanceRoot(t.gameObject) && t.GetComponent<ParticleSystem>() == null) continue;
+            bool ehPortal = false;
+            for (Transform x = t; x != null; x = x.parent) if (x.name.ToLower().Contains("portal")) { ehPortal = true; break; }
+            if (ehPortal) continue;   // o portal de chegada nunca some
             Vector3 p = t.position;
             bool ocultar = Plano(p - c).magnitude < raio;
             if (!ocultar) foreach (Forma f in formas) if (Distancia(f, p) < f.raio + 1.5f) { ocultar = true; break; }
@@ -2059,6 +2063,7 @@ public static partial class PingluVila
         bool achou = false;
         foreach (Renderer r in go.GetComponentsInChildren<Renderer>())
         {
+            if (r is ParticleSystemRenderer || r is TrailRenderer) continue;   // fumaça/fogo têm "caixa" enorme e distorcem as áreas protegidas
             if (!achou) { b = r.bounds; achou = true; } else b.Encapsulate(r.bounds);
         }
         return achou;

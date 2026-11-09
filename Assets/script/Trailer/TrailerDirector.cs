@@ -293,7 +293,7 @@ public class TrailerDirector : MonoBehaviour
             centro = ger.transform.position; frente = ger.transform.forward; frente.y = 0f; frente.Normalize();
             ger.enabled = false;
         }
-        luta = centro + frente * 7.5f;
+        luta = centro + frente * 22f;   // a arena é grande: a luta fica entre o monumento e o portão
         EmboscadaDaFloresta emb = FindAnyObjectByType<EmboscadaDaFloresta>();
         if (emb != null) emb.enabled = false;
 

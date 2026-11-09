@@ -40,7 +40,10 @@ public class VooTanque : MonoBehaviour
         }
         if (SessaoDeJogo.MenuAberto) return;
 
-        if (Input.GetKeyDown(teclaVoar))
+        EntradaDoPersonagem ent = loco.Entrada;
+        EntradaHumana humana = ent as EntradaHumana;
+        if (humana != null) { humana.teclaVoar = teclaVoar; humana.teclaSubir = teclaSubir; humana.teclaDescer = teclaDescer; }
+        if (ent.VoarApertou)
         {
             if (!voando) { if (cc.isGrounded && !loco.Atacando && !loco.Bloqueando && !loco.Rolando) Decolar(); }
             else Pousar();
@@ -48,8 +51,8 @@ public class VooTanque : MonoBehaviour
         if (!voando) return;
 
         float v = 0f;
-        if (Input.GetKey(teclaSubir)) v = velocidadeVertical;
-        else if (Input.GetKey(teclaDescer)) v = -velocidadeVertical;
+        if (ent.SubirSegurando) v = velocidadeVertical;
+        else if (ent.DescerSegurando) v = -velocidadeVertical;
         if (v > 0f && AlturaAcimaDoChao() > alturaMaxima) v = 0f;
         if (Time.time - inicioVoo < tempoDeDecolagem) v = Mathf.Max(v, 2.5f);
         loco.VelocidadeVerticalDeVoo = v;

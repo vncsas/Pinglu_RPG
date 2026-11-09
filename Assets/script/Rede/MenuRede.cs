@@ -125,7 +125,7 @@ public class MenuRede : MonoBehaviour
     }
 
     // cria o personagem escolhido para jogar sozinho, sem as partes de rede
-    private void NascerSozinho(FichaPersonagem f)
+    private GameObject NascerSozinho(FichaPersonagem f)
     {
         // a posição vem ANTES de o personagem começar a funcionar:
         // o CharacterController guarda onde nasceu e não acompanha uma troca depois
@@ -143,6 +143,7 @@ public class MenuRede : MonoBehaviour
         Destroy(espera);
         ThirdPersonCameraFollow cam = FindFirstObjectByType<ThirdPersonCameraFollow>();
         if (cam != null) cam.DefinirAlvo(j.transform);
+        return j;
     }
 
     private void SairDoMenu()
@@ -172,7 +173,7 @@ public class MenuRede : MonoBehaviour
         for (float t = 0f; t < 3f; t += Time.unscaledDeltaTime)
         {
             foreach (PlayerLocomotion p in Resources.FindObjectsOfTypeAll<PlayerLocomotion>())
-                if (p != null && p.gameObject.scene.IsValid() && p.gameObject.activeInHierarchy && p.enabled)
+                if (p != null && p.gameObject.scene.IsValid() && p.gameObject.activeInHierarchy && p.enabled && !p.Companheiro)
                 {
                     yield return new WaitForSecondsRealtime(0.2f); // no online, deixa a posição de nascimento chegar
                     PortalDoMundo portal = PortalDoMundo.Atual;
@@ -183,6 +184,7 @@ public class MenuRede : MonoBehaviour
                         ThirdPersonCameraFollow cam = FindFirstObjectByType<ThirdPersonCameraFollow>();
                         if (cam != null) { cam.DefinirAlvo(p.transform); cam.DefinirYaw(Quaternion.LookRotation(-portal.Frente).eulerAngles.y); }
                         p.CaminharAutomatico(portal.Frente, 2.4f);
+                        foreach (PlayerLocomotion c in GrupoDeAventureiros.Companheiros) if (c != null) c.CaminharAutomatico(portal.Frente, 2.4f);
                     }
                     ChegadaDoPortal.Criar(p.transform.position, materialParticula, corPortal);
                     yield break;
@@ -219,6 +221,7 @@ public class MenuRede : MonoBehaviour
         SessaoDeJogo.PersonagemEscolhido = escolhido;
         FichaPersonagem f = Ficha(escolhido);
         // o 1º personagem é o que já está na cena; os outros nascem do prefab dele
+        GrupoDeAventureiros.Desfazer();
         if (escolhido == 0 || f == null || f.prefabJogador == null)
         {
             if (jogadorDaCena != null)
@@ -229,6 +232,7 @@ public class MenuRede : MonoBehaviour
             }
         }
         else NascerSozinho(f);
+        GrupoDeAventureiros.Formar(personagens, escolhido, nascimento, rotacaoNascimento);   // os outros 3 aventureiros (CPU)
         tela = Tela.Jogando;
         SairDoMenu();
     }

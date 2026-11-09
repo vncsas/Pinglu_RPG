@@ -17,6 +17,10 @@ public class RedeDeEstradas : MonoBehaviour
         [Tooltip("Por onde se chega ao lugar (ex.: o portão do cemitério). Se vazio, vai direto à posição.")]
         public bool temEntrada;
         public Vector3 entrada;
+        [Tooltip("Lugares grandes (cemitério): o mapa e o mini-mapa desenham a área murada")]
+        public bool temArea;
+        public Vector2 areaTamanho;
+        public float areaYaw;
     }
 
     public List<Estrada> estradas = new List<Estrada>();

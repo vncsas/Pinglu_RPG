@@ -1,0 +1,17 @@
+fileFormatVersion: 2
+guid: 0aa9eb80ac7557ad8d7b413196ad92a4
+labels:
+- Authored
+NativeFormatImporter:
+  externalObjects: {}
+  mainObjectFileID: 7400000
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 415578
+  packageName: WIld Boar - Free sample Ultrarealistic Forest Animals
+  packageVersion: 1.1
+  assetPath: Assets/Wild Boar/Animals/Wild_Boar/Animations/Walking.anim
+  uploadId: 1040004

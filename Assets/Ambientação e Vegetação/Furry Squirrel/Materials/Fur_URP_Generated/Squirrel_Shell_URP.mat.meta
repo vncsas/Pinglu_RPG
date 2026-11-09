@@ -1,0 +1,15 @@
+fileFormatVersion: 2
+guid: e08ebc497afff5c4aa6c6b599703d851
+NativeFormatImporter:
+  externalObjects: {}
+  mainObjectFileID: 2100000
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 393316
+  packageName: Furry Squirrel - FurBrush Showcase (URP + HDRP)
+  packageVersion: 1.0
+  assetPath: Assets/Furry Squirrel/Materials/Fur_URP_Generated/Squirrel_Shell_URP.mat
+  uploadId: 953350

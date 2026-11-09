@@ -1,0 +1,15 @@
+fileFormatVersion: 2
+guid: 497b98cc4ba012d448d1e1a8643e761d
+NativeFormatImporter:
+  externalObjects: {}
+  mainObjectFileID: 2100000
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 393316
+  packageName: Furry Squirrel - FurBrush Showcase (URP + HDRP)
+  packageVersion: 1.0
+  assetPath: Assets/Furry Squirrel/Materials/Fur_HDRP_Generated/Squirrel_Cards_HDRP.mat
+  uploadId: 953350

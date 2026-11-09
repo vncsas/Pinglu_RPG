@@ -1,0 +1,17 @@
+fileFormatVersion: 2
+guid: 5a0c6bf3e02c5f3487333efc63b1b1e7
+labels:
+- Authored
+NativeFormatImporter:
+  externalObjects: {}
+  mainObjectFileID: 7400000
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 415578
+  packageName: WIld Boar - Free sample Ultrarealistic Forest Animals
+  packageVersion: 1.1
+  assetPath: Assets/Wild Boar/Animals/Wild_Boar/Animations/Attack_Charge_Gore.anim
+  uploadId: 1040004
