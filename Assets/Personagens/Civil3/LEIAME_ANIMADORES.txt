@@ -1,0 +1,49 @@
+CIVIL 3 (NPC MEDIEVAL) - PACOTE DO ESQUELETO (RIG)
+===================================================
+
+ARQUIVOS
+- civil_rigged.fbx    -> modelo + esqueleto + pesos (Unity, Maya, 3ds Max, Blender...)
+- civil_rig.blend     -> mesma coisa no Blender 5.2, COM controles de animacao (IK) e os 7 materiais prontos
+- texturas_unity/     -> texturas por parte (Body, Top, Bottom, Shoes, Hair, Beard, Moustache):
+                         civil_<Parte>_BaseColor / _Normal / _Specular (RGB = especular, ALFA = brilho)
+- scripts/            -> ferramentas do Blender (preparar o modelo, validar, refazer o rig, gerar as animacoes)
+- animacoes/          -> 15 animacoes (um .fbx cada) + animacoes.blend
+- unity/              -> DemoCivil.cs (tela de teste), CivilNPC.cs (controle simples de NPC),
+                         Editor/MontarCivil.cs (menu Civil > Montar tudo: configura tudo e cria a cena de teste)
+
+ORIGEM
+O modelo "Civil 3" ja veio com um esqueleto no padrao Mixamo (com pesos). Foi convertido: unidades em metros,
+ossos renomeados para o padrao Humanoid do Unity (iguais aos dos outros personagens), ossos de ponta removidos
+(o peso deles foi para o osso anterior), no maximo 4 ossos por vertice, mesma pose de repouso (T-pose com
+joelhos e cotovelos ~7 graus dobrados de proposito, para o IK ficar estavel) e rig de controle no Blender.
+
+ESPECIFICACOES
+- Altura: ~1,82 m, escala 1:1 (metros). Pes no chao. Olha para +Z no Unity.
+- Malha: 21 mil triangulos, 7 materiais (um por parte). Cabelo, barba e bigode usam recorte por alfa.
+- Dedos: as DUAS maos tem os 15 ossos de dedo do Humanoid.
+- Sem ossos de arma/encaixe: e um NPC desarmado.
+- Esqueleto: Hips > Spine > Chest > UpperChest > Neck > Head; ombros, bracos, maos e dedos; pernas, pes e Toes.
+
+ANIMACOES (15)
+  Parado, Andar, Andar_Calmo (andar de cidadao, mais ereto), Correr, Correr_Desesperado (fuga em panico:
+  bracos jogados para cima, olhando para tras), Assustado (parado, com medo, maos na frente do rosto),
+  Falar (gesticulando, para conversar com outros NPCs), Ouvir (bracos cruzados), Concordar, Negar, Interagir,
+  Levar_Golpe, Levar_Golpe_Cabeca, Levar_Golpe_Forte (cambaleia para tras), Morrer.
+  A maioria vem da Universal Animation Library 1 e 2 (Quaternius, CC0), refeita para este esqueleto.
+  Correr_Desesperado e Assustado foram feitas a mao. Todas sao "no lugar" (o movimento vem do script).
+
+IMPORTAR NO UNITY - PASSO A PASSO
+  Antes: Git LFS instalado e o projeto aberto no Unity 6000.6.1f1.
+  0. Arquivos .meta: so UMA pessoa abre primeiro e da commit dos .meta gerados (evita conflito).
+  1. Menu  Civil > Montar tudo  (configura Humanoid, texturas, os 7 materiais URP, importa as animacoes,
+     cria o Animator "Civil.controller" e a cena Teste_Civil.unity). Abra a cena e de Play.
+  2. Para usar o NPC no jogo: arraste civil_rigged para a cena, ponha o Animator Controller "Civil" e o
+     script CivilNPC; chame npc.Andar(), npc.CorrerDesesperado(), npc.Falar(), npc.LevarGolpe()...
+  Manual (sem o menu): civil_rigged > aba Rig > Humanoid > Create From This Model > Apply; texturas _Normal como
+  "Normal map"; _Specular sem sRGB; materiais URP/Lit em modo Specular com SpecGlossMap = _Specular.
+
+  Animacoes de outros personagens (Mixamo, as dos cavaleiros...) tambem tocam nele: no FBX da animacao use
+  Rig > Humanoid > Copy From Other Avatar > civil_riggedAvatar.
+
+REFAZER O RIG (Blender 5.2): scripts/all.sh (prep.py -> rig_b.py -> retarget.py -> civil_anim.py), depois
+  export_anims.py e validate.py. Validacao do FBX: 0 FAIL / 0 WARN.
