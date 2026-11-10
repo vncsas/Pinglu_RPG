@@ -114,12 +114,13 @@ public static class PingluAmbientacao
 
     static void Aplicar()
     {
-        terreno = Terrain.activeTerrain; dados = terreno.terrainData;
+        terreno = Terrain.activeTerrain;
         var velho = GameObject.Find(RAIZ); if (velho != null) Object.DestroyImmediate(velho);
+        PrepararTerrenoNovo();
         var raiz = new GameObject(RAIZ).transform;
         aw = dados.alphamapWidth; ah = dados.alphamapHeight; alfa = dados.GetAlphamaps(0, 0, aw, ah);
         idxCamadas.Clear();
-        for (int k = 0; k < dados.terrainLayers.Length; k++) { var n = dados.terrainLayers[k] ? dados.terrainLayers[k].name : ""; if (!idxCamadas.ContainsKey(n)) idxCamadas[n] = new int[0]; idxCamadas[n] = idxCamadas[n].Append(k).ToArray(); }
+        for (int k = 0; k < dados.terrainLayers.Length; k++) { var n = dados.terrainLayers[k] ? dados.terrainLayers[k].name.Replace("_Ambient", "") : ""; if (!idxCamadas.ContainsKey(n)) idxCamadas[n] = new int[0]; idxCamadas[n] = idxCamadas[n].Append(k).ToArray(); }
         aguas.Clear();
         foreach (var r in Object.FindObjectsByType<Renderer>(FindObjectsInactive.Exclude)) if (r.sharedMaterials.Any(m => m != null && m.name.ToLower().Contains("agua"))) { var b = r.bounds; b.Expand(new Vector3(6, 40, 6)); aguas.Add(b); }
         Physics.SyncTransforms();
@@ -127,6 +128,91 @@ public static class PingluAmbientacao
         AplicarGrama(); string rel = AplicarPedras(raiz);
         EditorSceneManager.MarkSceneDirty(EditorSceneManager.GetActiveScene());
         Debug.Log("[Ambientacao] pronto. " + rel);
+    }
+
+    // ------------------------------------------------------------------ chao novo (numa COPIA do terreno; o asset original nao e tocado)
+    const string TERRENO_ORIGINAL = "Assets/New Terrain.asset";
+    static TerrainLayer NovaCamada(string arquivo, string pasta, float tile)
+    {
+        string baseNome = $"{PASTA}/Texturas/Chao/{pasta}/{pasta}_1K-JPG"; Directory.CreateDirectory($"{PASTA}/Camadas");
+        var nm = AssetImporter.GetAtPath(baseNome + "_NormalGL.jpg") as TextureImporter; if (nm != null && nm.textureType != TextureImporterType.NormalMap) { nm.textureType = TextureImporterType.NormalMap; nm.SaveAndReimport(); }
+        var path = $"{PASTA}/Camadas/{arquivo}.terrainlayer"; var l = AssetDatabase.LoadAssetAtPath<TerrainLayer>(path);
+        if (l == null) { l = new TerrainLayer(); AssetDatabase.CreateAsset(l, path); }
+        l.diffuseTexture = AssetDatabase.LoadAssetAtPath<Texture2D>(baseNome + "_Color.jpg"); l.normalMapTexture = AssetDatabase.LoadAssetAtPath<Texture2D>(baseNome + "_NormalGL.jpg");
+        l.tileSize = new Vector2(tile, tile); l.smoothness = 0f; l.metallic = 0f; l.normalScale = 1f; EditorUtility.SetDirty(l); return l;
+    }
+
+    static void PrepararTerrenoNovo()
+    {
+        var orig = terreno.terrainData; string destino = $"{PASTA}/Terreno/Terreno_Ambientacao.asset"; Directory.CreateDirectory($"{PASTA}/Terreno");
+        AssetDatabase.DeleteAsset(destino);
+        if (!AssetDatabase.CopyAsset(TERRENO_ORIGINAL, destino)) { Debug.LogError("[Ambientacao] nao consegui copiar o terreno"); dados = orig; return; }
+        AssetDatabase.Refresh(); dados = AssetDatabase.LoadAssetAtPath<TerrainData>(destino);
+        terreno.terrainData = dados; var tc = terreno.GetComponent<TerrainCollider>(); if (tc != null) tc.terrainData = dados;
+
+        // 1) texturas do chao: barro de verdade na estrada, grama de campo, folhas na mata, etc. (nomes mantidos: "Soil_Rocks" identifica as estradas)
+        var camadas = dados.terrainLayers.ToList();
+        void Troca(int i, string arq, string pasta, float tile) { if (i < camadas.Count) camadas[i] = NovaCamada(arq, pasta, tile); }
+        Troca(0, "Grass_Dry_Ambient", "ScatteredLeaves009", 3f); Troca(1, "Grass_Moss_Ambient", "Grass001", 3f); Troca(2, "Muddy_Ambient", "Ground109", 3f);
+        Troca(4, "Rocha_Ambient", "Ground111", 5f); Troca(5, "Heather_Ambient", "Grass001", 4f); Troca(7, "Pebbles_A_Ambient", "Gravel043", 2f);
+        Troca(9, "Campo_Ambient", "Grass004", 3f); Troca(10, "CampoVivo_Ambient", "Grass004", 4f);
+        Troca(11, "Mata_Ambient", "Ground106", 3f); Troca(12, "MataSombria_Ambient", "Ground106", 3.5f); Troca(13, "MusgoSombrio_Ambient", "Moss002", 3f); Troca(14, "CampoSeco_Ambient", "ScatteredLeaves009", 3.5f);
+        camadas.Add(NovaCamada("FolhasChao_Ambient", "ScatteredLeaves009", 2.5f));
+        camadas.Add(NovaCamada("Barro_Ambient", "Ground076", 3f));
+        dados.terrainLayers = camadas.ToArray();
+        int nL = camadas.Count, fol = nL - 2, barro = nL - 1;
+        // area da vila (ruas de pedra e praca): ali o chao de pedra original continua; fora dela, as estradas viram barro
+        Rect vila = Rect.zero; bool temVila = false;
+        foreach (var mf in Object.FindObjectsByType<MeshFilter>(FindObjectsInactive.Exclude)) if (mf.name.StartsWith("Ruas") || mf.name.StartsWith("Praca -")) { var b = mf.GetComponent<Renderer>().bounds; var r = Rect.MinMaxRect(b.min.x, b.min.z, b.max.x, b.max.z); if (!temVila) { vila = r; temVila = true; } else vila = Rect.MinMaxRect(Mathf.Min(vila.xMin, r.xMin), Mathf.Min(vila.yMin, r.yMin), Mathf.Max(vila.xMax, r.xMax), Mathf.Max(vila.yMax, r.yMax)); }
+        vila = Rect.MinMaxRect(vila.xMin - 14f, vila.yMin - 14f, vila.xMax + 14f, vila.yMax + 14f);
+
+        // 2) tira o capim antigo (billboards 0-2); as folhas do chao (detalhes 3 e 4) ficam
+        int dw = dados.detailWidth, dh = dados.detailHeight; var zero = new int[dh, dw];
+        for (int i = 0; i < Mathf.Min(3, dados.detailPrototypes.Length); i++) if (dados.detailPrototypes[i].prototype == null && dados.detailPrototypes[i].prototypeTexture != null) dados.SetDetailLayer(0, 0, i, zero);
+
+        // 3) pinta: estrada de barro mais larga e irregular + manchas de folhas caidas em volta das arvores
+        int w = dados.alphamapWidth, h = dados.alphamapHeight; var a = dados.GetAlphamaps(0, 0, w, h);
+        float wx = dados.size.x / w, wz = dados.size.z / h;
+        var rd = new float[h, w];
+        for (int j = 0; j < h; j++) for (int i = 0; i < w; i++)
+        {
+            if (temVila && vila.Contains(new Vector2(i * wx, j * wz))) continue;
+            float r = a[j, i, 6] + a[j, i, 8]; if (r <= 0f) continue;
+            a[j, i, barro] += r; a[j, i, 6] = 0f; a[j, i, 8] = 0f; rd[j, i] = a[j, i, barro];
+        }
+        var bl = Blur(Blur(rd, w, h, 2), w, h, 2);
+        void Garante(int j, int i, int k, float alvo)
+        {
+            float cur = a[j, i, k]; if (alvo <= cur) return; float resto = 1f - cur, novo = 1f - alvo; float f = resto > 1e-4f ? novo / resto : 0f;
+            for (int q = 0; q < nL; q++) a[j, i, q] = q == k ? alvo : a[j, i, q] * f;
+        }
+        for (int j = 0; j < h; j++) for (int i = 0; i < w; i++)
+        {
+            float n = 0.75f + 0.5f * Mathf.PerlinNoise(i * 0.12f, j * 0.12f);
+            float t = Mathf.Clamp01(bl[j, i] * 2.2f * n - 0.12f);
+            if (t > 0.04f && !(temVila && vila.Contains(new Vector2(i * wx, j * wz)))) Garante(j, i, barro, Mathf.Max(rd[j, i], Mathf.Clamp01(t * 1.5f)));
+        }
+        var rnd = new System.Random(99);
+        foreach (var ti in dados.treeInstances)
+        {
+            int cx = Mathf.Clamp((int)(ti.position.x * (w - 1)), 0, w - 1), cz = Mathf.Clamp((int)(ti.position.z * (h - 1)), 0, h - 1); float raio = 2.5f + (float)rnd.NextDouble() * 2.5f;
+            for (int dz = -6; dz <= 6; dz++) for (int dx = -6; dx <= 6; dx++)
+            {
+                int i = cx + dx, j = cz + dz; if (i < 0 || j < 0 || i >= w || j >= h) continue; float d = Mathf.Sqrt(dx * dx + dz * dz); if (d > raio) continue;
+                if (a[j, i, 6] + a[j, i, 8] + a[j, i, barro] > 0.3f) continue;
+                float v = (1f - d / raio) * 0.9f * (0.6f + 0.8f * Mathf.PerlinNoise(i * 0.3f, j * 0.3f)); Garante(j, i, fol, Mathf.Clamp01(v));
+            }
+        }
+        dados.SetAlphamaps(0, 0, a);
+        EditorUtility.SetDirty(dados); AssetDatabase.SaveAssets();
+    }
+
+    static float[,] Blur(float[,] src, int w, int h, int r)
+    {
+        var tmp = new float[h, w]; var dst = new float[h, w];
+        for (int j = 0; j < h; j++) for (int i = 0; i < w; i++) { float s = 0; int c = 0; for (int d = -r; d <= r; d++) { int x = i + d; if (x < 0 || x >= w) continue; s += src[j, x]; c++; } tmp[j, i] = s / c; }
+        for (int j = 0; j < h; j++) for (int i = 0; i < w; i++) { float s = 0; int c = 0; for (int d = -r; d <= r; d++) { int y = j + d; if (y < 0 || y >= h) continue; s += tmp[y, i]; c++; } dst[j, i] = s / c; }
+        return dst;
     }
 
     // ------------------------------------------------------------------ grama
@@ -147,14 +233,14 @@ public static class PingluAmbientacao
         // [verde, seco, limpo]  (Floresta Sombria e Terras Queimadas ficam quase sem grama, como no roteiro)
         Peso("Campo", 1f, 0f, 0f); Peso("CampoVivo", 1f, 0f, 0f); Peso("Grass_Moss", 0.7f, 0f, 0f); Peso("Heather", 0.55f, 0.1f, 0f);
         Peso("Mata", 0.25f, 0.1f, 0f); Peso("MataSombria", 0f, 0.22f, 0f); Peso("MusgoSombrio", 0.08f, 0.12f, 0f);
-        Peso("Grass_Dry", 0f, 0.75f, 0f); Peso("CampoSeco", 0f, 1f, 0f); Peso("TerraMorta", 0f, 0.12f, 0f);
-        Peso("Muddy", 0f, 0f, 1f); Peso("Black_Sand", 0f, 0f, 1f); Peso("Rocha", 0f, 0f, 1f); Peso("Caminho_Soil_Rocks", 0f, 0f, 1f); Peso("Pebbles_A_TerrainLayer", 0f, 0f, 1f);
-        cg.densPerto = 4.5f; cg.densMeio = 1.3f; cg.densLonge = 0.38f; cg.distPerto = 18f; cg.distMeio = 42f; cg.distLonge = 80f; cg.clareiras = 0.55f;
+        Peso("Grass_Dry", 0f, 0.75f, 0f); Peso("CampoSeco", 0f, 1f, 0f); Peso("FolhasChao", 0.3f, 0.3f, 0f); Peso("TerraMorta", 0f, 0.12f, 0f);
+        Peso("Barro", 0f, 0f, 1f); Peso("Muddy", 0f, 0f, 1f); Peso("Black_Sand", 0f, 0f, 1f); Peso("Rocha", 0f, 0f, 1f); Peso("Caminho_Soil_Rocks", 0f, 0f, 1f); Peso("Pebbles_A_TerrainLayer", 0f, 0f, 1f);
+        cg.densPerto = 6f; cg.densMeio = 1.7f; cg.densLonge = 0.5f; cg.distPerto = 20f; cg.distMeio = 46f; cg.distLonge = 90f; cg.clareiras = 0.45f;
         EditorUtility.SetDirty(cg);
     }
 
     // ------------------------------------------------------------------ pedras
-    class Tipo { public string[] nomes; public float hMin, hMax; public bool colisor, grande, trilha; public int qtd; public Dictionary<string, float> camadas; public float declMax = 40; public float espaco; }
+    class Tipo { public string[] nomes; public float hMin, hMax; public bool colisor, grande, trilha, beira; public int qtd; public Dictionary<string, float> camadas; public float declMax = 40; public float espaco; }
 
     static string AplicarPedras(Transform raiz)
     {
@@ -168,9 +254,10 @@ public static class PingluAmbientacao
             new Tipo { nomes = N("Rock_Medium", 3), hMin = 0.9f, hMax = 2.8f, colisor = true, grande = true, qtd = 320, espaco = 14, declMax = 45,
                 camadas = new() { {"Rocha", 1f}, {"Campo", 0.22f}, {"CampoVivo", 0.2f}, {"Grass_Dry", 0.5f}, {"CampoSeco", 0.55f}, {"Heather", 0.5f}, {"Mata", 0.3f}, {"MataSombria", 0.35f}, {"TerraMorta", 0.5f}, {"MusgoSombrio", 0.5f}, {"Grass_Moss", 0.35f} } },
             new Tipo { nomes = N("Pebble_Round", 5).Concat(N("Pebble_Square", 6)).ToArray(), hMin = 0.16f, hMax = 0.42f, qtd = 900, declMax = 55,
-                camadas = new() { {"Rocha", 1f}, {"Pebbles_A_TerrainLayer", 1f}, {"Campo", 0.35f}, {"CampoVivo", 0.3f}, {"Grass_Dry", 0.6f}, {"CampoSeco", 0.7f}, {"Heather", 0.5f}, {"Mata", 0.3f}, {"MataSombria", 0.3f}, {"TerraMorta", 0.5f}, {"MusgoSombrio", 0.4f}, {"Caminho_Soil_Rocks", 0.5f} } },
+                camadas = new() { {"Rocha", 1f}, {"Pebbles_A_TerrainLayer", 1f}, {"Campo", 0.35f}, {"CampoVivo", 0.3f}, {"Grass_Dry", 0.6f}, {"CampoSeco", 0.7f}, {"Heather", 0.5f}, {"Mata", 0.3f}, {"MataSombria", 0.3f}, {"TerraMorta", 0.5f}, {"MusgoSombrio", 0.4f}, {"Barro", 0.5f} } },
             new Tipo { nomes = new[] { "RockPath_Round_Wide", "RockPath_Round_Small_1", "RockPath_Round_Small_2", "RockPath_Round_Small_3", "RockPath_Square_Wide", "RockPath_Square_Small_1", "RockPath_Square_Small_2", "RockPath_Square_Small_3" },
-                trilha = true, hMin = 1.1f, hMax = 1.9f, qtd = 420, declMax = 30, camadas = new() { {"Caminho_Soil_Rocks", 1f} } },
+                trilha = true, hMin = 1.5f, hMax = 2.6f, qtd = 900, declMax = 30, espaco = 3.2f, camadas = new() { {"Barro", 1f} } },
+            new Tipo { nomes = N("Rock_Medium", 3), hMin = 1.1f, hMax = 3.2f, colisor = true, grande = true, beira = true, qtd = 260, espaco = 7f, declMax = 45, camadas = new() { {"Barro", 1f} } },
         };
         var rnd = new System.Random(4242); var usados = new List<Vector3>(); var sb = new System.Text.StringBuilder();
         float W = dados.size.x, L = dados.size.z; int total = 0;
@@ -183,9 +270,10 @@ public static class PingluAmbientacao
                 float x = 12 + (float)rnd.NextDouble() * (W - 24), z = 12 + (float)rnd.NextDouble() * (L - 24);
                 int i = Mathf.Clamp((int)(x / W * (aw - 1)), 0, aw - 1), j = Mathf.Clamp((int)(z / L * (ah - 1)), 0, ah - 1);
                 float p = 0; foreach (var kv in tp.camadas) p += PesoCamada(i, j, kv.Key) * kv.Value;
-                float estrada = PesoCamada(i, j, "Caminho_Soil_Rocks");
-                if (tp.trilha) { if (estrada < 0.35f || estrada > 0.85f) continue; p = 1f; }                    // so na beira da estrada
-                else if (estrada > 0.35f || PesoCamada(i, j, "Muddy") > 0.5f) continue;                          // nunca em cima da estrada
+                float estrada = PesoCamada(i, j, "Barro");
+                if (tp.trilha) { if (estrada < 0.5f) continue; p = 1f; }                                          // em cima do barro, espacadas
+                else if (tp.beira) { float prox = 0; for (int dd = 4; dd <= 12; dd += 4) { foreach (var o in new[] { (dd, 0), (-dd, 0), (0, dd), (0, -dd) }) prox = Mathf.Max(prox, PesoCamada(Mathf.Clamp(i + o.Item1, 0, aw - 1), Mathf.Clamp(j + o.Item2, 0, ah - 1), "Barro")); } if (estrada > 0.2f || prox < 0.5f) continue; p = 1f; }   // na beira da estrada
+                else if (estrada > 0.2f || PesoCamada(i, j, "Muddy") > 0.5f || PesoCamada(i, j, "Caminho_Soil_Rocks") > 0.2f) continue;                          // nunca em cima da estrada
                 if (rnd.NextDouble() > Mathf.Min(1f, p)) continue;
                 if (dados.GetSteepness(x / W, z / L) > tp.declMax) continue;
                 float y = terreno.SampleHeight(new Vector3(x, 0, z)) + terreno.transform.position.y;
