@@ -14,3 +14,6 @@
 - Estradas fora da vila viram barro (camada `Barro`, mais larga e irregular); as ruas de pedra da vila ficam como eram.
 - Manchas de folhas caidas em volta das arvores.
 - Folhas do chao (detalhes 3 e 4 do terreno): so permanecem perto de arvores; o resto sai.
+- Calcamento da vila: ruas e praca refeitas com ~1600 lajes modeladas (redondas e quadradas-arredondadas, `Pavimento/Calc_*.fbx`) sobre chao de terra; seixos nas bordas. O "papel de pedra" original foi trocado de material so nessa cena.
+- Relevo: colinas suaves (ate ~5 m) SO nas areas vazias (longe de construcoes, estradas, agua e vila), aplicado na copia do terreno.
+- Plantas do kit (arbustos, samambaias, flores, cogumelos; sem arvores) nas areas vazias.

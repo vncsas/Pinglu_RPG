@@ -119,16 +119,17 @@ public static class PingluAmbientacao
     {
         terreno = Terrain.activeTerrain;
         var velho = GameObject.Find(RAIZ); if (velho != null) Object.DestroyImmediate(velho);
+        aguas.Clear();
+        foreach (var r in Object.FindObjectsByType<Renderer>(FindObjectsInactive.Exclude)) if (r.sharedMaterials.Any(m => m != null && m.name.ToLower().Contains("agua"))) { var b = r.bounds; b.Expand(new Vector3(6, 40, 6)); aguas.Add(b); }
         PrepararTerrenoNovo();
         var raiz = new GameObject(RAIZ).transform;
         aw = dados.alphamapWidth; ah = dados.alphamapHeight; alfa = dados.GetAlphamaps(0, 0, aw, ah);
         idxCamadas.Clear();
         for (int k = 0; k < dados.terrainLayers.Length; k++) { var n = dados.terrainLayers[k] ? dados.terrainLayers[k].name.Replace("_Ambient", "") : ""; if (!idxCamadas.ContainsKey(n)) idxCamadas[n] = new int[0]; idxCamadas[n] = idxCamadas[n].Append(k).ToArray(); }
-        aguas.Clear();
-        foreach (var r in Object.FindObjectsByType<Renderer>(FindObjectsInactive.Exclude)) if (r.sharedMaterials.Any(m => m != null && m.name.ToLower().Contains("agua"))) { var b = r.bounds; b.Expand(new Vector3(6, 40, 6)); aguas.Add(b); }
         Physics.SyncTransforms();
         BakeMascara();
-        AplicarGrama(); string rel = AplicarPedras(raiz);
+        Pavimentar(raiz);
+        AplicarGrama(); string rel = AplicarPedras(raiz); Plantas(raiz);
         EditorSceneManager.MarkSceneDirty(EditorSceneManager.GetActiveScene());
         Debug.Log("[Ambientacao] pronto. " + rel);
     }
@@ -223,7 +224,43 @@ public static class PingluAmbientacao
             }
         }
         dados.SetAlphamaps(0, 0, a);
+        RelevoNasAreasVazias(a, w, h, barro);
         EditorUtility.SetDirty(dados); AssetDatabase.SaveAssets();
+    }
+
+    // ------------------------------------------------------------------ relevo: colinas suaves SO onde nao ha nada (longe de construcoes, estradas, agua, vila)
+    const int CELULA = 4; static float[,] vazio; static int vazioN;
+    static float Vazio(float x, float z) { if (vazio == null) return 0f; int i = Mathf.Clamp((int)(x / CELULA), 0, vazioN - 1), j = Mathf.Clamp((int)(z / CELULA), 0, vazioN - 1); return vazio[j, i]; }
+
+    static void RelevoNasAreasVazias(float[,,] a, int w, int h, int barro)
+    {
+        float W = dados.size.x, L = dados.size.z; vazioN = Mathf.CeilToInt(W / CELULA); var ocupado = new float[vazioN, vazioN];
+        void Marca(Bounds b, float folga) { int i0 = Mathf.Max(0, (int)((b.min.x - folga) / CELULA)), i1 = Mathf.Min(vazioN - 1, (int)((b.max.x + folga) / CELULA)), j0 = Mathf.Max(0, (int)((b.min.z - folga) / CELULA)), j1 = Mathf.Min(vazioN - 1, (int)((b.max.z + folga) / CELULA)); for (int j = j0; j <= j1; j++) for (int i = i0; i <= i1; i++) ocupado[j, i] = 1f; }
+        foreach (var r in Object.FindObjectsByType<Renderer>(FindObjectsInactive.Exclude))
+        {
+            if (r is TrailRenderer || r is ParticleSystemRenderer || r.GetComponent<Terrain>() != null) continue; var b = r.bounds;
+            if (b.size.x > 140f || b.size.z > 140f || b.max.y - b.min.y > 90f) continue;                    // montanhas / cenarios enormes: nao contam
+            if (b.center.y < -500f) continue;                                                          // cenario do lobby (longe do mapa)
+            Marca(b, 16f);
+        }
+        // estradas e calcadas (qualquer camada de caminho) + vila inteira
+        for (int j = 0; j < h; j += 2) for (int i = 0; i < w; i += 2) if (a[j, i, 6] + a[j, i, 8] + a[j, i, barro] + a[j, i, 7] > 0.12f) { var p = new Bounds(new Vector3(i * W / w, 0, j * L / h), Vector3.one); Marca(p, 22f); }
+        foreach (var ag in aguas) Marca(ag, 20f);
+        foreach (var ti in dados.treeInstances) { } // arvores acompanham o relevo sozinhas
+        // suaviza: transicao gradual entre "ocupado" e "vazio"
+        var cru = new float[vazioN, vazioN]; for (int j = 0; j < vazioN; j++) for (int i = 0; i < vazioN; i++) cru[j, i] = 1f - ocupado[j, i];
+        vazio = Blur(Blur(Blur(cru, vazioN, vazioN, 3), vazioN, vazioN, 3), vazioN, vazioN, 3);
+        for (int j = 0; j < vazioN; j++) for (int i = 0; i < vazioN; i++) vazio[j, i] = Mathf.Clamp01((vazio[j, i] - 0.15f) / 0.7f) ;
+        // colinas: ondulacao de ~90 m com ate ~±5 m, mais um pouco de detalhe
+        int res = dados.heightmapResolution; var hm = dados.GetHeights(0, 0, res, res); float alt = dados.size.y; float soma = 0; int n = 0;
+        for (int j = 0; j < res; j++) for (int i = 0; i < res; i++)
+        {
+            float x = i * W / (res - 1), z = j * L / (res - 1); float m = Vazio(x, z); if (m <= 0.001f) continue;
+            float f = (Mathf.PerlinNoise(x * 0.011f + 31.7f, z * 0.011f + 7.3f) - 0.5f) * 2f * 0.65f + (Mathf.PerlinNoise(x * 0.032f + 90f, z * 0.032f + 12f) - 0.5f) * 2f * 0.35f;
+            float delta = f * 5.2f * m; hm[j, i] = Mathf.Clamp01(hm[j, i] + delta / alt); soma += Mathf.Abs(delta); n++;
+        }
+        dados.SetHeights(0, 0, hm);
+        Debug.Log($"[Ambientacao] relevo: {n} pontos alterados, variacao media {(n > 0 ? soma / n : 0):0.0} m (so em areas vazias)");
     }
 
     static float[,] Blur(float[,] src, int w, int h, int r)
@@ -232,6 +269,158 @@ public static class PingluAmbientacao
         for (int j = 0; j < h; j++) for (int i = 0; i < w; i++) { float s = 0; int c = 0; for (int d = -r; d <= r; d++) { int x = i + d; if (x < 0 || x >= w) continue; s += src[j, x]; c++; } tmp[j, i] = s / c; }
         for (int j = 0; j < h; j++) for (int i = 0; i < w; i++) { float s = 0; int c = 0; for (int d = -r; d <= r; d++) { int y = j + d; if (y < 0 || y >= h) continue; s += tmp[y, i]; c++; } dst[j, i] = s / c; }
         return dst;
+    }
+
+    // ------------------------------------------------------------------ calcamento da vila: pedras de verdade, uma a uma
+    class Fundidor
+    {
+        public List<Mesh> pronto = new(); List<Vector3> v = new(), n = new(); List<Vector2> uv = new(); List<int> tri = new();
+        public void Add(Mesh m, Vector3 pos, Quaternion rot, Vector3 esc, Vector2 uvOff)
+        {
+            var mv = m.vertices; var mn = m.normals; var mu = m.uv; var mt = m.triangles; int b = v.Count;
+            for (int i = 0; i < mv.Length; i++)
+            { v.Add(pos + rot * Vector3.Scale(mv[i], esc)); n.Add((rot * Vector3.Scale(mn[i], new Vector3(1f / esc.x, 1f / esc.y, 1f / esc.z))).normalized); uv.Add(mu[i] + uvOff); }
+            foreach (var t in mt) tri.Add(b + t);
+            if (v.Count > 60000) Fechar();
+        }
+        public void Fechar()
+        {
+            if (v.Count == 0) return;
+            var me = new Mesh { name = "Calcamento" }; me.SetVertices(v); me.SetNormals(n); me.SetUVs(0, uv); me.SetTriangles(tri, 0); me.RecalculateBounds(); pronto.Add(me);
+            v = new(); n = new(); uv = new(); tri = new();
+        }
+    }
+
+    static Mesh MalhaLegivel(string path)
+    {
+        var mi = AssetImporter.GetAtPath(path) as ModelImporter; if (mi != null && (!mi.isReadable || mi.materialImportMode != ModelImporterMaterialImportMode.None)) { mi.isReadable = true; mi.materialImportMode = ModelImporterMaterialImportMode.None; mi.SaveAndReimport(); }
+        return AssetDatabase.LoadAssetAtPath<GameObject>(path).GetComponentInChildren<MeshFilter>().sharedMesh;
+    }
+
+    static Material MatTex(string nome, string pasta, Color tint, float tile)
+    {
+        string baseNome = $"{PASTA}/Texturas/Chao/{pasta}/{pasta}_1K-JPG";
+        var nm = AssetImporter.GetAtPath(baseNome + "_NormalGL.jpg") as TextureImporter; if (nm != null && nm.textureType != TextureImporterType.NormalMap) { nm.textureType = TextureImporterType.NormalMap; nm.SaveAndReimport(); }
+        return Mat(nome, Shader.Find("Universal Render Pipeline/Lit"), m =>
+        {
+            m.SetTexture("_BaseMap", AssetDatabase.LoadAssetAtPath<Texture2D>(baseNome + "_Color.jpg")); m.SetTextureScale("_BaseMap", new Vector2(tile, tile));
+            var n = AssetDatabase.LoadAssetAtPath<Texture2D>(baseNome + "_NormalGL.jpg"); if (n) { m.SetTexture("_BumpMap", n); m.EnableKeyword("_NORMALMAP"); m.SetTextureScale("_BumpMap", new Vector2(tile, tile)); }
+            m.SetColor("_BaseColor", tint); m.SetFloat("_Smoothness", 0f); m.SetFloat("_Metallic", 0f);
+        });
+    }
+
+    static void Pavimentar(Transform raiz)
+    {
+        var alvos = Object.FindObjectsByType<MeshFilter>(FindObjectsInactive.Exclude).Where(f => f.sharedMesh != null && (f.name == "Ruas - lajes" || f.name == "Praca - anel" || f.name == "Praca - miolo")).ToList();
+        if (alvos.Count == 0) return;
+        var lajes = Enumerable.Range(1, 3).Select(i => MalhaLegivel($"{PASTA}/Pavimento/Calc_R{i}.fbx")).Concat(Enumerable.Range(1, 3).Select(i => MalhaLegivel($"{PASTA}/Pavimento/Calc_Q{i}.fbx"))).ToArray();
+        var seixos = Enumerable.Range(1, 5).Select(i => MalhaLegivel($"{PASTA}/Pedras/Pebble_Round_{i}.fbx")).Concat(Enumerable.Range(1, 6).Select(i => MalhaLegivel($"{PASTA}/Pedras/Pebble_Square_{i}.fbx"))).ToArray();
+        // chao de terra sob as pedras (aparece nas juntas); o papel de pedra original some
+        var terra = MatTex("Vila_TerraSobAsPedras", "Ground076", new Color(0.20f, 0.19f, 0.17f), 40f);
+        var tons = new[] { new Color(1.65f, 1.65f, 1.6f), new Color(1.3f, 1.33f, 1.36f), new Color(1.5f, 1.46f, 1.38f) };
+        var mats = tons.Select((t, i) => MatTex("Vila_Pedra" + i, "Rock030", t, 1f)).ToArray();
+        AssetDatabase.SaveAssets();
+        int camada = 31; var temps = new List<GameObject>();
+        foreach (var f in alvos) { var g = new GameObject("tmp_pav"); g.layer = camada; g.transform.SetPositionAndRotation(f.transform.position, f.transform.rotation); g.transform.localScale = f.transform.lossyScale; g.AddComponent<MeshCollider>().sharedMesh = f.sharedMesh; temps.Add(g); }
+        Physics.SyncTransforms();
+        var rnd = new System.Random(2718); var ocupado = new HashSet<long>(); var fund = new Dictionary<(int, int, int), Fundidor>(); int nL = 0, nS = 0;
+        bool Hit(float x, float z, float topo, out RaycastHit h) => Physics.Raycast(new Vector3(x, topo + 30f, z), Vector3.down, out h, 80f, 1 << camada, QueryTriggerInteraction.Ignore);
+        Vector2 UO() => new Vector2((float)rnd.NextDouble() * 4f, (float)rnd.NextDouble() * 4f);
+        Fundidor F(float x, float z, int m) { var k = (Mathf.FloorToInt(x / 18f), Mathf.FloorToInt(z / 18f), m); if (!fund.TryGetValue(k, out var fu)) { fu = new Fundidor(); fund[k] = fu; } return fu; }
+        foreach (var f in alvos)
+        {
+            var b = f.GetComponent<Renderer>().bounds; const float passo = 0.82f;
+            for (float x = b.min.x; x <= b.max.x; x += passo) for (float z = b.min.z; z <= b.max.z; z += passo)
+            {
+                float jx = x + (float)(rnd.NextDouble() - 0.5) * 0.30f, jz = z + (float)(rnd.NextDouble() - 0.5) * 0.30f;
+                long key = ((long)Mathf.FloorToInt(jx / 0.75f) << 32) ^ (long)Mathf.FloorToInt(jz / 0.75f); if (ocupado.Contains(key)) continue;
+                if (Hit(jx, jz, b.max.y, out var h))
+                {
+                    int dentro = 0; foreach (var o in new[] { (0.42f, 0f), (-0.42f, 0f), (0f, 0.42f), (0f, -0.42f) }) if (Hit(jx + o.Item1, jz + o.Item2, b.max.y, out _)) dentro++;
+                    if (dentro < 3) { if (rnd.NextDouble() < 0.55) goto seixo; else continue; }
+                    ocupado.Add(key);
+                    float e = Mathf.Lerp(0.95f, 1.22f, (float)rnd.NextDouble()); var rot = Quaternion.FromToRotation(Vector3.up, h.normal) * Quaternion.Euler(0, (float)rnd.NextDouble() * 360f, 0);
+                    F(jx, jz, rnd.Next(3)).Add(lajes[rnd.Next(lajes.Length)], h.point + Vector3.up * 0.012f, rot, new Vector3(e, Mathf.Lerp(0.85f, 1.3f, (float)rnd.NextDouble()), e * Mathf.Lerp(0.9f, 1.1f, (float)rnd.NextDouble())), UO()); nL++;
+                    continue;
+                }
+                else
+                {
+                    // fora do desenho: se tem calcada por perto, solta um seixo (a borda nao termina "do nada")
+                    int perto = 0; foreach (var o in new[] { (0.7f, 0f), (-0.7f, 0f), (0f, 0.7f), (0f, -0.7f) }) if (Hit(jx + o.Item1, jz + o.Item2, b.max.y, out _)) perto++;
+                    if (perto == 0 || rnd.NextDouble() > 0.5) continue;
+                }
+            seixo:
+                if (Hit(jx, jz, b.max.y, out var h2) || Hit(jx + 0.5f, jz, b.max.y, out h2) || Hit(jx - 0.5f, jz, b.max.y, out h2) || Hit(jx, jz + 0.5f, b.max.y, out h2) || Hit(jx, jz - 0.5f, b.max.y, out h2))
+                {
+                    var dir = new Vector3((float)rnd.NextDouble() - 0.5f, 0, (float)rnd.NextDouble() - 0.5f).normalized * (0.4f + (float)rnd.NextDouble() * 0.5f);
+                    var pos = new Vector3(jx, h2.point.y, jz) + dir; float s = Mathf.Lerp(0.8f, 2.4f, (float)rnd.NextDouble());
+                    F(jx, jz, rnd.Next(3)).Add(seixos[rnd.Next(seixos.Length)], pos, Quaternion.Euler(0, (float)rnd.NextDouble() * 360f, 0), Vector3.one * s, UO()); nS++;
+                }
+            }
+        }
+        foreach (var g in temps) Object.DestroyImmediate(g);
+        foreach (var f in alvos) f.GetComponent<Renderer>().sharedMaterial = terra;
+        var pai = new GameObject("Calcamento da Vila").transform; pai.SetParent(raiz);
+        Directory.CreateDirectory($"{PASTA}/Vila"); int k2 = 0;
+        foreach (var kv in fund)
+        {
+            kv.Value.Fechar();
+            foreach (var me in kv.Value.pronto)
+            {
+                AssetDatabase.DeleteAsset($"{PASTA}/Vila/Calcamento{k2}.asset"); AssetDatabase.CreateAsset(me, $"{PASTA}/Vila/Calcamento{k2}.asset");
+                var go = new GameObject("Pedras " + k2++); go.transform.SetParent(pai); go.AddComponent<MeshFilter>().sharedMesh = me; go.AddComponent<MeshRenderer>().sharedMaterial = mats[kv.Key.Item3]; go.isStatic = true;
+            }
+        }
+        Debug.Log($"[Ambientacao] calcamento: {nL} lajes + {nS} seixos em {k2} malhas");
+    }
+
+    // ------------------------------------------------------------------ plantas do kit (arbustos, samambaias, flores, cogumelos) nas areas vazias
+    static void Plantas(Transform raiz)
+    {
+        var sh = Shader.Find("Universal Render Pipeline/Lit");
+        Material Folha(string nome, string tex, Color tint) => Mat("Kit_" + nome, sh, m => { var t = Tex(tex); var pth = $"{PASTA}/Texturas/{tex}.png"; var ti = AssetImporter.GetAtPath(pth) as TextureImporter; if (ti != null && !ti.alphaIsTransparency) { ti.alphaIsTransparency = true; ti.SaveAndReimport(); } m.SetTexture("_BaseMap", AssetDatabase.LoadAssetAtPath<Texture2D>(pth)); m.SetColor("_BaseColor", tint); m.SetFloat("_Smoothness", 0.05f); m.SetFloat("_AlphaClip", 1f); m.SetFloat("_Cutoff", 0.5f); m.EnableKeyword("_ALPHATEST_ON"); m.SetFloat("_Cull", 0f); m.renderQueue = 2450; });
+        var dic = new Dictionary<string, Material>
+        {
+            ["Leaves"] = Folha("Plantas", "Leaves", new Color(0.62f, 0.78f, 0.52f)), ["Leaves_NormalTree"] = Folha("Arbusto", "Leaves_NormalTree_C", new Color(0.66f, 0.80f, 0.52f)),
+            ["Flowers"] = Folha("Flores", "Flowers", new Color(0.85f, 0.82f, 0.8f)),
+            ["Mushrooms"] = Mat("Kit_Cogumelos", sh, m => { m.SetTexture("_BaseMap", AssetDatabase.LoadAssetAtPath<Texture2D>($"{PASTA}/Texturas/Mushrooms.png")); m.SetColor("_BaseColor", new Color(0.8f, 0.78f, 0.74f)); m.SetFloat("_Smoothness", 0.1f); })
+        };
+        AssetDatabase.SaveAssets();
+        var rnd = new System.Random(8080); float W = dados.size.x, L = dados.size.z; int total = 0;
+        // nome(s), alvo de altura, quantidade, camadas (peso) , exige vazio
+        var grupos = new (string[] nomes, float h0, float h1, int qtd, Dictionary<string, float> cam, float espaco)[]
+        {
+            (new[] { "Bush_Common", "Bush_Common_Flowers" }, 0.9f, 1.6f, 260, new() { {"Campo", 1f}, {"CampoVivo", 1f}, {"Grass_Moss", 0.6f}, {"Heather", 0.8f}, {"Mata", 0.3f} }, 6f),
+            (new[] { "Fern_1", "Plant_1", "Plant_1_Big", "Plant_7", "Plant_7_Big" }, 0.55f, 1.1f, 380, new() { {"Mata", 1f}, {"MataSombria", 0.9f}, {"MusgoSombrio", 1f}, {"Grass_Moss", 0.6f}, {"CampoVivo", 0.35f}, {"FolhasChao", 0.8f} }, 2.5f),
+            (new[] { "Flower_3_Group", "Flower_4_Group", "Flower_3_Single", "Flower_4_Single" }, 0.35f, 0.65f, 260, new() { {"Campo", 1f}, {"CampoVivo", 1f}, {"Heather", 0.8f} }, 3f),
+            (new[] { "Mushroom_Common", "Mushroom_Laetiporus" }, 0.2f, 0.4f, 160, new() { {"MataSombria", 1f}, {"Mata", 1f}, {"MusgoSombrio", 1f}, {"FolhasChao", 1f} }, 3f),
+        };
+        var pai = new GameObject("Plantas do kit").transform; pai.SetParent(raiz); var usados = new List<Vector2>();
+        foreach (var g in grupos)
+        {
+            int feitos = 0;
+            for (int tent = 0; tent < g.qtd * 200 && feitos < g.qtd; tent++)
+            {
+                float x = 12 + (float)rnd.NextDouble() * (W - 24), z = 12 + (float)rnd.NextDouble() * (L - 24);
+                float vz = Vazio(x, z); if (vz < 0.35f || (float)rnd.NextDouble() > vz) continue;
+                int i = Mathf.Clamp((int)(x / W * (aw - 1)), 0, aw - 1), j = Mathf.Clamp((int)(z / L * (ah - 1)), 0, ah - 1);
+                float p = 0; foreach (var kv in g.cam) p += PesoCamada(i, j, kv.Key) * kv.Value;
+                if (rnd.NextDouble() > Mathf.Min(1f, p)) continue;
+                if (PesoCamada(i, j, "Barro") > 0.05f || PesoCamada(i, j, "Caminho_Soil_Rocks") > 0.05f || Mascarado(x, z)) continue;
+                if (dados.GetSteepness(x / W, z / L) > 32f) continue;
+                float y = terreno.SampleHeight(new Vector3(x, 0, z)) + terreno.transform.position.y; var pos = new Vector3(x, y, z);
+                if (aguas.Any(b => b.Contains(pos))) continue;
+                if (usados.Any(u => (u.x - x) * (u.x - x) + (u.y - z) * (u.y - z) < g.espaco * g.espaco)) continue;
+                if (Physics.CheckSphere(pos + Vector3.up * 0.6f, 0.5f, ~0, QueryTriggerInteraction.Ignore) && Physics.OverlapSphere(pos + Vector3.up * 0.6f, 0.5f, ~0, QueryTriggerInteraction.Ignore).Any(c => !(c is TerrainCollider))) continue;
+                usados.Add(new Vector2(x, z));
+                var pf = AssetDatabase.LoadAssetAtPath<GameObject>($"{PASTA}/Plantas/{g.nomes[rnd.Next(g.nomes.Length)]}.fbx"); if (pf == null) break;
+                var go = (GameObject)PrefabUtility.InstantiatePrefab(pf); go.transform.SetParent(pai); go.transform.position = pos; go.transform.rotation = Quaternion.Euler(0, (float)rnd.NextDouble() * 360f, 0);
+                foreach (var r in go.GetComponentsInChildren<Renderer>()) { var ms = r.sharedMaterials; for (int m = 0; m < ms.Length; m++) if (ms[m] != null && dic.TryGetValue(ms[m].name, out var nv)) ms[m] = nv; r.sharedMaterials = ms; }
+                var rs = go.GetComponentsInChildren<Renderer>(); var bb = rs[0].bounds; foreach (var r in rs) bb.Encapsulate(r.bounds);
+                go.transform.localScale = Vector3.one * (Mathf.Lerp(g.h0, g.h1, (float)rnd.NextDouble()) / Mathf.Max(0.01f, bb.size.y)); go.isStatic = true; feitos++; total++;
+            }
+        }
+        Debug.Log($"[Ambientacao] plantas do kit: {total}");
     }
 
     // ------------------------------------------------------------------ grama
@@ -289,6 +478,7 @@ public static class PingluAmbientacao
                 float x = 12 + (float)rnd.NextDouble() * (W - 24), z = 12 + (float)rnd.NextDouble() * (L - 24);
                 int i = Mathf.Clamp((int)(x / W * (aw - 1)), 0, aw - 1), j = Mathf.Clamp((int)(z / L * (ah - 1)), 0, ah - 1);
                 float p = 0; foreach (var kv in tp.camadas) p += PesoCamada(i, j, kv.Key) * kv.Value;
+                if (tp.grande && !tp.beira) p = p * 0.6f + 0.5f * Vazio(x, z);
                 float estrada = PesoCamada(i, j, "Barro");
                 if (tp.trilha) { if (estrada < 0.5f) continue; p = 1f; }                                          // em cima do barro, espacadas
                 else if (tp.beira) { float prox = 0; for (int dd = 4; dd <= 12; dd += 4) { foreach (var o in new[] { (dd, 0), (-dd, 0), (0, dd), (0, -dd) }) prox = Mathf.Max(prox, PesoCamada(Mathf.Clamp(i + o.Item1, 0, aw - 1), Mathf.Clamp(j + o.Item2, 0, ah - 1), "Barro")); } if (estrada > 0.2f || prox < 0.5f) continue; p = 1f; }   // na beira da estrada
