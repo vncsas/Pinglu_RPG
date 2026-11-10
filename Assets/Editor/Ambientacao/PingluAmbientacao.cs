@@ -88,6 +88,9 @@ public static class PingluAmbientacao
         EditorSceneManager.MarkSceneDirty(EditorSceneManager.GetActiveScene());
     }
 
+    // abre a cena nova ao iniciar o editor (usado por quem lanca o Unity por linha de comando)
+    public static void AbrirCena() { EditorSceneManager.OpenScene("Assets/Scenes/SampleScene_Ambientacao.unity", OpenSceneMode.Single); }
+
     // usado em batch: abre a cena original, aplica e salva em outra cena (a original nao muda)
     public static void Batch()
     {
@@ -170,15 +173,31 @@ public static class PingluAmbientacao
         int dw = dados.detailWidth, dh = dados.detailHeight; var zero = new int[dh, dw];
         for (int i = 0; i < Mathf.Min(3, dados.detailPrototypes.Length); i++) if (dados.detailPrototypes[i].prototype == null && dados.detailPrototypes[i].prototypeTexture != null) dados.SetDetailLayer(0, 0, i, zero);
 
+        // folhas do chao (detalhes 3 e 4): so onde ha arvore por perto (raio ~7 m); no resto do mapa saem
+        {
+            var perto = new bool[dh, dw];
+            foreach (var ti in dados.treeInstances)
+            {
+                int cx = Mathf.Clamp((int)(ti.position.x * (dw - 1)), 0, dw - 1), cz = Mathf.Clamp((int)(ti.position.z * (dh - 1)), 0, dh - 1);
+                for (int dz = -7; dz <= 7; dz++) for (int dx = -7; dx <= 7; dx++) { int i = cx + dx, j = cz + dz; if (i >= 0 && j >= 0 && i < dw && j < dh && dx * dx + dz * dz <= 49) perto[j, i] = true; }
+            }
+            for (int d = 3; d < Mathf.Min(5, dados.detailPrototypes.Length); d++)
+            {
+                var m = dados.GetDetailLayer(0, 0, dw, dh, d);
+                for (int j = 0; j < dh; j++) for (int i = 0; i < dw; i++) if (!perto[j, i]) m[j, i] = 0;
+                dados.SetDetailLayer(0, 0, d, m);
+            }
+        }
+
         // 3) pinta: estrada de barro mais larga e irregular + manchas de folhas caidas em volta das arvores
         int w = dados.alphamapWidth, h = dados.alphamapHeight; var a = dados.GetAlphamaps(0, 0, w, h);
         float wx = dados.size.x / w, wz = dados.size.z / h;
         var rd = new float[h, w];
         for (int j = 0; j < h; j++) for (int i = 0; i < w; i++)
         {
-            if (temVila && vila.Contains(new Vector2(i * wx, j * wz))) continue;
+            bool naVila = temVila && vila.Contains(new Vector2(i * wx, j * wz));
             float r = a[j, i, 6] + a[j, i, 8]; if (r <= 0f) continue;
-            a[j, i, barro] += r; a[j, i, 6] = 0f; a[j, i, 8] = 0f; rd[j, i] = a[j, i, barro];
+            a[j, i, barro] += r; a[j, i, 6] = 0f; a[j, i, 8] = 0f; if (!naVila) rd[j, i] = a[j, i, barro];
         }
         var bl = Blur(Blur(rd, w, h, 2), w, h, 2);
         void Garante(int j, int i, int k, float alvo)

@@ -17,7 +17,8 @@ public static class PingluAmbientacao_Fotos
             ("vila", "Vila_Gerada/Praca", 38, 7), ("vila_rua", "Vila_Gerada/Estrada", 30, 4), ("colheita", "Vila_Gerada/Colheita e Arredores", 40, 6),
             ("cemiterio", "Mundo_Gerado/Cemiterio", 70, 14), ("natureza", "Mundo_Gerado/Natureza", 60, 8), ("castelo", "Mundo_Gerado/Castelo Destruido", 60, 12),
             ("pantano", "Biomas_Gerados/Pantano", 45, 8), ("floresta", "Biomas_Gerados/Floresta Sombria", 50, 8), ("queimadas", "Biomas_Gerados/Terras Queimadas", 50, 10), ("colinas", "Biomas_Gerados/Colinas de Pedra", 50, 10),
-            ("bandidos", "Mundo_Gerado/Acampamento de Bandidos 1", 25, 5), ("chao_colheita", "Vila_Gerada/Colheita e Arredores", 55, 1.8f), ("chao_rua", "Vila_Gerada/Caminhos da Vila", 28, 1.8f), ("chao_natureza", "Mundo_Gerado/Natureza", 20, 1.8f) };
+            ("bandidos", "Mundo_Gerado/Acampamento de Bandidos 1", 25, 5), ("chao_colheita", "Vila_Gerada/Colheita e Arredores", 55, 1.8f), ("chao_rua", "Vila_Gerada/Caminhos da Vila", 28, 1.8f), ("rua_perto", "Vila_Gerada/Caminhos da Vila", 18, 2.5f), ("rua_perto2", "Vila_Gerada/Estrada", 16, 2.5f), ("chao_natureza", "Mundo_Gerado/Natureza", 20, 1.8f) };
+        var esc = System.Environment.GetEnvironmentVariable("FOTOS_ESCONDER"); if (esc != null) foreach (var rr in Object.FindObjectsByType<Renderer>(FindObjectsInactive.Exclude)) if (rr.name.StartsWith(esc)) rr.enabled = false;
         var camGO = new GameObject("FotoCam"); var cam = camGO.AddComponent<Camera>(); cam.fieldOfView = 62; cam.farClipPlane = 900; cam.clearFlags = CameraClearFlags.Skybox;
         camGO.AddComponent<UnityEngine.Rendering.Universal.UniversalAdditionalCameraData>();
         var filtro = System.Environment.GetEnvironmentVariable("FOTOS_FILTRO");

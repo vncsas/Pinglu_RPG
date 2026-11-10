@@ -13,3 +13,4 @@
 - Texturas novas nas camadas (ambientCG, CC0): campo (Grass004), mata (Ground106), folhas (ScatteredLeaves009), lama, pedra, cascalho.
 - Estradas fora da vila viram barro (camada `Barro`, mais larga e irregular); as ruas de pedra da vila ficam como eram.
 - Manchas de folhas caidas em volta das arvores.
+- Folhas do chao (detalhes 3 e 4 do terreno): so permanecem perto de arvores; o resto sai.
