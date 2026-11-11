@@ -133,6 +133,7 @@ public static class PingluAmbientacao
         Pavimentar(raiz);
         EnvelhecerConstrucoes();
         CriarLago(raiz);
+        new GameObject("Atalhos do Mapa").transform.SetParent(raiz); raiz.Find("Atalhos do Mapa").gameObject.AddComponent<PingluAtalhosMapa>();
         AplicarGrama(); string rel = AplicarPedras(raiz); Plantas(raiz);
         EditorSceneManager.MarkSceneDirty(EditorSceneManager.GetActiveScene());
         Debug.Log("[Ambientacao] pronto. " + rel);
@@ -388,6 +389,27 @@ public static class PingluAmbientacao
             // arvores do terreno dentro do lago saem (da copia)
             var arv = dados.treeInstances.Where(t => (new Vector2(t.position.x * W, t.position.z * Lz) - lagoC).magnitude > 66f).ToArray(); dados.SetTreeInstances(arv, true);
         }
+        // ---- encosta o terreno nas malhas das ruas/praca da vila (sem "degrau" de terra) -- so sobe, ate 5 m para fora da malha
+        {
+            var chao = Object.FindObjectsByType<MeshFilter>(FindObjectsInactive.Exclude).Where(f => f.sharedMesh != null && (f.name.StartsWith("Ruas -") || f.name.StartsWith("Praca -"))).ToList(); var temps = new List<GameObject>(); Bounds? uni = null;
+            foreach (var f in chao) { var g = new GameObject("tmp_chao"); g.layer = 31; g.transform.SetPositionAndRotation(f.transform.position, f.transform.rotation); g.transform.localScale = f.transform.lossyScale; g.AddComponent<MeshCollider>().sharedMesh = f.sharedMesh; temps.Add(g); var bb = f.GetComponent<Renderer>().bounds; if (uni == null) uni = bb; else { var u = uni.Value; u.Encapsulate(bb); uni = u; } }
+            if (uni != null)
+            {
+                Physics.SyncTransforms(); var ub = uni.Value; int levantados = 0; float topo = ub.max.y + 60f;
+                bool Raio(float x, float z, out float yy) { if (Physics.Raycast(new Vector3(x, topo, z), Vector3.down, out var hh, 200f, 1 << 31, QueryTriggerInteraction.Ignore)) { yy = hh.point.y; return true; } yy = 0; return false; }
+                int i0 = Mathf.Max(0, (int)((ub.min.x - 6f) / W * (res - 1))), i1 = Mathf.Min(res - 1, (int)((ub.max.x + 6f) / W * (res - 1)) + 1), j0 = Mathf.Max(0, (int)((ub.min.z - 6f) / Lz * (res - 1))), j1 = Mathf.Min(res - 1, (int)((ub.max.z + 6f) / Lz * (res - 1)) + 1);
+                var dirs = new[] { (1f, 0f), (-1f, 0f), (0f, 1f), (0f, -1f), (0.7f, 0.7f), (-0.7f, 0.7f), (0.7f, -0.7f), (-0.7f, -0.7f) };
+                for (int j = j0; j <= j1; j++) for (int i = i0; i <= i1; i++)
+                {
+                    float x = i * W / (res - 1), z = j * Lz / (res - 1); float ry, d = 0f; bool ok = Raio(x, z, out ry);
+                    for (float dd = 1.5f; !ok && dd <= 5.5f; dd += 1.5f) foreach (var dr in dirs) if (Raio(x + dr.Item1 * dd, z + dr.Item2 * dd, out ry)) { ok = true; d = dd; break; }
+                    if (!ok) continue; float alvo = ry - 0.05f, atual = hm[j, i] * alt; if (atual >= alvo) continue;
+                    float nv = Mathf.Lerp(atual, alvo, 1f - Mathf.Clamp01(d / 5.5f)); nv = Mathf.Min(nv, atual + 1.2f); delta[j, i] += nv - atual; hm[j, i] = Mathf.Clamp01(nv / alt); levantados++;
+                }
+                Debug.Log($"[Ambientacao] terreno encostado nas ruas da vila: {levantados} pontos levantados");
+            }
+            foreach (var g in temps) Object.DestroyImmediate(g);
+        }
         dados.SetHeights(0, 0, hm);
         // reassenta objetos pequenos
         float Delta(float x, float z) { float u = Mathf.Clamp01(x / W) * (res - 1), v = Mathf.Clamp01(z / Lz) * (res - 1); int i0 = Mathf.Min((int)u, res - 2), j0 = Mathf.Min((int)v, res - 2); float fu = u - i0, fv = v - j0; return Mathf.Lerp(Mathf.Lerp(delta[j0, i0], delta[j0, i0 + 1], fu), Mathf.Lerp(delta[j0 + 1, i0], delta[j0 + 1, i0 + 1], fu), fv); }
@@ -464,13 +486,16 @@ public static class PingluAmbientacao
     {
         if (lagoWL < -900f) return;
         var sh = Shader.Find("Universal Render Pipeline/Lit");
-        var agua = Mat("Lago_Agua", sh, m =>
+        var shAgua = Shader.Find("Pinglu/AguaPantano");
+        var agua = Mat("Lago_Agua", shAgua != null ? shAgua : sh, m =>
         {
-            m.SetFloat("_Surface", 1f); m.SetFloat("_Blend", 0f); m.SetOverrideTag("RenderType", "Transparent"); m.SetInt("_SrcBlend", 5); m.SetInt("_DstBlend", 10); m.SetInt("_SrcBlendAlpha", 1); m.SetInt("_DstBlendAlpha", 10); m.SetInt("_ZWrite", 0);
-            m.EnableKeyword("_SURFACE_TYPE_TRANSPARENT"); m.renderQueue = 3000; m.SetColor("_BaseColor", new Color(0.07f, 0.12f, 0.09f, 0.90f)); m.SetFloat("_Smoothness", 0.92f); m.SetFloat("_Metallic", 0f);
-            var n = AssetDatabase.LoadAssetAtPath<Texture2D>($"{PASTA}/Texturas/agua_normal.png"); var ti = AssetImporter.GetAtPath($"{PASTA}/Texturas/agua_normal.png") as TextureImporter; if (ti != null && ti.textureType != TextureImporterType.NormalMap) { ti.textureType = TextureImporterType.NormalMap; ti.SaveAndReimport(); n = AssetDatabase.LoadAssetAtPath<Texture2D>($"{PASTA}/Texturas/agua_normal.png"); }
-            if (n) { m.SetTexture("_BumpMap", n); m.SetTextureScale("_BumpMap", new Vector2(18f, 18f)); m.EnableKeyword("_NORMALMAP"); m.SetFloat("_BumpScale", 0.35f); }
+            if (shAgua == null) { m.SetColor("_BaseColor", new Color(0.07f, 0.12f, 0.09f, 0.9f)); return; }
+            var nt = AssetImporter.GetAtPath($"{PASTA}/Texturas/agua_normal.png") as TextureImporter; if (nt != null && nt.textureType != TextureImporterType.NormalMap) { nt.textureType = TextureImporterType.NormalMap; nt.SaveAndReimport(); }
+            m.SetTexture("_NormalMap", AssetDatabase.LoadAssetAtPath<Texture2D>($"{PASTA}/Texturas/agua_normal.png"));
+            m.SetColor("_ShallowColor", new Color(0.24f, 0.27f, 0.12f, 0.92f)); m.SetColor("_DeepColor", new Color(0.07f, 0.09f, 0.045f, 0.995f)); m.SetFloat("_DepthDistance", 1.1f);
+            m.SetFloat("_NormalScale", 0.05f); m.SetFloat("_FoamWidth", 0.25f); m.SetColor("_FoamColor", new Color(0.42f, 0.45f, 0.26f, 1f)); m.SetFloat("_Smoothness", 40f);
         });
+        var cam = Camera.main; if (cam != null) { var cd = cam.GetComponent<UnityEngine.Rendering.Universal.UniversalAdditionalCameraData>(); if (cd != null) cd.requiresDepthTexture = true; }
         var pai = new GameObject("Lago do Pantano").transform; pai.SetParent(raiz);
         var vs = new List<Vector3>(); var uvs = new List<Vector2>(); var tris = new List<int>(); const float cel = 2f;
         for (float x = lagoC.x - 100f; x < lagoC.x + 100f; x += cel) for (float z = lagoC.y - 100f; z < lagoC.y + 100f; z += cel)
@@ -545,7 +570,7 @@ public static class PingluAmbientacao
         Material Folha(string nome, string tex, Color tint) => Mat("Kit_" + nome, sh, m => { var t = Tex(tex); var pth = $"{PASTA}/Texturas/{tex}.png"; var ti = AssetImporter.GetAtPath(pth) as TextureImporter; if (ti != null && !ti.alphaIsTransparency) { ti.alphaIsTransparency = true; ti.SaveAndReimport(); } m.SetTexture("_BaseMap", AssetDatabase.LoadAssetAtPath<Texture2D>(pth)); m.SetColor("_BaseColor", tint); m.SetFloat("_Smoothness", 0.05f); m.SetFloat("_AlphaClip", 1f); m.SetFloat("_Cutoff", 0.5f); m.EnableKeyword("_ALPHATEST_ON"); m.SetFloat("_Cull", 0f); m.renderQueue = 2450; });
         var dic = new Dictionary<string, Material>
         {
-            ["Leaves"] = Folha("Plantas", "Leaves", new Color(0.62f, 0.78f, 0.52f)), ["Leaves_NormalTree"] = Folha("Arbusto", "Leaves_NormalTree_C", new Color(0.66f, 0.80f, 0.52f)),
+            ["Leaves"] = Folha("Plantas", "Leaves", new Color(0.62f, 0.78f, 0.52f)), ["Leaves_TwistedTree"] = Folha("ArbustoB", "Leaves_TwistedTree_C", new Color(0.62f, 0.74f, 0.46f)), ["Leaves_NormalTree"] = Folha("Arbusto", "Leaves_NormalTree_C", new Color(0.66f, 0.80f, 0.52f)),
             ["Flowers"] = Folha("Flores", "Flowers", new Color(0.85f, 0.82f, 0.8f)),
             ["Mushrooms"] = Mat("Kit_Cogumelos", sh, m => { m.SetTexture("_BaseMap", AssetDatabase.LoadAssetAtPath<Texture2D>($"{PASTA}/Texturas/Mushrooms.png")); m.SetColor("_BaseColor", new Color(0.8f, 0.78f, 0.74f)); m.SetFloat("_Smoothness", 0.1f); })
         };
@@ -617,19 +642,19 @@ public static class PingluAmbientacao
     static string AplicarPedras(Transform raiz)
     {
         var shLit = Shader.Find("Universal Render Pipeline/Lit");
-        var mRocha = Mat("Kit_Rochas", shLit, m => { m.SetTexture("_BaseMap", Tex("Rocks_Diffuse")); m.SetColor("_BaseColor", new Color(0.9f, 0.9f, 0.9f)); m.SetFloat("_Smoothness", 0f); m.SetFloat("_Metallic", 0f); });
-        var mTrilha = Mat("Kit_PedrasTrilha", shLit, m => { m.SetTexture("_BaseMap", Tex("PathRocks_Diffuse")); m.SetColor("_BaseColor", new Color(0.88f, 0.88f, 0.88f)); m.SetFloat("_Smoothness", 0f); m.SetFloat("_Metallic", 0f); });
+        var mRocha = Mat("Kit_Rochas", shLit, m => { m.SetTexture("_BaseMap", Tex("Rocks_Diffuse")); m.SetColor("_BaseColor", new Color(1.55f, 1.5f, 1.4f)); m.SetFloat("_Smoothness", 0f); m.SetFloat("_Metallic", 0f); });
+        var mTrilha = Mat("Kit_PedrasTrilha", shLit, m => { m.SetTexture("_BaseMap", Tex("PathRocks_Diffuse")); m.SetColor("_BaseColor", new Color(1.4f, 1.38f, 1.3f)); m.SetFloat("_Smoothness", 0f); m.SetFloat("_Metallic", 0f); });
         AssetDatabase.SaveAssets();
         string[] N(string pre, int n) => Enumerable.Range(1, n).Select(i => $"{pre}_{i}").ToArray();
         var tipos = new List<Tipo>
         {
-            new Tipo { nomes = N("Rock_Medium", 3), hMin = 0.9f, hMax = 2.8f, colisor = true, grande = true, qtd = 320, espaco = 14, declMax = 45,
+            new Tipo { nomes = N("Rock_Medium", 3), hMin = 0.9f, hMax = 2.8f, colisor = true, grande = true, qtd = 320, espaco = 14, declMax = 30,
                 camadas = new() { {"Rocha", 1f}, {"Campo", 0.22f}, {"CampoVivo", 0.2f}, {"Grass_Dry", 0.5f}, {"CampoSeco", 0.55f}, {"Heather", 0.5f}, {"Mata", 0.3f}, {"MataSombria", 0.35f}, {"TerraMorta", 0.5f}, {"MusgoSombrio", 0.5f}, {"Grass_Moss", 0.35f} } },
             new Tipo { nomes = N("Pebble_Round", 5).Concat(N("Pebble_Square", 6)).ToArray(), hMin = 0.16f, hMax = 0.42f, qtd = 900, declMax = 55,
                 camadas = new() { {"Rocha", 1f}, {"Pebbles_A_TerrainLayer", 1f}, {"Campo", 0.35f}, {"CampoVivo", 0.3f}, {"Grass_Dry", 0.6f}, {"CampoSeco", 0.7f}, {"Heather", 0.5f}, {"Mata", 0.3f}, {"MataSombria", 0.3f}, {"TerraMorta", 0.5f}, {"MusgoSombrio", 0.4f}, {"Barro", 0.5f} } },
             new Tipo { nomes = new[] { "RockPath_Round_Wide", "RockPath_Round_Small_1", "RockPath_Round_Small_2", "RockPath_Round_Small_3", "RockPath_Square_Wide", "RockPath_Square_Small_1", "RockPath_Square_Small_2", "RockPath_Square_Small_3" },
                 trilha = true, hMin = 1.5f, hMax = 2.6f, qtd = 900, declMax = 30, espaco = 3.2f, camadas = new() { {"Barro", 1f} } },
-            new Tipo { nomes = N("Rock_Medium", 3), hMin = 1.1f, hMax = 3.2f, colisor = true, grande = true, beira = true, qtd = 260, espaco = 7f, declMax = 45, camadas = new() { {"Barro", 1f} } },
+            new Tipo { nomes = N("Rock_Medium", 3), hMin = 1.1f, hMax = 3.2f, colisor = true, grande = true, beira = true, qtd = 260, espaco = 7f, declMax = 28, camadas = new() { {"Barro", 1f} } },
         };
         var rnd = new System.Random(4242); var usados = new List<Vector3>(); var sb = new System.Text.StringBuilder();
         float W = dados.size.x, L = dados.size.z; int total = 0;
@@ -659,7 +684,7 @@ public static class PingluAmbientacao
                 var pf = AssetDatabase.LoadAssetAtPath<GameObject>($"{PASTA}/Pedras/{tp.nomes[rnd.Next(tp.nomes.Length)]}.fbx"); if (pf == null) break;
                 var go = (GameObject)PrefabUtility.InstantiatePrefab(pf); go.transform.SetParent(pai);
                 var nrm = dados.GetInterpolatedNormal(x / W, z / L);
-                go.transform.position = pos; go.transform.rotation = Quaternion.Slerp(Quaternion.identity, Quaternion.FromToRotation(Vector3.up, nrm), tp.trilha ? 1f : 0.5f) * Quaternion.Euler(0, (float)rnd.NextDouble() * 360f, 0);
+                go.transform.position = pos; go.transform.rotation = Quaternion.Slerp(Quaternion.identity, Quaternion.FromToRotation(Vector3.up, nrm), tp.trilha ? 1f : 0.25f) * Quaternion.Euler(0, (float)rnd.NextDouble() * 360f, 0);
                 var rs = go.GetComponentsInChildren<Renderer>(); var mat = tp.trilha ? mTrilha : mRocha;
                 foreach (var r in rs) { var ms = r.sharedMaterials; for (int m = 0; m < ms.Length; m++) ms[m] = mat; r.sharedMaterials = ms; }
                 var bb = rs[0].bounds; foreach (var r in rs) bb.Encapsulate(r.bounds);
@@ -667,7 +692,9 @@ public static class PingluAmbientacao
                 if (tp.trilha) { float larg = Mathf.Max(bb.size.x, bb.size.z); esc = Mathf.Clamp(h / Mathf.Max(0.01f, larg), 0.1f, 50f); }
                 else esc = h / Mathf.Max(0.01f, bb.size.y);
                 go.transform.localScale = Vector3.one * esc;
-                go.transform.position = pos + Vector3.down * (tp.grande ? h * 0.12f : 0.03f);
+                float raioP = Mathf.Max(bb.size.x, bb.size.z) * esc * 0.45f, yMin = pos.y;
+                for (int q = 0; q < 8; q++) { float aq = q * Mathf.PI / 4f; yMin = Mathf.Min(yMin, terreno.SampleHeight(new Vector3(pos.x + Mathf.Cos(aq) * raioP, 0, pos.z + Mathf.Sin(aq) * raioP)) + terreno.transform.position.y); }
+                go.transform.position = new Vector3(pos.x, yMin - (tp.grande ? h * 0.10f : 0.03f), pos.z);
                 if (tp.colisor) { var mf = go.GetComponentInChildren<MeshFilter>(); if (mf) { var col = mf.gameObject.AddComponent<MeshCollider>(); col.sharedMesh = mf.sharedMesh; } }
                 foreach (var t in go.GetComponentsInChildren<Transform>()) GameObjectUtility.SetStaticEditorFlags(t.gameObject, StaticEditorFlags.BatchingStatic | StaticEditorFlags.ContributeGI | StaticEditorFlags.ReflectionProbeStatic);
                 feitos++; total++;

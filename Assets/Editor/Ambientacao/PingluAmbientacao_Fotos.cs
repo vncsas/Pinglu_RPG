@@ -28,6 +28,15 @@ public static class PingluAmbientacao_Fotos
             var rt0 = new RenderTexture(1400, 1400, 24, RenderTextureFormat.ARGB32); cam.targetTexture = rt0; cam.Render(); RenderTexture.active = rt0; var tx = new Texture2D(1400, 1400, TextureFormat.RGB24, false); tx.ReadPixels(new Rect(0, 0, 1400, 1400), 0, 0); tx.Apply();
             File.WriteAllBytes($"{pasta}/mapa.png", tx.EncodeToPNG()); RenderTexture.active = null; cam.targetTexture = null; cam.orthographic = false; Debug.Log("[FOTO] mapa");
         }
+        var livres = System.Environment.GetEnvironmentVariable("FOTOS_PONTOS");
+        if (livres != null)
+            foreach (var item in livres.Split(';'))
+            {
+                var q = item.Split(':'); if (q.Length < 6) continue; float x = float.Parse(q[1], System.Globalization.CultureInfo.InvariantCulture), z = float.Parse(q[2], System.Globalization.CultureInfo.InvariantCulture), alt = float.Parse(q[3], System.Globalization.CultureInfo.InvariantCulture), yaw = float.Parse(q[4], System.Globalization.CultureInfo.InvariantCulture), pit = float.Parse(q[5], System.Globalization.CultureInfo.InvariantCulture);
+                var pos = new Vector3(x, t.SampleHeight(new Vector3(x, 0, z)) + alt, z); cam.transform.position = pos; cam.transform.rotation = Quaternion.Euler(pit, yaw, 0);
+                var rt = new RenderTexture(1280, 720, 24, RenderTextureFormat.ARGB32); cam.targetTexture = rt; cam.Render(); RenderTexture.active = rt; var tex = new Texture2D(1280, 720, TextureFormat.RGB24, false); tex.ReadPixels(new Rect(0, 0, 1280, 720), 0, 0); tex.Apply();
+                File.WriteAllBytes($"{pasta}/{q[0]}.png", tex.EncodeToPNG()); RenderTexture.active = null; cam.targetTexture = null; Object.DestroyImmediate(rt); Object.DestroyImmediate(tex); Debug.Log("[FOTO] livre " + q[0]);
+            }
         foreach (var a in alvos)
         {
             if (filtro != null && !filtro.Split(',').Contains(a.nome)) continue;
