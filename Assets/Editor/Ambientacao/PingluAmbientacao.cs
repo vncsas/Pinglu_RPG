@@ -118,7 +118,9 @@ public static class PingluAmbientacao
     static void Aplicar()
     {
         terreno = Terrain.activeTerrain;
-        var velho = GameObject.Find(RAIZ); if (velho != null) Object.DestroyImmediate(velho);
+        var velho = GameObject.Find(RAIZ);
+        if (velho != null) { Debug.LogWarning("[Ambientacao] esta cena ja tem a ambientacao aplicada (o relevo mexe nos objetos). Abra a SampleScene original e rode de novo."); if (!Application.isBatchMode) EditorUtility.DisplayDialog("Pinglu", "Esta cena ja tem a ambientacao aplicada. Abra a SampleScene original e rode de novo.", "OK"); return; }
+        ocupLocal = null;
         aguas.Clear();
         foreach (var r in Object.FindObjectsByType<Renderer>(FindObjectsInactive.Exclude)) if (r.sharedMaterials.Any(m => m != null && m.name.ToLower().Contains("agua"))) { var b = r.bounds; b.Expand(new Vector3(6, 40, 6)); aguas.Add(b); }
         PrepararTerrenoNovo();
@@ -153,6 +155,7 @@ public static class PingluAmbientacao
         if (!AssetDatabase.CopyAsset(TERRENO_ORIGINAL, destino)) { Debug.LogError("[Ambientacao] nao consegui copiar o terreno"); dados = orig; return; }
         AssetDatabase.Refresh(); dados = AssetDatabase.LoadAssetAtPath<TerrainData>(destino);
         terreno.terrainData = dados; var tc = terreno.GetComponent<TerrainCollider>(); if (tc != null) tc.terrainData = dados;
+        terreno.basemapDistance = 300f; terreno.detailObjectDistance = 60f; terreno.heightmapPixelError = 5f;   // mais leve (o capim e a grama instanciada)
 
         // 1) texturas do chao: barro de verdade na estrada, grama de campo, folhas na mata, etc. (nomes mantidos: "Soil_Rocks" identifica as estradas)
         var camadas = dados.terrainLayers.ToList();
@@ -225,6 +228,7 @@ public static class PingluAmbientacao
         }
         dados.SetAlphamaps(0, 0, a);
         RelevoNasAreasVazias(a, w, h, barro);
+        RelevoMapaTodo();
         EditorUtility.SetDirty(dados); AssetDatabase.SaveAssets();
     }
 
@@ -251,16 +255,6 @@ public static class PingluAmbientacao
         var cru = new float[vazioN, vazioN]; for (int j = 0; j < vazioN; j++) for (int i = 0; i < vazioN; i++) cru[j, i] = 1f - ocupado[j, i];
         vazio = Blur(Blur(Blur(cru, vazioN, vazioN, 3), vazioN, vazioN, 3), vazioN, vazioN, 3);
         for (int j = 0; j < vazioN; j++) for (int i = 0; i < vazioN; i++) vazio[j, i] = Mathf.Clamp01((vazio[j, i] - 0.15f) / 0.7f) ;
-        // colinas: ondulacao de ~90 m com ate ~±5 m, mais um pouco de detalhe
-        int res = dados.heightmapResolution; var hm = dados.GetHeights(0, 0, res, res); float alt = dados.size.y; float soma = 0; int n = 0;
-        for (int j = 0; j < res; j++) for (int i = 0; i < res; i++)
-        {
-            float x = i * W / (res - 1), z = j * L / (res - 1); float m = Vazio(x, z); if (m <= 0.001f) continue;
-            float f = (Mathf.PerlinNoise(x * 0.011f + 31.7f, z * 0.011f + 7.3f) - 0.5f) * 2f * 0.65f + (Mathf.PerlinNoise(x * 0.032f + 90f, z * 0.032f + 12f) - 0.5f) * 2f * 0.35f;
-            float delta = f * 5.2f * m; hm[j, i] = Mathf.Clamp01(hm[j, i] + delta / alt); soma += Mathf.Abs(delta); n++;
-        }
-        dados.SetHeights(0, 0, hm);
-        Debug.Log($"[Ambientacao] relevo: {n} pontos alterados, variacao media {(n > 0 ? soma / n : 0):0.0} m (so em areas vazias)");
     }
 
     static float[,] Blur(float[,] src, int w, int h, int r)
@@ -316,7 +310,7 @@ public static class PingluAmbientacao
         var lajes = Enumerable.Range(1, 3).Select(i => MalhaLegivel($"{PASTA}/Pavimento/Calc_R{i}.fbx")).Concat(Enumerable.Range(1, 3).Select(i => MalhaLegivel($"{PASTA}/Pavimento/Calc_Q{i}.fbx"))).ToArray();
         var seixos = Enumerable.Range(1, 5).Select(i => MalhaLegivel($"{PASTA}/Pedras/Pebble_Round_{i}.fbx")).Concat(Enumerable.Range(1, 6).Select(i => MalhaLegivel($"{PASTA}/Pedras/Pebble_Square_{i}.fbx"))).ToArray();
         // chao de terra sob as pedras (aparece nas juntas); o papel de pedra original some
-        var terra = MatTex("Vila_TerraSobAsPedras", "Ground076", new Color(0.20f, 0.19f, 0.17f), 40f);
+        var terra = MatTex("Vila_TerraSobAsPedras", "Ground076", new Color(0.80f, 0.72f, 0.62f), 40f);
         var tons = new[] { new Color(1.65f, 1.65f, 1.6f), new Color(1.3f, 1.33f, 1.36f), new Color(1.5f, 1.46f, 1.38f) };
         var mats = tons.Select((t, i) => MatTex("Vila_Pedra" + i, "Rock030", t, 1f)).ToArray();
         AssetDatabase.SaveAssets();
@@ -329,18 +323,18 @@ public static class PingluAmbientacao
         Fundidor F(float x, float z, int m) { var k = (Mathf.FloorToInt(x / 18f), Mathf.FloorToInt(z / 18f), m); if (!fund.TryGetValue(k, out var fu)) { fu = new Fundidor(); fund[k] = fu; } return fu; }
         foreach (var f in alvos)
         {
-            var b = f.GetComponent<Renderer>().bounds; const float passo = 0.82f;
+            var b = f.GetComponent<Renderer>().bounds; const float passo = 0.66f;
             for (float x = b.min.x; x <= b.max.x; x += passo) for (float z = b.min.z; z <= b.max.z; z += passo)
             {
-                float jx = x + (float)(rnd.NextDouble() - 0.5) * 0.30f, jz = z + (float)(rnd.NextDouble() - 0.5) * 0.30f;
-                long key = ((long)Mathf.FloorToInt(jx / 0.75f) << 32) ^ (long)Mathf.FloorToInt(jz / 0.75f); if (ocupado.Contains(key)) continue;
+                float jx = x + (float)(rnd.NextDouble() - 0.5) * 0.26f, jz = z + (float)(rnd.NextDouble() - 0.5) * 0.26f;
+                long key = ((long)Mathf.FloorToInt(jx / 0.58f) << 32) ^ (long)Mathf.FloorToInt(jz / 0.58f); if (ocupado.Contains(key)) continue;
                 if (Hit(jx, jz, b.max.y, out var h))
                 {
                     int dentro = 0; foreach (var o in new[] { (0.42f, 0f), (-0.42f, 0f), (0f, 0.42f), (0f, -0.42f) }) if (Hit(jx + o.Item1, jz + o.Item2, b.max.y, out _)) dentro++;
                     if (dentro < 3) { if (rnd.NextDouble() < 0.55) goto seixo; else continue; }
                     ocupado.Add(key);
-                    float e = Mathf.Lerp(0.95f, 1.22f, (float)rnd.NextDouble()); var rot = Quaternion.FromToRotation(Vector3.up, h.normal) * Quaternion.Euler(0, (float)rnd.NextDouble() * 360f, 0);
-                    F(jx, jz, rnd.Next(3)).Add(lajes[rnd.Next(lajes.Length)], h.point + Vector3.up * 0.012f, rot, new Vector3(e, Mathf.Lerp(0.85f, 1.3f, (float)rnd.NextDouble()), e * Mathf.Lerp(0.9f, 1.1f, (float)rnd.NextDouble())), UO()); nL++;
+                    float e = Mathf.Lerp(0.55f, 1.0f, Mathf.Pow((float)rnd.NextDouble(), 0.8f)); var rot = Quaternion.FromToRotation(Vector3.up, h.normal) * Quaternion.Euler(0, (float)rnd.NextDouble() * 360f, 0);
+                    F(jx, jz, rnd.Next(3)).Add(lajes[rnd.Next(lajes.Length)], h.point + Vector3.up * 0.01f, rot, new Vector3(e * Mathf.Lerp(0.85f, 1.3f, (float)rnd.NextDouble()), Mathf.Lerp(0.6f, 1.0f, (float)rnd.NextDouble()), e * Mathf.Lerp(0.85f, 1.3f, (float)rnd.NextDouble())), UO()); nL++;
                     continue;
                 }
                 else
@@ -372,6 +366,77 @@ public static class PingluAmbientacao
             }
         }
         Debug.Log($"[Ambientacao] calcamento: {nL} lajes + {nS} seixos em {k2} malhas");
+    }
+
+
+    // ------------------------------------------------------------------ relevo no MAPA TODO
+    // Colinas e vales em 3 escalas (~260 m, ~110 m, ~45 m), mais fortes onde o mapa e vazio. Nao mexe onde ha construcoes grandes
+    // (vila, castelo, cemiterio, montanhas, calcadas): ali o relevo desce a zero com transicao suave de 30 m.
+    // Objetos pequenos (rochas, arvores como objeto, barracas, animais...) sao reassentados: sobem/descem junto com o chao.
+    static void RelevoMapaTodo()
+    {
+        float W = dados.size.x, Lz = dados.size.z; int G = Mathf.CeilToInt(W / CELULA);
+        var prot = new bool[G, G];
+        void Protege(Bounds b, float folga) { int i0 = Mathf.Max(0, (int)((b.min.x - folga) / CELULA)), i1 = Mathf.Min(G - 1, (int)((b.max.x + folga) / CELULA)), j0 = Mathf.Max(0, (int)((b.min.z - folga) / CELULA)), j1 = Mathf.Min(G - 1, (int)((b.max.z + folga) / CELULA)); for (int j = j0; j <= j1; j++) for (int i = i0; i <= i1; i++) prot[j, i] = true; }
+        string[] raizesProtegidas = { "Vila_Gerada", "Cavaleiro Antigo (mini-boss)", "Jogador (Cavaleiro Sombrio)" };
+        string[] subProtegidos = { "Cemiterio", "Castelo Destruido", "Camposanto_Antigo_Oculto", "[oculto pelo castelo] Ruinas da Fortaleza" };
+        var todos = Object.FindObjectsByType<Renderer>(FindObjectsInactive.Exclude);
+        foreach (var r in todos)
+        {
+            if (r is ParticleSystemRenderer || r.GetComponent<Terrain>() != null) continue; var b = r.bounds; if (b.center.y < -500f) continue;
+            var raizT = r.transform.root; bool prote = raizesProtegidas.Contains(raizT.name) || r.transform.GetComponentsInParent<Transform>().Any(t => subProtegidos.Contains(t.name));
+            if (b.size.x > 20f || b.size.z > 20f) prote = true;                                          // construcao ou montanha grande
+            if (prote) Protege(b, 9f);
+        }
+        foreach (var ag in aguas) Protege(ag, 10f);
+        foreach (var nome in new[] { "Horda do Cemiterio", "Limite da Floresta Sombria", "Encontro do Castelo", "Emboscada da Floresta" })
+        { var go = GameObject.Find(nome); if (go == null) continue; foreach (var t in go.GetComponentsInChildren<Transform>()) Protege(new Bounds(t.position, Vector3.one), 14f); }
+        var jog = GameObject.Find("Jogador (Cavaleiro Sombrio)"); if (jog != null) Protege(new Bounds(jog.transform.position, Vector3.one), 26f);
+        // distancia (em celulas) ao protegido: transformada em duas passadas
+        var dist = new float[G, G]; for (int j = 0; j < G; j++) for (int i = 0; i < G; i++) dist[j, i] = prot[j, i] ? 0f : 9999f;
+        for (int j = 0; j < G; j++) for (int i = 0; i < G; i++) { if (j > 0) dist[j, i] = Mathf.Min(dist[j, i], dist[j - 1, i] + 1f); if (i > 0) dist[j, i] = Mathf.Min(dist[j, i], dist[j, i - 1] + 1f); if (i > 0 && j > 0) dist[j, i] = Mathf.Min(dist[j, i], dist[j - 1, i - 1] + 1.41f); if (i < G - 1 && j > 0) dist[j, i] = Mathf.Min(dist[j, i], dist[j - 1, i + 1] + 1.41f); }
+        for (int j = G - 1; j >= 0; j--) for (int i = G - 1; i >= 0; i--) { if (j < G - 1) dist[j, i] = Mathf.Min(dist[j, i], dist[j + 1, i] + 1f); if (i < G - 1) dist[j, i] = Mathf.Min(dist[j, i], dist[j, i + 1] + 1f); if (i < G - 1 && j < G - 1) dist[j, i] = Mathf.Min(dist[j, i], dist[j + 1, i + 1] + 1.41f); if (i > 0 && j < G - 1) dist[j, i] = Mathf.Min(dist[j, i], dist[j + 1, i - 1] + 1.41f); }
+        float Fator(float x, float z) { int i = Mathf.Clamp((int)(x / CELULA), 0, G - 1), j = Mathf.Clamp((int)(z / CELULA), 0, G - 1); float d = dist[j, i] * CELULA; float t = Mathf.Clamp01(d / 30f); return t * t * (3f - 2f * t); }
+        int res = dados.heightmapResolution; var hm = dados.GetHeights(0, 0, res, res); float alt = dados.size.y; var delta = new float[res, res]; float soma = 0, mx = 0; int n = 0;
+        for (int j = 0; j < res; j++) for (int i = 0; i < res; i++)
+        {
+            float x = i * W / (res - 1), z = j * Lz / (res - 1); float fa = Fator(x, z); if (fa <= 0.001f) continue;
+            float f = (Mathf.PerlinNoise(x / 260f + 11.3f, z / 260f + 3.1f) - 0.5f) * 2f * 0.55f + (Mathf.PerlinNoise(x / 110f + 40f, z / 110f + 70f) - 0.5f) * 2f * 0.33f + (Mathf.PerlinNoise(x / 45f + 5f, z / 45f + 90f) - 0.5f) * 2f * 0.12f;
+            float amp = 8f + 5f * (1f - Mathf.Clamp01(OcupacaoLocal(x, z)));                          // mais forte onde e vazio
+            float d = f * amp * fa; float nh = Mathf.Clamp01(hm[j, i] + d / alt); d = (nh - hm[j, i]) * alt; hm[j, i] = nh; delta[j, i] = d; soma += Mathf.Abs(d); mx = Mathf.Max(mx, Mathf.Abs(d)); n++;
+        }
+        dados.SetHeights(0, 0, hm);
+        // reassenta objetos pequenos
+        float Delta(float x, float z) { float u = Mathf.Clamp01(x / W) * (res - 1), v = Mathf.Clamp01(z / Lz) * (res - 1); int i0 = Mathf.Min((int)u, res - 2), j0 = Mathf.Min((int)v, res - 2); float fu = u - i0, fv = v - j0; return Mathf.Lerp(Mathf.Lerp(delta[j0, i0], delta[j0, i0 + 1], fu), Mathf.Lerp(delta[j0 + 1, i0], delta[j0 + 1, i0 + 1], fu), fv); }
+        var feitos = new HashSet<Transform>(); var cacheB = new Dictionary<Transform, Bounds>(); int movidos = 0;
+        Bounds BoundsDe(Transform t) { if (!cacheB.TryGetValue(t, out var bb)) { var rs = t.GetComponentsInChildren<Renderer>(); bb = rs.Length > 0 ? rs[0].bounds : new Bounds(t.position, Vector3.zero); foreach (var q in rs) bb.Encapsulate(q.bounds); cacheB[t] = bb; } return bb; }
+        foreach (var r in todos)
+        {
+            if (r is ParticleSystemRenderer || r.GetComponent<Terrain>() != null) continue; var b0 = r.bounds; if (b0.center.y < -500f || b0.size.x > 20f || b0.size.z > 20f) continue;
+            var raizT = r.transform.root; if (raizesProtegidas.Contains(raizT.name) || r.transform.GetComponentsInParent<Transform>().Any(t => subProtegidos.Contains(t.name))) continue;
+            var topo = r.transform;
+            while (topo.parent != null) { var bp = BoundsDe(topo.parent); if (bp.size.x < 20f && bp.size.z < 20f && bp.size.y < 40f) topo = topo.parent; else break; }
+            if (!feitos.Add(topo)) continue;
+            var c = BoundsDe(topo).center; float d = Delta(c.x, c.z); if (Mathf.Abs(d) < 0.005f) continue;
+            topo.position += Vector3.up * d; movidos++;
+        }
+        Physics.SyncTransforms();
+        Debug.Log($"[Ambientacao] relevo no mapa todo: {n} pontos, variacao media {(n > 0 ? soma / n : 0):0.0} m, maxima {mx:0.0} m; {movidos} objetos reassentados; protegidos: {Enumerable.Range(0, G).Sum(j => Enumerable.Range(0, G).Count(i => prot[j, i]))}/{G * G} celulas");
+    }
+
+    // 0 = vazio, 1 = bem ocupado (objetos + arvores numa janela de ~120 m)
+    static float[,] ocupLocal; static int ocupG;
+    static float OcupacaoLocal(float x, float z)
+    {
+        if (ocupLocal == null)
+        {
+            ocupG = 50; float W = dados.size.x; var g = new float[ocupG, ocupG];
+            foreach (var r in Object.FindObjectsByType<Renderer>(FindObjectsInactive.Exclude)) { var b = r.bounds; if (b.center.y < -500f || r is ParticleSystemRenderer || b.size.x > 60f) continue; g[Mathf.Clamp((int)(b.center.z / W * ocupG), 0, ocupG - 1), Mathf.Clamp((int)(b.center.x / W * ocupG), 0, ocupG - 1)] += 1f; }
+            foreach (var ti in dados.treeInstances) g[Mathf.Clamp((int)(ti.position.z * ocupG), 0, ocupG - 1), Mathf.Clamp((int)(ti.position.x * ocupG), 0, ocupG - 1)] += 1f;
+            ocupLocal = Blur(Blur(g, ocupG, ocupG, 3), ocupG, ocupG, 3);
+        }
+        float v = ocupLocal[Mathf.Clamp((int)(z / dados.size.z * ocupG), 0, ocupG - 1), Mathf.Clamp((int)(x / dados.size.x * ocupG), 0, ocupG - 1)];
+        return Mathf.Clamp01(v / 6f);
     }
 
     // ------------------------------------------------------------------ plantas do kit (arbustos, samambaias, flores, cogumelos) nas areas vazias

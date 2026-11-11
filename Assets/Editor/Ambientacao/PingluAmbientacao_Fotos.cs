@@ -22,6 +22,12 @@ public static class PingluAmbientacao_Fotos
         var camGO = new GameObject("FotoCam"); var cam = camGO.AddComponent<Camera>(); cam.fieldOfView = 62; cam.farClipPlane = 900; cam.clearFlags = CameraClearFlags.Skybox;
         camGO.AddComponent<UnityEngine.Rendering.Universal.UniversalAdditionalCameraData>();
         var filtro = System.Environment.GetEnvironmentVariable("FOTOS_FILTRO");
+        if (filtro != null && filtro.Split(',').Contains("mapa"))
+        {
+            RenderSettings.fog = false; cam.orthographic = true; cam.orthographicSize = 520; cam.farClipPlane = 3000; cam.transform.position = new Vector3(500, 1500, 500); cam.transform.rotation = Quaternion.Euler(90, 0, 0);
+            var rt0 = new RenderTexture(1400, 1400, 24, RenderTextureFormat.ARGB32); cam.targetTexture = rt0; cam.Render(); RenderTexture.active = rt0; var tx = new Texture2D(1400, 1400, TextureFormat.RGB24, false); tx.ReadPixels(new Rect(0, 0, 1400, 1400), 0, 0); tx.Apply();
+            File.WriteAllBytes($"{pasta}/mapa.png", tx.EncodeToPNG()); RenderTexture.active = null; cam.targetTexture = null; cam.orthographic = false; Debug.Log("[FOTO] mapa");
+        }
         foreach (var a in alvos)
         {
             if (filtro != null && !filtro.Split(',').Contains(a.nome)) continue;

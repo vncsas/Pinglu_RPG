@@ -17,3 +17,5 @@
 - Calcamento da vila: ruas e praca refeitas com ~1600 lajes modeladas (redondas e quadradas-arredondadas, `Pavimento/Calc_*.fbx`) sobre chao de terra; seixos nas bordas. O "papel de pedra" original foi trocado de material so nessa cena.
 - Relevo: colinas suaves (ate ~5 m) SO nas areas vazias (longe de construcoes, estradas, agua e vila), aplicado na copia do terreno.
 - Plantas do kit (arbustos, samambaias, flores, cogumelos; sem arvores) nas areas vazias.
+- Relevo v2: aplicado no MAPA TODO (colinas/vales em 3 escalas; mais forte onde o mapa e vazio). Fica em zero (com transicao de 30 m) so em torno da vila, castelo, cemiterio, montanhas, calcadas e pontos de jogo. ~450 objetos pequenos sao reassentados no novo chao. Rode sempre a partir da SampleScene ORIGINAL (nao reaplique numa cena ja processada).
+- `PingluAmbientacao_Analise` (editor): relatorio somente-leitura do mapa (inclinacao, camadas, ocupacao, desempenho).
