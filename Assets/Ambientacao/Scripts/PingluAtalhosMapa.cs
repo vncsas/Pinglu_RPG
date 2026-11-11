@@ -28,13 +28,23 @@ public class PingluAtalhosMapa : MonoBehaviour
         return new Vector3(xz.x, y + 1.5f, xz.y);
     }
 
+    // o jogador humano: os companheiros CPU tambem tem PlayerLocomotion, entao nao da para pegar "o primeiro"
+    static Transform AcharJogador()
+    {
+        if (GrupoDeAventureiros.Humano != null) return GrupoDeAventureiros.Humano;
+        if (JogadorRede.Local != null) return JogadorRede.Local.transform;
+        foreach (var j in FindObjectsByType<PlayerLocomotion>(FindObjectsInactive.Exclude)) if (j.GetComponent<EntradaCPU>() == null) return j.transform;
+        return null;
+    }
+
     public static void IrPara(Vector2 xz)
     {
-        var p = Ponto(xz);
-        var jog = FindFirstObjectByType<PlayerLocomotion>(); if (jog == null) return;
+        var p = Ponto(xz); var jog = AcharJogador();
+        if (jog == null) { Debug.LogWarning("[Atalhos] nao achei o jogador"); return; }
         var cc = jog.GetComponent<CharacterController>(); if (cc != null) cc.enabled = false;
-        var jr = jog.GetComponent<JogadorRede>(); if (jr != null) jr.Teleportar(p, jog.transform.rotation); else jog.transform.position = p;
-        if (cc != null) cc.enabled = true;
+        var jr = jog.GetComponent<JogadorRede>(); if (jr != null) jr.Teleportar(p, jog.rotation); else jog.SetPositionAndRotation(p, jog.rotation);
+        Physics.SyncTransforms(); if (cc != null) cc.enabled = true;
+        Debug.Log($"[Atalhos] {jog.name} -> {p}");
     }
 
     void Update()
