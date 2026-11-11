@@ -120,7 +120,7 @@ public static class PingluAmbientacao
         terreno = Terrain.activeTerrain;
         var velho = GameObject.Find(RAIZ);
         if (velho != null) { Debug.LogWarning("[Ambientacao] esta cena ja tem a ambientacao aplicada (o relevo mexe nos objetos). Abra a SampleScene original e rode de novo."); if (!Application.isBatchMode) EditorUtility.DisplayDialog("Pinglu", "Esta cena ja tem a ambientacao aplicada. Abra a SampleScene original e rode de novo.", "OK"); return; }
-        ocupLocal = null;
+        ocupLocal = null; lagoWL = -999f;
         aguas.Clear();
         foreach (var r in Object.FindObjectsByType<Renderer>(FindObjectsInactive.Exclude)) if (r.sharedMaterials.Any(m => m != null && m.name.ToLower().Contains("agua"))) { var b = r.bounds; b.Expand(new Vector3(6, 40, 6)); aguas.Add(b); }
         PrepararTerrenoNovo();
@@ -131,6 +131,8 @@ public static class PingluAmbientacao
         Physics.SyncTransforms();
         BakeMascara();
         Pavimentar(raiz);
+        EnvelhecerConstrucoes();
+        CriarLago(raiz);
         AplicarGrama(); string rel = AplicarPedras(raiz); Plantas(raiz);
         EditorSceneManager.MarkSceneDirty(EditorSceneManager.GetActiveScene());
         Debug.Log("[Ambientacao] pronto. " + rel);
@@ -229,10 +231,12 @@ public static class PingluAmbientacao
         dados.SetAlphamaps(0, 0, a);
         RelevoNasAreasVazias(a, w, h, barro);
         RelevoMapaTodo();
+        PintarVariedade(nL, barro, vila, temVila);
         EditorUtility.SetDirty(dados); AssetDatabase.SaveAssets();
     }
 
     // ------------------------------------------------------------------ relevo: colinas suaves SO onde nao ha nada (longe de construcoes, estradas, agua, vila)
+    static Vector2 lagoC; static float lagoWL = -999f;
     const int CELULA = 4; static float[,] vazio; static int vazioN;
     static float Vazio(float x, float z) { if (vazio == null) return 0f; int i = Mathf.Clamp((int)(x / CELULA), 0, vazioN - 1), j = Mathf.Clamp((int)(z / CELULA), 0, vazioN - 1); return vazio[j, i]; }
 
@@ -368,6 +372,22 @@ public static class PingluAmbientacao
             float amp = 8f + 5f * (1f - Mathf.Clamp01(OcupacaoLocal(x, z)));                          // mais forte onde e vazio
             float d = f * amp * fa; float nh = Mathf.Clamp01(hm[j, i] + d / alt); d = (nh - hm[j, i]) * alt; hm[j, i] = nh; delta[j, i] = d; soma += Mathf.Abs(d); mx = Mathf.Max(mx, Mathf.Abs(d)); n++;
         }
+        // ---- LAGO DO PANTANO (centro do bioma Pantano): bacia funda com anel de colinas dos dois lados
+        {
+            lagoC = new Vector2(190f, 500f); float R0 = 88f, somaH = 0; int cH = 0;
+            for (int j = 0; j < res; j++) for (int i = 0; i < res; i++) { float x = i * W / (res - 1), z = j * Lz / (res - 1); if ((new Vector2(x, z) - lagoC).sqrMagnitude < 55f * 55f) { somaH += hm[j, i] * alt; cH++; } }
+            lagoWL = somaH / Mathf.Max(1, cH) - 0.8f;
+            for (int j = 0; j < res; j++) for (int i = 0; i < res; i++)
+            {
+                float x = i * W / (res - 1), z = j * Lz / (res - 1); float r = (new Vector2(x, z) - lagoC).magnitude * (1f + 0.34f * (Mathf.PerlinNoise(x * 0.045f + 3f, z * 0.045f + 9f) - 0.5f)); if (r >= R0) continue;
+                float orig = hm[j, i] * alt; float bowl = lagoWL - 3.4f * (1f - Mathf.Pow(Mathf.Clamp01(r / 50f), 2.2f)) + 0.12f * (Mathf.PerlinNoise(x * 0.2f, z * 0.2f) - 0.5f);
+                float tgt = r <= 50f ? bowl : lagoWL - 0.27f + 2.8f * Mathf.Sin(Mathf.PI * Mathf.Clamp01((r - 50f) / 34f));
+                float k = 1f - Mathf.SmoothStep(0f, 1f, Mathf.Clamp01((r - 62f) / (R0 - 62f))); float nh = Mathf.Lerp(orig, tgt, k);
+                delta[j, i] += nh - orig; hm[j, i] = Mathf.Clamp01(nh / alt);
+            }
+            // arvores do terreno dentro do lago saem (da copia)
+            var arv = dados.treeInstances.Where(t => (new Vector2(t.position.x * W, t.position.z * Lz) - lagoC).magnitude > 66f).ToArray(); dados.SetTreeInstances(arv, true);
+        }
         dados.SetHeights(0, 0, hm);
         // reassenta objetos pequenos
         float Delta(float x, float z) { float u = Mathf.Clamp01(x / W) * (res - 1), v = Mathf.Clamp01(z / Lz) * (res - 1); int i0 = Mathf.Min((int)u, res - 2), j0 = Mathf.Min((int)v, res - 2); float fu = u - i0, fv = v - j0; return Mathf.Lerp(Mathf.Lerp(delta[j0, i0], delta[j0, i0 + 1], fu), Mathf.Lerp(delta[j0 + 1, i0], delta[j0 + 1, i0 + 1], fu), fv); }
@@ -400,6 +420,122 @@ public static class PingluAmbientacao
         }
         float v = ocupLocal[Mathf.Clamp((int)(z / dados.size.z * ocupG), 0, ocupG - 1), Mathf.Clamp((int)(x / dados.size.x * ocupG), 0, ocupG - 1)];
         return Mathf.Clamp01(v / 6f);
+    }
+
+
+    // ------------------------------------------------------------------ variedade do chao: camadas que estavam com 0% passam a aparecer em manchas
+    static void PintarVariedade(int nL, int barro, Rect vila, bool temVila)
+    {
+        int w = dados.alphamapWidth, h = dados.alphamapHeight; var a = dados.GetAlphamaps(0, 0, w, h); float W = dados.size.x, Lz = dados.size.z; var rnd = new System.Random(7);
+        void Garante(int j, int i, int k, float alvo)
+        {
+            float cur = a[j, i, k]; if (alvo <= cur) return; float resto = 1f - cur, novo = 1f - alvo; float f = resto > 1e-4f ? novo / resto : 0f;
+            for (int q = 0; q < nL; q++) a[j, i, q] = q == k ? alvo : a[j, i, q] * f;
+        }
+        float SS(float a0, float a1, float v) { return Mathf.SmoothStep(0f, 1f, Mathf.Clamp01((v - a0) / (a1 - a0))); }
+        int contados = 0;
+        for (int j = 0; j < h; j++) for (int i = 0; i < w; i++)
+        {
+            float x = i * W / w, z = j * Lz / h; if (temVila && vila.Contains(new Vector2(x, z))) continue;
+            float via = a[j, i, 6] + a[j, i, 8] + a[j, i, barro] + a[j, i, 7]; if (via > 0.2f) continue;
+            float campo = a[j, i, 9] + a[j, i, 10], mata = a[j, i, 11] + a[j, i, 12] + a[j, i, 13], seco = a[j, i, 14];
+            float n1 = Mathf.PerlinNoise(x / 38f + 21f, z / 38f + 5f), n2 = Mathf.PerlinNoise(x / 17f + 77f, z / 17f + 31f), n3 = Mathf.PerlinNoise(x / 60f + 140f, z / 60f + 9f);
+            float decl = dados.GetSteepness(x / W, z / Lz);
+            if (decl > 27f) { Garante(j, i, 4, 0.85f); contados++; continue; }
+            if (decl > 14f && n3 > 0.48f) { Garante(j, i, 7, 0.65f * SS(0.48f, 0.62f, n3)); contados++; }
+            if (mata > 0.4f && n1 > 0.56f) { Garante(j, i, 1, 0.8f * SS(0.56f, 0.74f, n1)); contados++; }
+            if (mata > 0.3f && decl < 6f && n2 > 0.66f) { Garante(j, i, 2, 0.7f * SS(0.66f, 0.8f, n2)); contados++; }
+            if (campo > 0.4f && n1 > 0.62f) { Garante(j, i, 5, 0.75f * SS(0.62f, 0.78f, n1)); contados++; }
+            if ((campo > 0.3f || seco > 0.3f) && n2 > 0.64f) { Garante(j, i, 0, 0.7f * SS(0.64f, 0.8f, n2)); contados++; }
+            // beira do lago: areia escura e lama
+            if (lagoWL > -900f)
+            {
+                float hh = dados.GetInterpolatedHeight(x / W, z / Lz); float r = (new Vector2(x, z) - lagoC).magnitude;
+                if (r < 100f && hh > lagoWL - 1.5f && hh < lagoWL + 1.1f) { Garante(j, i, 3, 0.85f); contados++; }
+                else if (r < 100f && hh >= lagoWL + 1.1f && hh < lagoWL + 2.6f && n2 > 0.4f) { Garante(j, i, 2, 0.7f); contados++; }
+            }
+        }
+        dados.SetAlphamaps(0, 0, a);
+        Debug.Log($"[Ambientacao] variedade do chao: {contados} pontos pintados em camadas que estavam sem uso");
+    }
+
+    // ------------------------------------------------------------------ lago: agua turva do pantano + juncos e vitorias-regias
+    static void CriarLago(Transform raiz)
+    {
+        if (lagoWL < -900f) return;
+        var sh = Shader.Find("Universal Render Pipeline/Lit");
+        var agua = Mat("Lago_Agua", sh, m =>
+        {
+            m.SetFloat("_Surface", 1f); m.SetFloat("_Blend", 0f); m.SetOverrideTag("RenderType", "Transparent"); m.SetInt("_SrcBlend", 5); m.SetInt("_DstBlend", 10); m.SetInt("_SrcBlendAlpha", 1); m.SetInt("_DstBlendAlpha", 10); m.SetInt("_ZWrite", 0);
+            m.EnableKeyword("_SURFACE_TYPE_TRANSPARENT"); m.renderQueue = 3000; m.SetColor("_BaseColor", new Color(0.07f, 0.12f, 0.09f, 0.90f)); m.SetFloat("_Smoothness", 0.92f); m.SetFloat("_Metallic", 0f);
+            var n = AssetDatabase.LoadAssetAtPath<Texture2D>($"{PASTA}/Texturas/agua_normal.png"); var ti = AssetImporter.GetAtPath($"{PASTA}/Texturas/agua_normal.png") as TextureImporter; if (ti != null && ti.textureType != TextureImporterType.NormalMap) { ti.textureType = TextureImporterType.NormalMap; ti.SaveAndReimport(); n = AssetDatabase.LoadAssetAtPath<Texture2D>($"{PASTA}/Texturas/agua_normal.png"); }
+            if (n) { m.SetTexture("_BumpMap", n); m.SetTextureScale("_BumpMap", new Vector2(18f, 18f)); m.EnableKeyword("_NORMALMAP"); m.SetFloat("_BumpScale", 0.35f); }
+        });
+        var pai = new GameObject("Lago do Pantano").transform; pai.SetParent(raiz);
+        var vs = new List<Vector3>(); var uvs = new List<Vector2>(); var tris = new List<int>(); const float cel = 2f;
+        for (float x = lagoC.x - 100f; x < lagoC.x + 100f; x += cel) for (float z = lagoC.y - 100f; z < lagoC.y + 100f; z += cel)
+        {
+            bool baixo = false; foreach (var o in new[] { (0f, 0f), (cel, 0f), (0f, cel), (cel, cel), (cel / 2, cel / 2) }) if (terreno.SampleHeight(new Vector3(x + o.Item1, 0, z + o.Item2)) < lagoWL) { baixo = true; break; }
+            if (!baixo) continue; int b = vs.Count; vs.Add(new Vector3(x, lagoWL, z)); vs.Add(new Vector3(x + cel, lagoWL, z)); vs.Add(new Vector3(x + cel, lagoWL, z + cel)); vs.Add(new Vector3(x, lagoWL, z + cel));
+            uvs.Add(new Vector2(x, z) * 0.1f); uvs.Add(new Vector2(x + cel, z) * 0.1f); uvs.Add(new Vector2(x + cel, z + cel) * 0.1f); uvs.Add(new Vector2(x, z + cel) * 0.1f); tris.AddRange(new[] { b, b + 2, b + 1, b, b + 3, b + 2 });
+        }
+        if (vs.Count == 0) return;
+        var me = new Mesh { name = "LagoAgua", indexFormat = UnityEngine.Rendering.IndexFormat.UInt32 }; me.SetVertices(vs); me.SetUVs(0, uvs); me.SetTriangles(tris, 0); me.RecalculateNormals(); me.RecalculateBounds();
+        Directory.CreateDirectory($"{PASTA}/Vila"); AssetDatabase.DeleteAsset($"{PASTA}/Vila/LagoAgua.asset"); AssetDatabase.CreateAsset(me, $"{PASTA}/Vila/LagoAgua.asset");
+        var go = new GameObject("Agua"); go.transform.SetParent(pai); go.AddComponent<MeshFilter>().sharedMesh = me; var mr = go.AddComponent<MeshRenderer>(); mr.sharedMaterial = agua; mr.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
+        // juncos na beira e vitorias-regias na agua rasa
+        Material Verde(string nome, Color c) => Mat(nome, sh, m => { m.SetColor("_BaseColor", c); m.SetFloat("_Smoothness", 0.1f); m.SetFloat("_Cull", 0f); });
+        var mJ = Verde("Lago_Junco", new Color(0.20f, 0.27f, 0.11f)); var mV = Verde("Lago_Vitoria", new Color(0.12f, 0.26f, 0.10f));
+        var rnd = new System.Random(606); int nj = 0, nv = 0;
+        for (int t = 0; t < 20000 && (nj < 220 || nv < 90); t++)
+        {
+            float ang = (float)rnd.NextDouble() * Mathf.PI * 2f, rr = 12f + (float)rnd.NextDouble() * 82f; float x = lagoC.x + Mathf.Cos(ang) * rr, z = lagoC.y + Mathf.Sin(ang) * rr;
+            float y = terreno.SampleHeight(new Vector3(x, 0, z)); bool junco = y > lagoWL - 0.35f && y < lagoWL + 0.55f;
+            if (!junco && !(y < lagoWL - 0.4f && y > lagoWL - 2.2f)) continue;
+            if (junco && nj >= 220) continue; if (!junco && nv >= 90) continue;
+            if (Physics.OverlapSphere(new Vector3(x, y + 0.5f, z), 0.4f, ~0, QueryTriggerInteraction.Ignore).Any(c => !(c is TerrainCollider))) continue;
+            var pf = AssetDatabase.LoadAssetAtPath<GameObject>(junco ? $"{PASTA}/Lago/Junco_{(rnd.Next(2) == 0 ? "A" : "B")}.fbx" : $"{PASTA}/Lago/Vitoria_{(rnd.Next(2) == 0 ? "A" : "B")}.fbx"); if (pf == null) continue;
+            var g = (GameObject)PrefabUtility.InstantiatePrefab(pf); g.transform.SetParent(pai); g.transform.position = new Vector3(x, junco ? y - 0.05f : lagoWL + 0.02f, z); g.transform.rotation = Quaternion.Euler(0, (float)rnd.NextDouble() * 360f, 0);
+            g.transform.localScale = Vector3.one * (junco ? Mathf.Lerp(0.9f, 1.7f, (float)rnd.NextDouble()) : Mathf.Lerp(0.8f, 1.4f, (float)rnd.NextDouble()));
+            foreach (var r in g.GetComponentsInChildren<Renderer>()) { var ms = r.sharedMaterials; for (int m = 0; m < ms.Length; m++) ms[m] = junco ? mJ : mV; r.sharedMaterials = ms; }
+            if (junco) nj++; else nv++;
+        }
+        aguas.Add(new Bounds(new Vector3(lagoC.x, lagoWL, lagoC.y), new Vector3(190f, 50f, 190f)));
+        Debug.Log($"[Ambientacao] lago: nivel {lagoWL:0.0} m, {vs.Count / 4} celulas de agua, {nj} juncos, {nv} vitorias-regias");
+    }
+
+    // ------------------------------------------------------------------ construcoes com cara de antigas (so nesta cena; os materiais originais nao sao alterados)
+    static Material MatAntigo(string nome, string pasta, Color tint, float tile, float bump, float parallax)
+    {
+        string b = $"{PASTA}/Texturas/Chao/{pasta}/{pasta}_1K-JPG";
+        var nm = AssetImporter.GetAtPath(b + "_NormalGL.jpg") as TextureImporter; if (nm != null && nm.textureType != TextureImporterType.NormalMap) { nm.textureType = TextureImporterType.NormalMap; nm.SaveAndReimport(); }
+        return Mat(nome, Shader.Find("Universal Render Pipeline/Lit"), m =>
+        {
+            var sc = new Vector2(tile, tile);
+            m.SetTexture("_BaseMap", AssetDatabase.LoadAssetAtPath<Texture2D>(b + "_Color.jpg")); m.SetTextureScale("_BaseMap", sc); m.SetColor("_BaseColor", tint);
+            m.SetTexture("_BumpMap", AssetDatabase.LoadAssetAtPath<Texture2D>(b + "_NormalGL.jpg")); m.SetTextureScale("_BumpMap", sc); m.SetFloat("_BumpScale", bump); m.EnableKeyword("_NORMALMAP");
+            var ao = AssetDatabase.LoadAssetAtPath<Texture2D>(b + "_AmbientOcclusion.jpg"); if (ao) { m.SetTexture("_OcclusionMap", ao); m.SetTextureScale("_OcclusionMap", sc); m.SetFloat("_OcclusionStrength", 1f); }
+            var dp = AssetDatabase.LoadAssetAtPath<Texture2D>(b + "_Displacement.jpg"); if (dp && parallax > 0) { m.SetTexture("_ParallaxMap", dp); m.SetTextureScale("_ParallaxMap", sc); m.SetFloat("_Parallax", parallax); m.EnableKeyword("_PARALLAXMAP"); }
+            m.SetFloat("_Smoothness", 0.04f); m.SetFloat("_Metallic", 0f);
+        });
+    }
+
+    static void EnvelhecerConstrucoes()
+    {
+        var troca = new Dictionary<string, Material>
+        {
+            ["Pedra_Blocos"] = MatAntigo("Vila_PedraVelha", "Rock064", new Color(1.0f, 1.0f, 1.05f), 0.33f, 1.8f, 0.03f),
+            ["Pedra_Rustica"] = MatAntigo("Vila_PedraMusgo", "Rocks001", new Color(0.72f, 0.74f, 0.80f), 0.45f, 1.6f, 0.03f),
+            ["Reboco_Creme"] = MatAntigo("Vila_RebocoVelho", "Plaster001", new Color(0.80f, 0.72f, 0.60f), 0.45f, 1.2f, 0f),
+        };
+        AssetDatabase.SaveAssets(); int n = 0;
+        foreach (var r in Object.FindObjectsByType<Renderer>(FindObjectsInactive.Exclude))
+        {
+            if (!r.transform.root.name.StartsWith("Vila_Gerada") && !r.transform.root.name.StartsWith("Mundo_Gerado")) continue;
+            var ms = r.sharedMaterials; bool mud = false; for (int i = 0; i < ms.Length; i++) if (ms[i] != null && troca.TryGetValue(ms[i].name, out var nv)) { ms[i] = nv; mud = true; }
+            if (mud) { r.sharedMaterials = ms; n++; }
+        }
+        Debug.Log($"[Ambientacao] construcoes envelhecidas: {n} renderers com pedra/reboco novos");
     }
 
     // ------------------------------------------------------------------ plantas do kit (arbustos, samambaias, flores, cogumelos) nas areas vazias

@@ -20,3 +20,7 @@
 - Relevo v2: aplicado no MAPA TODO (colinas/vales em 3 escalas; mais forte onde o mapa e vazio). Fica em zero (com transicao de 30 m) so em torno da vila, castelo, cemiterio, montanhas, calcadas e pontos de jogo. ~450 objetos pequenos sao reassentados no novo chao. Rode sempre a partir da SampleScene ORIGINAL (nao reaplique numa cena ja processada).
 - `PingluAmbientacao_Analise` (editor): relatorio somente-leitura do mapa (inclinacao, camadas, ocupacao, desempenho).
 - Pavimento da vila (v3): em vez de pedras modeladas, usa o material PBR PavingStones149 (ambientCG) nas ruas e na praca, com normal map, oclusao e paralaxe. Sem pedras soltas.
+- Casas da vila com cara antiga: materiais `Pedra_Blocos`/`Pedra_Rustica`/`Reboco_Creme` trocados (so nesta cena) por Rock064, Rocks001 e Plaster001 (PBR com normal, oclusao e paralaxe).
+- Variedade do chao: camadas antes sem uso (musgo, lama, urze, grama seca, cascalho, rocha em encosta) pintadas em manchas por ruido/inclinacao.
+- Lago do Pantano em (190, 500): bacia com anel de colinas, agua turva transparente, areia escura/lama na beira, juncos e vitorias-regias. Arvores do terreno dentro do lago saem (so da copia).
+- Terrain (so nesta cena): basemapDistance 300, detailObjectDistance 60, heightmapPixelError 5.
