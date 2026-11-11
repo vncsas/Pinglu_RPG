@@ -19,3 +19,4 @@
 - Plantas do kit (arbustos, samambaias, flores, cogumelos; sem arvores) nas areas vazias.
 - Relevo v2: aplicado no MAPA TODO (colinas/vales em 3 escalas; mais forte onde o mapa e vazio). Fica em zero (com transicao de 30 m) so em torno da vila, castelo, cemiterio, montanhas, calcadas e pontos de jogo. ~450 objetos pequenos sao reassentados no novo chao. Rode sempre a partir da SampleScene ORIGINAL (nao reaplique numa cena ja processada).
 - `PingluAmbientacao_Analise` (editor): relatorio somente-leitura do mapa (inclinacao, camadas, ocupacao, desempenho).
+- Pavimento da vila (v3): em vez de pedras modeladas, usa o material PBR PavingStones149 (ambientCG) nas ruas e na praca, com normal map, oclusao e paralaxe. Sem pedras soltas.

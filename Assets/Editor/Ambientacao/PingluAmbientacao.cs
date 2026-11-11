@@ -303,69 +303,32 @@ public static class PingluAmbientacao
         });
     }
 
+    // Calcamento da vila: piso de pedra com textura PBR (PavingStones149, ambientCG CC0: lajes grandes irregulares com pedrinhas nas juntas),
+    // normal map forte + oclusao + paralaxe para dar relevo. Sem pedras soltas modeladas (nada flutua).
+    static Material MatPavimento(string nome, float tile)
+    {
+        string baseNome = $"{PASTA}/Texturas/Chao/PavingStones149/PavingStones149_1K-JPG";
+        var nm = AssetImporter.GetAtPath(baseNome + "_NormalGL.jpg") as TextureImporter; if (nm != null && nm.textureType != TextureImporterType.NormalMap) { nm.textureType = TextureImporterType.NormalMap; nm.SaveAndReimport(); }
+        return Mat(nome, Shader.Find("Universal Render Pipeline/Lit"), m =>
+        {
+            var sc = new Vector2(tile, tile);
+            m.SetTexture("_BaseMap", AssetDatabase.LoadAssetAtPath<Texture2D>(baseNome + "_Color.jpg")); m.SetTextureScale("_BaseMap", sc); m.SetColor("_BaseColor", new Color(1.25f, 1.2f, 1.15f));
+            m.SetTexture("_BumpMap", AssetDatabase.LoadAssetAtPath<Texture2D>(baseNome + "_NormalGL.jpg")); m.SetTextureScale("_BumpMap", sc); m.SetFloat("_BumpScale", 1.6f); m.EnableKeyword("_NORMALMAP");
+            m.SetTexture("_OcclusionMap", AssetDatabase.LoadAssetAtPath<Texture2D>(baseNome + "_AmbientOcclusion.jpg")); m.SetTextureScale("_OcclusionMap", sc); m.SetFloat("_OcclusionStrength", 1f);
+            m.SetTexture("_ParallaxMap", AssetDatabase.LoadAssetAtPath<Texture2D>(baseNome + "_Displacement.jpg")); m.SetTextureScale("_ParallaxMap", sc); m.SetFloat("_Parallax", 0.035f); m.EnableKeyword("_PARALLAXMAP");
+            m.SetFloat("_Smoothness", 0.08f); m.SetFloat("_Metallic", 0f);
+        });
+    }
+
     static void Pavimentar(Transform raiz)
     {
         var alvos = Object.FindObjectsByType<MeshFilter>(FindObjectsInactive.Exclude).Where(f => f.sharedMesh != null && (f.name == "Ruas - lajes" || f.name == "Praca - anel" || f.name == "Praca - miolo")).ToList();
         if (alvos.Count == 0) return;
-        var lajes = Enumerable.Range(1, 3).Select(i => MalhaLegivel($"{PASTA}/Pavimento/Calc_R{i}.fbx")).Concat(Enumerable.Range(1, 3).Select(i => MalhaLegivel($"{PASTA}/Pavimento/Calc_Q{i}.fbx"))).ToArray();
-        var seixos = Enumerable.Range(1, 5).Select(i => MalhaLegivel($"{PASTA}/Pedras/Pebble_Round_{i}.fbx")).Concat(Enumerable.Range(1, 6).Select(i => MalhaLegivel($"{PASTA}/Pedras/Pebble_Square_{i}.fbx"))).ToArray();
-        // chao de terra sob as pedras (aparece nas juntas); o papel de pedra original some
-        var terra = MatTex("Vila_TerraSobAsPedras", "Ground076", new Color(0.80f, 0.72f, 0.62f), 40f);
-        var tons = new[] { new Color(1.65f, 1.65f, 1.6f), new Color(1.3f, 1.33f, 1.36f), new Color(1.5f, 1.46f, 1.38f) };
-        var mats = tons.Select((t, i) => MatTex("Vila_Pedra" + i, "Rock030", t, 1f)).ToArray();
+        var ruas = MatPavimento("Vila_Pavimento_Ruas", 1.3f);      // 1 repeticao = ~2,6 m (as ruas e o anel da praca usam ~3,4 m por unidade de UV)
+        var miolo = MatPavimento("Vila_Pavimento_Praca", 0.7f);    // o miolo da praca usa ~1,8 m por unidade de UV
         AssetDatabase.SaveAssets();
-        int camada = 31; var temps = new List<GameObject>();
-        foreach (var f in alvos) { var g = new GameObject("tmp_pav"); g.layer = camada; g.transform.SetPositionAndRotation(f.transform.position, f.transform.rotation); g.transform.localScale = f.transform.lossyScale; g.AddComponent<MeshCollider>().sharedMesh = f.sharedMesh; temps.Add(g); }
-        Physics.SyncTransforms();
-        var rnd = new System.Random(2718); var ocupado = new HashSet<long>(); var fund = new Dictionary<(int, int, int), Fundidor>(); int nL = 0, nS = 0;
-        bool Hit(float x, float z, float topo, out RaycastHit h) => Physics.Raycast(new Vector3(x, topo + 30f, z), Vector3.down, out h, 80f, 1 << camada, QueryTriggerInteraction.Ignore);
-        Vector2 UO() => new Vector2((float)rnd.NextDouble() * 4f, (float)rnd.NextDouble() * 4f);
-        Fundidor F(float x, float z, int m) { var k = (Mathf.FloorToInt(x / 18f), Mathf.FloorToInt(z / 18f), m); if (!fund.TryGetValue(k, out var fu)) { fu = new Fundidor(); fund[k] = fu; } return fu; }
-        foreach (var f in alvos)
-        {
-            var b = f.GetComponent<Renderer>().bounds; const float passo = 0.66f;
-            for (float x = b.min.x; x <= b.max.x; x += passo) for (float z = b.min.z; z <= b.max.z; z += passo)
-            {
-                float jx = x + (float)(rnd.NextDouble() - 0.5) * 0.26f, jz = z + (float)(rnd.NextDouble() - 0.5) * 0.26f;
-                long key = ((long)Mathf.FloorToInt(jx / 0.58f) << 32) ^ (long)Mathf.FloorToInt(jz / 0.58f); if (ocupado.Contains(key)) continue;
-                if (Hit(jx, jz, b.max.y, out var h))
-                {
-                    int dentro = 0; foreach (var o in new[] { (0.42f, 0f), (-0.42f, 0f), (0f, 0.42f), (0f, -0.42f) }) if (Hit(jx + o.Item1, jz + o.Item2, b.max.y, out _)) dentro++;
-                    if (dentro < 3) { if (rnd.NextDouble() < 0.55) goto seixo; else continue; }
-                    ocupado.Add(key);
-                    float e = Mathf.Lerp(0.55f, 1.0f, Mathf.Pow((float)rnd.NextDouble(), 0.8f)); var rot = Quaternion.FromToRotation(Vector3.up, h.normal) * Quaternion.Euler(0, (float)rnd.NextDouble() * 360f, 0);
-                    F(jx, jz, rnd.Next(3)).Add(lajes[rnd.Next(lajes.Length)], h.point + Vector3.up * 0.01f, rot, new Vector3(e * Mathf.Lerp(0.85f, 1.3f, (float)rnd.NextDouble()), Mathf.Lerp(0.6f, 1.0f, (float)rnd.NextDouble()), e * Mathf.Lerp(0.85f, 1.3f, (float)rnd.NextDouble())), UO()); nL++;
-                    continue;
-                }
-                else
-                {
-                    // fora do desenho: se tem calcada por perto, solta um seixo (a borda nao termina "do nada")
-                    int perto = 0; foreach (var o in new[] { (0.7f, 0f), (-0.7f, 0f), (0f, 0.7f), (0f, -0.7f) }) if (Hit(jx + o.Item1, jz + o.Item2, b.max.y, out _)) perto++;
-                    if (perto == 0 || rnd.NextDouble() > 0.5) continue;
-                }
-            seixo:
-                if (Hit(jx, jz, b.max.y, out var h2) || Hit(jx + 0.5f, jz, b.max.y, out h2) || Hit(jx - 0.5f, jz, b.max.y, out h2) || Hit(jx, jz + 0.5f, b.max.y, out h2) || Hit(jx, jz - 0.5f, b.max.y, out h2))
-                {
-                    var dir = new Vector3((float)rnd.NextDouble() - 0.5f, 0, (float)rnd.NextDouble() - 0.5f).normalized * (0.4f + (float)rnd.NextDouble() * 0.5f);
-                    var pos = new Vector3(jx, h2.point.y, jz) + dir; float s = Mathf.Lerp(0.8f, 2.4f, (float)rnd.NextDouble());
-                    F(jx, jz, rnd.Next(3)).Add(seixos[rnd.Next(seixos.Length)], pos, Quaternion.Euler(0, (float)rnd.NextDouble() * 360f, 0), Vector3.one * s, UO()); nS++;
-                }
-            }
-        }
-        foreach (var g in temps) Object.DestroyImmediate(g);
-        foreach (var f in alvos) f.GetComponent<Renderer>().sharedMaterial = terra;
-        var pai = new GameObject("Calcamento da Vila").transform; pai.SetParent(raiz);
-        Directory.CreateDirectory($"{PASTA}/Vila"); int k2 = 0;
-        foreach (var kv in fund)
-        {
-            kv.Value.Fechar();
-            foreach (var me in kv.Value.pronto)
-            {
-                AssetDatabase.DeleteAsset($"{PASTA}/Vila/Calcamento{k2}.asset"); AssetDatabase.CreateAsset(me, $"{PASTA}/Vila/Calcamento{k2}.asset");
-                var go = new GameObject("Pedras " + k2++); go.transform.SetParent(pai); go.AddComponent<MeshFilter>().sharedMesh = me; go.AddComponent<MeshRenderer>().sharedMaterial = mats[kv.Key.Item3]; go.isStatic = true;
-            }
-        }
-        Debug.Log($"[Ambientacao] calcamento: {nL} lajes + {nS} seixos em {k2} malhas");
+        foreach (var f in alvos) f.GetComponent<Renderer>().sharedMaterial = f.name == "Praca - miolo" ? miolo : ruas;
+        Debug.Log($"[Ambientacao] pavimento: material PBR aplicado em {alvos.Count} malhas da vila");
     }
 
 
