@@ -1,0 +1,18 @@
+CAVALO DE TRACAO (Cavalo2.fbx) - esqueleto + animacoes + colisao
+================================================================
+Fonte: "realistic-heavy-draft-horse-feathered-legs" (Tripo). Malha reduzida de 1,88 mi para ~60 mil triangulos; textura 2048 (cor + normal).
+Escala: 1,76 m na cernelha, ~2,6 m de comprimento. Frente = +Z no Unity.
+
+ESQUELETO (39 ossos, Generic): igual ao Cavalo (Root > Pelvis > Spine1/2 > Chest > Neck1-3 > Head/Jaw/Ear, Tail1-5, 4 patas Shoulder/Arm|Thigh > Forearm|Shin > Cannon > Pastern > Hoof).
+CLIPES (no lugar, mais pesados e lentos que o Cavalo): Idle, Walk, Trot, Gallop, Comer, Comer_Entrar, Comer_Sair.
+COLISAO: prefab com 3 colisores (corpo, pescoco, pernas) + Rigidbody kinematico. Teste com CharacterController: 7 de 7 trajetos bloqueados.
+
+COMO USAR NO UNITY
+  1) Copie a pasta para Assets/Personagens/Cavalo2 (fbx, jpg, Editor, Scripts).
+  2) Menu  Cavalo Tracao > Montar tudo  (cria material, prefab, colisor; liga AnimalAmbiente se existir no projeto).
+  3) Menu  Cavalo Tracao > Cena de teste, Play, teclas 1-7 trocam a animacao.
+
+LIMITES
+  - Os "pelos" das patas e a crina/cauda sao placas do scan: deformam de forma rigida (a pata dobra, o pelo vai junto).
+  - Esta malha NAO foi refeita (so reduzida): as patas ainda sao as do scan.
+  - Trote e galope sao procedurais; o galope foi contido (cavalo pesado).
