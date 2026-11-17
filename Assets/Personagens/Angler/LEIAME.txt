@@ -1,0 +1,5 @@
+ANGLER (monstro abissal) - esqueleto + animacoes
+Angler.fbx: malha 90k tris + 35 ossos (rig Generic), 10 clipes. Texturas: Angler_cor.jpg, Angler_normal.jpg.
+Na Unity: menu  Angler > Montar tudo  (cria material + prefab com colisor)  e  Angler > Cena de teste, Play, teclas 1-9 e 0.
+Clipes: Idle, Walk, Run (loop); Attack_Mordida, Attack_Garras, Attack_Cauda, Attack_Salto, Rugido, Dano, Morte (1 vez). Frente = +Z, ~2,5 m.
+Pipeline do Blender em scripts/ (adef.py = ossos, 08_anim.py = animacoes).
