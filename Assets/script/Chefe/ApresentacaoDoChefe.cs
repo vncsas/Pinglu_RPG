@@ -51,6 +51,28 @@ public class ApresentacaoDoChefe
         };
     }
 
+    // Drakthar depois de absorver o Ladrão: fogo sombrio
+    public static ApresentacaoDoChefe DragaoSombrio()
+    {
+        return new ApresentacaoDoChefe
+        {
+            nome = "Drakthar", epiteto = "A Fúria Sombria",
+            fonte = "Fontes/PirataOne", animacao = AnimacaoDoTitulo.Estampar,
+            corLetra = new Color(0.85f, 0.7f, 0.95f), corBrilho = new Color(0.55f, 0.1f, 0.85f), duracao = 6f, tamanho = 1.35f
+        };
+    }
+
+    // Drakthar, o dragão final: letras estampadas em fogo
+    public static ApresentacaoDoChefe Dragao()
+    {
+        return new ApresentacaoDoChefe
+        {
+            nome = "Drakthar", epiteto = "O Devastador de Vilas",
+            fonte = "Fontes/PirataOne", animacao = AnimacaoDoTitulo.Estampar,
+            corLetra = new Color(0.95f, 0.78f, 0.55f), corBrilho = new Color(1f, 0.35f, 0.05f), duracao = 6f, tamanho = 1.25f
+        };
+    }
+
     // O Ladrão: aparece de repente (sem estampar), tom frio e discreto
     public static ApresentacaoDoChefe Ladrao()
     {

@@ -30,7 +30,6 @@ public class CampanhaJogo : MonoBehaviour
             return;
         }
         faixaTexto = Campanha.Capitulo(e); faixaSub = Campanha.Objetivo(e); faixaAte = Time.unscaledTime + 5f;
-        if (e == Etapa.Dragao) Invoke(nameof(CenaDosTresLugares), 3.5f);
     }
 
     private Etapa ultimaEtapa = Etapa.Intro;

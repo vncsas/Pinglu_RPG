@@ -45,6 +45,10 @@ public class ThirdPersonCameraFollow : MonoBehaviour
         forcaTremor = forca; duracaoTremor = Mathf.Max(0.01f, duracao); fimTremor = Time.unscaledTime + duracao;
     }
 
+    // MODO CHEFE: quando um chefe grande voa (o dragão), a câmera afasta, deixa olhar bem para cima e, se você não mexe nela, sobe sozinha devagar para enquadrar o bicho
+    public static Transform FocoDeChefe;
+    private float extraChefe, parado;
+
     private float yaw;
     private float pitch = 12f;
     private float distanciaAtual;
@@ -145,9 +149,25 @@ public class ThirdPersonCameraFollow : MonoBehaviour
                 pitch -= st.y * Time.unscaledDeltaTime * 0.75f * ((inverterY != Configuracoes.InverterY) ? -1f : 1f);
             }
         }
-        pitch = Mathf.Clamp(pitch, anguloMinimo, anguloMaximo);
+        bool modoChefe = FocoDeChefe != null && !SessaoDeJogo.MenuAberto && !CameraDeCena.Ativa;
+        extraChefe = Mathf.MoveTowards(extraChefe, modoChefe ? 1f : 0f, Time.unscaledDeltaTime * 0.7f);
+        if (modoChefe)
+        {
+            // ajuda de enquadramento: parado por um instante, a câmera inclina para o chefe (só a altura; o giro continua seu)
+            Vector3 paraChefe = FocoDeChefe.position - target.position; float horiz = new Vector2(paraChefe.x, paraChefe.z).magnitude;
+            bool mexeu = Mathf.Abs(Input.GetAxis("Mouse Y")) > 0.02f || Comandos.OlharControle().sqrMagnitude > 0f;
+            parado = mexeu ? 0f : parado + Time.unscaledDeltaTime;
+            if (parado > 1.1f && horiz < 140f)
+            {
+                float alvoPitch = Mathf.Clamp(-Mathf.Atan2(paraChefe.y - 2f, Mathf.Max(8f, horiz)) * Mathf.Rad2Deg * 0.75f + 6f, -50f, 22f);
+                pitch = Mathf.MoveTowards(pitch, alvoPitch, 22f * Time.unscaledDeltaTime);
+            }
+        }
+        else parado = 0f;
+        pitch = Mathf.Clamp(pitch, anguloMinimo - 40f * extraChefe, anguloMaximo);
 
         distancia = Mathf.Clamp(distancia - Input.GetAxis("Mouse ScrollWheel") * 3f, distanciaMinima, distanciaMaxima);
+        float distEf = distancia + 4.5f * extraChefe;
 
         // --- Ponto que a câmera orbita (segue o personagem com suavidade) ---
         Vector3 pivoAlvo = target.position + Vector3.up * alturaDoPivo;
@@ -155,7 +175,7 @@ public class ThirdPersonCameraFollow : MonoBehaviour
 
         Quaternion rotacao = Quaternion.Euler(pitch, yaw, 0f);
         Vector3 ombro = rotacao * Vector3.right * deslocamentoOmbro;
-        Vector3 desejada = pivoAtual + ombro - rotacao * Vector3.forward * distancia;
+        Vector3 desejada = pivoAtual + Vector3.up * (0.7f * extraChefe) + ombro - rotacao * Vector3.forward * distEf;
 
         // --- Não deixa a câmera atravessar paredes/terreno ---
         Vector3 dir = desejada - pivoAtual;
@@ -178,7 +198,7 @@ public class ThirdPersonCameraFollow : MonoBehaviour
         transform.rotation = rotacao;
         if (cam != null && !CameraDeCena.Ativa)
         {
-            float alvoFov = Configuracoes.Fov > 0f ? Configuracoes.Fov : fovOriginal;
+            float alvoFov = (Configuracoes.Fov > 0f ? Configuracoes.Fov : fovOriginal) + 9f * extraChefe;
             if (Mathf.Abs(cam.fieldOfView - alvoFov) > 0.05f) cam.fieldOfView = Mathf.Lerp(cam.fieldOfView, alvoFov, 0.25f);
         }
 

@@ -1358812,6 +1358812,60 @@ MeshCollider:
   m_Convex: 0
   m_CookingOptions: 30
   m_Mesh: {fileID: 6793580640481770557, guid: ae41ce834dbd2704c85974c50fe2d289, type: 3}
+--- !u!1 &2043329577
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 2043329579}
+  - component: {fileID: 2043329578}
+  m_Layer: 0
+  m_Name: Encontro do Dragao
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!114 &2043329578
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 2043329577}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 313ad510a4e986c9b8e15716b4d595a8, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::EncontroDoDragao
+  modelo: {fileID: 8128668236925612103, guid: c37fe4cd564ecc81d89cfd5861104c1d, type: 3}
+  animVoo: {fileID: -467607239189453783, guid: c37fe4cd564ecc81d89cfd5861104c1d, type: 3}
+  animPlanar: {fileID: -575608521313939010, guid: c37fe4cd564ecc81d89cfd5861104c1d, type: 3}
+  animSopro: {fileID: 5772399766430269164, guid: c37fe4cd564ecc81d89cfd5861104c1d, type: 3}
+  materialParticula: {fileID: 2100000, guid: e823cd5b5d27c0f4b8256e7c12ee3e6d, type: 2}
+  prefabLadrao: {fileID: 7240197477477134125, guid: 8df944ea434005d56ade700094558094, type: 3}
+  posicaoMontanha: {x: 840, y: 81.77403, z: 140}
+  raioArena: 75
+  distanciaParaAcordar: 105
+  centroArena: {x: 520, y: 18.400291, z: 550}
+--- !u!4 &2043329579
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 2043329577}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 840, y: 81.77403, z: 140}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 0}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!1001 &2043361525
 PrefabInstance:
   m_ObjectHideFlags: 0
@@ -1432770,3 +1432824,4 @@ SceneRoots:
   - {fileID: 311392984}
   - {fileID: 1943757042}
   - {fileID: 1476478572}
+  - {fileID: 2043329579}

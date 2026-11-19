@@ -198,6 +198,57 @@ public static class Roteiro
         new Fala("Ladrão", "Agora... o dragão pode renascer.", emocao: Emocao.Alegre),
     };
 
+    // o vilão se revela quando o último cristal é pego (em qualquer lugar)
+    public static readonly Fala[] VilaoRevela =
+    {
+        new Fala("Ladrão", "Bravo, bravo, aventureiros! Dois cristais recuperados, três guardiões derrubados... e eu sem sujar um dedo.", null, Emocao.Alegre),
+        new Fala("Ladrão", "Chamam-me de Ladrão, mas esse nunca foi o meu nome. Eu sou Malakar, o último servo do dragão Drakthar."),
+        new Fala("Ladrão", "Séculos atrás, um herói partiu o poder do meu mestre em três cristais e os selou. E um selo assim só se rompe quando seus guardiões caem."),
+        new Fala("Ladrão", "Eu jamais derrubaria o Guardião, o Cavaleiro e a fera do lago sozinho. Então deixei que vocês fizessem isso por mim.", "Eu jamais derrubaria o Guardião, o Cavaleiro e a fera do lago sozinho. Então deixei que você fizesse isso por mim."),
+        new Fala(VOCE, "Mas por quê? O que você ganha com isso?"),
+        new Fala("Ladrão", "Passei a vida mendigando migalhas de gente como vocês. Quando Drakthar queimar este mundo, ele me dará um trono nas cinzas.", "Passei a vida mendigando migalhas de gente como você. Quando Drakthar queimar este mundo, ele me dará um trono nas cinzas.", Emocao.Raiva),
+        new Fala(VOCE, "Hm, interessante. Só tem um probleminha no seu plano: nós temos DOIS cristais. E você só tem um.", "Hm, interessante. Só tem um probleminha no seu plano: eu tenho DOIS cristais. E você só tem um.", Emocao.Alegre),
+        new Fala("Ladrão", "Hah... hah hah hah hah!", null, Emocao.Alegre),
+        new Fala("Ladrão", "Não por muito tempo.", null, Emocao.Raiva),
+        new Fala("Ladrão", "Poder nas mãos de quem não sabe usá-lo é inútil, aventureiros. Deixem que eu mostre como se faz.", "Poder nas mãos de quem não sabe usá-lo é inútil, aventureiro. Deixe que eu mostre como se faz."),
+    };
+
+    // depois que os cristais viram pó
+    public static readonly Fala[] VilaoGargalha =
+    {
+        new Fala("Ladrão", "Ha... ha ha ha... HAHAHAHA!", null, Emocao.Alegre),
+        new Fala("Ladrão", "Vejam só! Os três cristais se curvaram ao poder do meu mestre. Tudo, tudo foi absorvido!", "Veja só! Os três cristais se curvaram ao poder do meu mestre. Tudo, tudo foi absorvido!"),
+        new Fala(VOCE, "Os cristais... viraram pó!", null, Emocao.Surpresa),
+        new Fala("Ladrão", "Este mundo acabou!", null, Emocao.Raiva),
+    };
+
+    // metade da vida: o Ladrão aparece e se funde ao dragão
+    public static readonly Fala[] FusaoComDragao =
+    {
+        new Fala("Ladrão", "Mestre Drakthar! Já chega... Você dormiu tempo demais. Não é mais o dragão que era antes.", null, Emocao.Raiva),
+        new Fala("Drakthar", "O QUÊ?!", null, Emocao.Raiva),
+        new Fala("Ladrão", "Mas isso não será um problema. Eu treinei muito... e aperfeiçoei os meus poderes.", null, Emocao.Alegre),
+        new Fala("Ladrão", "Hoje, mestre, nós dois nos tornamos UM SÓ!", null, Emocao.Raiva),
+        new Fala(VOCE, "Ele vai se fundir com o dragão?!", null, Emocao.Surpresa),
+    };
+
+    // o dragão chega à arena
+    public static readonly Fala[] DragaoAparece =
+    {
+        new Fala("Drakthar", "Tolos... Vocês acordaram o que devia dormir para sempre.", "Tolo... Você acordou o que devia dormir para sempre.", Emocao.Raiva),
+        new Fala("Drakthar", "Eu queimei as vilas desta ilha quando ainda eram jovens. E queimarei Valverde antes do amanhecer!", null, Emocao.Raiva),
+        new Fala(Roteiro.VOCE, "Foi para isso que o herói selou o seu poder. Hoje a gente termina o que ele começou!", "Foi para isso que o herói selou o seu poder. Hoje eu termino o que ele começou!"),
+    };
+
+    // o dragão cai
+    public static readonly Fala[] DragaoDerrotado =
+    {
+        new Fala(Roteiro.VOCE, "Ele... caiu. O dragão caiu!", null, Emocao.Surpresa),
+        new Fala(Roteiro.VOCE, "Os cristais pararam de brilhar. O poder dele se foi para sempre."),
+        new Fala(Roteiro.VOCE, "E o ladrão? Sumiu... mas sem o dragão, os planos dele viraram cinzas."),
+        new Fala(Roteiro.VOCE, "Hora de voltar a " + NOME_DA_VILA + " e falar com o Caio.", null, Emocao.Alegre),
+    };
+
     public static readonly Fala[] DemonioSurge =
     {
         new Fala("Demônio", "Livre... enfim livre! Mesmo sem todo o meu poder, vou retalhar quem tentou impedir o meu retorno!", emocao: Emocao.Raiva),

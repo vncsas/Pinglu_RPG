@@ -124,7 +124,7 @@ public static class Campanha
             case Etapa.Intro: return "";
             case Etapa.FalarComCaio: return "Fale com Caio, o ancião, na praça da vila.";
             case Etapa.Cristais: return "Visite os três lugares, na ordem que quiser (" + QuantosFeitos + "/3): " + Pendentes() + ".";
-            case Etapa.Dragao: return "Enfrente o dragão antes que ele destrua tudo!";
+            case Etapa.Dragao: return "Enfrente Drakthar, o dragão que despertou!";
             case Etapa.Recompensa: return "Volte à vila e fale com Caio para receber a recompensa.";
             default: return "A paz voltou a Valverde.";
         }
@@ -146,7 +146,7 @@ public static class Campanha
         {
             case Etapa.FalarComCaio: return "Valverde está ameaçada por mortos-vivos que saem de três lugares abandonados, onde antigos cristais foram selados. Caio, o ancião, está na praça da vila e sabe o que fazer.";
             case Etapa.Cristais: return "Os cristais estão selados em três lugares: o cemitério (Guardião das Lápides), o Castelo Destruído (Cavaleiro Antigo e o ladrão) e o templo do pântano (Devorador do Lago). Vá na ordem que preferir: faltam " + Pendentes() + ". Use o mapa da ilha para se orientar.";
-            case Etapa.Dragao: return "Dois cristais estão com vocês, mas o terceiro ficou com o ladrão. Com ele, o dragão que destruiu as vilas de outrora está acordando. É a batalha final.";
+            case Etapa.Dragao: return "Dois cristais estão com vocês, mas o terceiro ficou com o ladrão. Com ele, o dragão que destruiu as vilas de outrora está acordando. É a batalha final. Ele voa e solta fogo, mas precisa pousar para atacar de perto: aproveite essas horas para feri-lo. Fuja dos círculos vermelhos no chão!";
             case Etapa.Recompensa: return "A ameaça acabou. Caio espera na vila para entregar a recompensa prometida: a escritura do cabaré.";
             default: return "";
         }
