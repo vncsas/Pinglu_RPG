@@ -38,6 +38,9 @@ public class ThirdPersonCameraFollow : MonoBehaviour
     private static float forcaTremor, fimTremor, duracaoTremor;
     public static void Tremer(float forca, float duracao)
     {
+        Comandos.Vibrar(Mathf.Clamp01(forca * 2.5f), duracao);        // o controle vibra junto
+        forca *= Configuracoes.Tremor;
+        if (forca <= 0.0001f) return;
         if (Time.unscaledTime < fimTremor && forca < forcaTremor) return;
         forcaTremor = forca; duracaoTremor = Mathf.Max(0.01f, duracao); fimTremor = Time.unscaledTime + duracao;
     }
@@ -48,8 +51,11 @@ public class ThirdPersonCameraFollow : MonoBehaviour
     private Vector3 pivoAtual;
     private Vector3 velocidadePivo;
 
+    private Camera cam; private float fovOriginal = 60f;
+
     private void Start()
     {
+        cam = GetComponent<Camera>(); if (cam != null) fovOriginal = cam.fieldOfView;
         if (target != null)
         {
             yaw = target.eulerAngles.y;
@@ -108,7 +114,7 @@ public class ThirdPersonCameraFollow : MonoBehaviour
         if (controlando)
         {
             float mx = 0f, my = 0f;
-            if (Application.isFocused && Time.unscaledTime >= ignorarMouseAte)
+            if (Application.isFocused && Time.unscaledTime >= ignorarMouseAte && Comandos.MouseAtivo)
             {
                 mx = Mathf.Clamp(Input.GetAxis("Mouse X"), -LIMITE_POR_QUADRO, LIMITE_POR_QUADRO);
                 my = Mathf.Clamp(Input.GetAxis("Mouse Y"), -LIMITE_POR_QUADRO, LIMITE_POR_QUADRO);
@@ -125,8 +131,19 @@ public class ThirdPersonCameraFollow : MonoBehaviour
                     }
                 }
             }
-            yaw += mx * sensibilidadeX;
-            pitch -= my * sensibilidadeY * (inverterY ? -1f : 1f);
+            bool invY = inverterY != Configuracoes.InverterY;
+            yaw += mx * sensibilidadeX * Configuracoes.SensMouse * (Configuracoes.InverterX ? -1f : 1f);
+            pitch -= my * sensibilidadeY * Configuracoes.SensMouse * (invY ? -1f : 1f);
+        }
+        if (!SessaoDeJogo.MenuAberto)
+        {
+            // analógico direito do controle (funciona mesmo com o cursor solto)
+            Vector2 st = Comandos.OlharControle();
+            if (st.sqrMagnitude > 0f)
+            {
+                yaw += st.x * Time.unscaledDeltaTime * (Configuracoes.InverterX ? -1f : 1f);
+                pitch -= st.y * Time.unscaledDeltaTime * 0.75f * ((inverterY != Configuracoes.InverterY) ? -1f : 1f);
+            }
         }
         pitch = Mathf.Clamp(pitch, anguloMinimo, anguloMaximo);
 
@@ -159,6 +176,11 @@ public class ThirdPersonCameraFollow : MonoBehaviour
 
         transform.position = pivoAtual + dir * distanciaAtual;
         transform.rotation = rotacao;
+        if (cam != null && !CameraDeCena.Ativa)
+        {
+            float alvoFov = Configuracoes.Fov > 0f ? Configuracoes.Fov : fovOriginal;
+            if (Mathf.Abs(cam.fieldOfView - alvoFov) > 0.05f) cam.fieldOfView = Mathf.Lerp(cam.fieldOfView, alvoFov, 0.25f);
+        }
 
         if (Time.unscaledTime < fimTremor)
         {

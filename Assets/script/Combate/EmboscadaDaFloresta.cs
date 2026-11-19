@@ -84,8 +84,7 @@ public class EmboscadaDaFloresta : MonoBehaviour
 
         if (!avisou)
         {
-            avisou = true;
-            Aviso("Algo se move entre as árvores...", 3.5f);
+            avisou = true;                                   // (sem aviso na tela: os esqueletos simplesmente aparecem)
             proximaEmboscada = Time.time + 3f;
         }
         int limite = maximoVivos + Mathf.Max(0, jogadores.Count - 1) * maximoExtraPorJogador;

@@ -53,7 +53,7 @@ public class MagiaJogador : MonoBehaviour
         Vector3 de = mao != null ? mao.position : transform.position + Vector3.up * 1.3f + transform.forward * 0.5f;
         Vector3 dir = Mira(de, alcanceEsfera);
         // nos outros PCs a esfera é só visual (o dano é de quem lançou)
-        EsferaArcana.Criar(de, dir * velocidadeEsfera, alcanceEsfera / velocidadeEsfera, Dono() ? danoEsfera : 0f, this);
+        EsferaArcana.Criar(de, dir * velocidadeEsfera, alcanceEsfera / velocidadeEsfera, Dono() ? danoEsfera * StatusDeBatalha.DanoDe(gameObject) : 0f, this);
     }
 
     public void SoltarRaio()
@@ -74,7 +74,7 @@ public class MagiaJogador : MonoBehaviour
         {
             Vida v = h.collider.GetComponentInParent<Vida>();
             if (v == null || v.Morto || EhAliado(v.transform) || !atingidos.Add(v)) continue;
-            if (v.ReceberDano(danoRaio, transform.position)) Acertou();
+            if (v.ReceberDano(danoRaio * StatusDeBatalha.DanoDe(gameObject), transform.position)) Acertou();
         }
     }
 

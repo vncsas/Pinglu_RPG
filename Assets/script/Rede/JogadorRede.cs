@@ -128,7 +128,7 @@ public class JogadorRede : NetworkBehaviour
     // ------------------------------------------------------------------
     private void Update()
     {
-        if (!IsOwner || vida == null || !vida.Morto || !Input.GetKeyDown(KeyCode.R)) return;
+        if (!IsOwner || vida == null || !vida.Morto || !Comandos.Apertou(Acao.Reviver)) return;
         vida.Reviver();
         if (loco != null) loco.Reviver();
         Teleportar(transform.position + Vector3.up * 0.5f, transform.rotation);

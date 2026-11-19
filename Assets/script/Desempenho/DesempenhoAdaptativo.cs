@@ -39,8 +39,7 @@ public class DesempenhoAdaptativo : MonoBehaviour
     {
         if (Instancia != null) { Destroy(gameObject); return; }
         Instancia = this;
-        Application.targetFrameRate = fpsAlvo;
-        QualitySettings.vSyncCount = 1;
+        AplicadorDeConfiguracoes.AplicarFps();       // limite de FPS e vsync vêm das Configurações
         urp = GraphicsSettings.currentRenderPipeline as UniversalRenderPipelineAsset;
         if (urp != null) { escalaOriginal = urp.renderScale; sombraOriginal = urp.shadowDistance; escala = Mathf.Min(escalaMaxima, escalaOriginal); }
         proximaAvaliacao = Time.unscaledTime + 6f;
@@ -52,13 +51,16 @@ public class DesempenhoAdaptativo : MonoBehaviour
 
         // distância máxima de desenho em todas as câmeras do jogo (a neblina esconde o corte)
         Camera c = Camera.main;
-        if (c != null && c.farClipPlane > distanciaMaximaDaCamera) c.farClipPlane = distanciaMaximaDaCamera;
+        float dist = DistanciaDeVisao();
+        if (c != null && !Mathf.Approximately(c.farClipPlane, dist) && (c.farClipPlane > dist || Mathf.Approximately(c.farClipPlane, ultimaDistancia))) c.farClipPlane = dist;
+        ultimaDistancia = dist;
 
         acumulado += Time.unscaledDeltaTime; quadros++;
         if (Time.unscaledTime < proximaAvaliacao || modoLeve || urp == null) return;
         float fps = quadros / Mathf.Max(0.01f, acumulado);
         acumulado = 0f; quadros = 0;
         proximaAvaliacao = Time.unscaledTime + 3f;
+        if (Configuracoes.Escala > 0) { Aplicar(); return; }          // o jogador fixou a escala: não ajusta sozinho
 
         if (fps < fpsAlvo * 0.6f)
         {
@@ -77,9 +79,31 @@ public class DesempenhoAdaptativo : MonoBehaviour
     private void Aplicar()
     {
         if (urp == null) return;
-        urp.renderScale = modoLeve ? 0.6f : escala;
+        urp.renderScale = modoLeve ? 0.6f : (Configuracoes.Escala > 0 ? Configuracoes.Escala / 100f : escala);
         if (modoLeve) urp.shadowDistance = 15f;
-        else if (urp.shadowDistance < sombraOriginal && avaliacoesRuins < 3) urp.shadowDistance = sombraOriginal;
+        else if (avaliacoesRuins < 3 || Configuracoes.Sombras < 3) urp.shadowDistance = SombraAlvo();
+    }
+
+    // chamado quando o jogador muda algo nas Configurações
+    public void Reaplicar() { Aplicar(); }
+
+    private float ultimaDistancia;
+    private float DistanciaDeVisao()
+    {
+        switch (Configuracoes.Distancia) { case 1: return 150f; case 2: return 230f; case 3: return 450f; }
+        return distanciaMaximaDaCamera;
+    }
+
+    // distância das sombras escolhida nas Configurações (3 = a do projeto)
+    private float SombraAlvo()
+    {
+        switch (Configuracoes.Sombras)
+        {
+            case 0: return 0.1f;
+            case 1: return Mathf.Min(25f, sombraOriginal);
+            case 2: return Mathf.Min(50f, sombraOriginal);
+        }
+        return sombraOriginal;
     }
 
     // devolve o asset do jeito que estava (no Editor ele é compartilhado e ficaria alterado)

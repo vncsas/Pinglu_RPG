@@ -58,6 +58,10 @@ public class MapaDoMundo : MonoBehaviour
     private Vector3 cliqueMouse;
 
     public bool Aberto { get { return aberto; } }
+    // durante o tutorial do mapa o jogador não pode fechar sozinho
+    public static bool Travado;
+    public bool AbrirTutorial() { if (aberto) return true; Abrir(); return aberto; }
+    public void FecharTutorial() { if (aberto && !fechando) Fechar(); }
 
     // ------------------------------------------------------------------
     private void Start()
@@ -156,10 +160,10 @@ public class MapaDoMundo : MonoBehaviour
         float dt = Time.unscaledDeltaTime;
         if (!aberto)
         {
-            if (Input.GetKeyDown(tecla) && !SessaoDeJogo.MenuAberto) Abrir();
+            if (Campanha.TemMapa && Comandos.Apertou(Acao.Mapa) && !SessaoDeJogo.MenuAberto) Abrir();
             return;
         }
-        if (!fechando && (Input.GetKeyDown(tecla) || Input.GetKeyDown(KeyCode.Escape))) { Fechar(); }
+        if (!fechando && !Travado && (Comandos.Apertou(Acao.Mapa) || Input.GetKeyDown(KeyCode.Escape) || Comandos.NavVoltar())) { Fechar(); }
 
         // voo de abertura/fechamento
         t = Mathf.MoveTowards(t, fechando ? 0f : 1f, dt / duracaoDoVoo);
@@ -388,14 +392,17 @@ public class MapaDoMundo : MonoBehaviour
     {
         if (biomas == null || miniMapa == null) return;
         HashSet<string> jaDesenhado = new HashSet<string>();
+        List<Rect> rects = new List<Rect>(); List<string> textos = new List<string>();
         foreach (ClimaDosBiomas.Bioma b in biomas.biomas)
         {
             if (!miniMapa.Conhecido(b.nome) || !jaDesenhado.Add(b.nome)) continue;
             Vector2 p;
-            if (!NaTela(b.centro + Vector3.up * 40f, out p)) continue;
-            Rect r = new Rect(p.x - 220f * e, p.y - 22f * e, 440f * e, 44f * e);
-            Sombra(r, b.nome.ToUpper(), estBioma, 2f * e);
+            Vector3 ancora = NomesDoMapa.Ancora(biomas, miniMapa.marcadores, b.nome, b.centro);
+            if (!NaTela(ancora + Vector3.up * 40f, out p)) continue;
+            rects.Add(new Rect(p.x - 220f * e, p.y - 22f * e, 440f * e, 44f * e)); textos.Add(NomesDoMapa.Exibir(b.nome).ToUpper());
         }
+        NomesDoMapa.Desamontoar(rects);                                          // se na tela dois nomes se tocam, um desce
+        for (int i = 0; i < rects.Count; i++) Sombra(rects[i], textos[i], estBioma, 2f * e);
     }
 
     private void Marcadores(float e, Vector2 mouse)
@@ -501,7 +508,7 @@ public class MapaDoMundo : MonoBehaviour
             {
                 if (!jaMostrado.Add(b.nome)) continue;
                 bool conhecido = miniMapa != null && miniMapa.Conhecido(b.nome);
-                if (GUI.Button(new Rect(x + 34f * e, y, w - 60f * e, 30f * e), conhecido ? b.nome : "???", estItem) && conhecido) { aba = Aba.Mundo; VoarPara(b.centro, 420f); }
+                if (GUI.Button(new Rect(x + 34f * e, y, w - 60f * e, 30f * e), conhecido ? NomesDoMapa.Exibir(b.nome) : "???", estItem) && conhecido) { aba = Aba.Mundo; VoarPara(NomesDoMapa.Ancora(biomas, miniMapa != null ? miniMapa.marcadores : null, b.nome, b.centro), 420f); }
                 y += 34f * e;
             }
         }

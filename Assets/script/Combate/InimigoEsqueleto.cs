@@ -5,7 +5,7 @@ using UnityEngine;
 // levar golpe e desmorona quando morre. Mostra uma barra de vida em cima.
 [RequireComponent(typeof(CharacterController))]
 [RequireComponent(typeof(Vida))]
-public class InimigoEsqueleto : MonoBehaviour
+public class InimigoEsqueleto : MonoBehaviour, IAfetavelPorHabilidade
 {
     [Header("Animações (nomes dos states no Animator)")]
     [SerializeField] private string animParado = "idle";
@@ -69,6 +69,17 @@ public class InimigoEsqueleto : MonoBehaviour
     public event System.Action<string> AoTocar;   // o host avisa as animações para os outros PCs
     private float proximaBusca;
 
+    // ---- efeitos das habilidades dos jogadores
+    private Transform provocador; private float provocadoAte;
+    private float lentoAte, fatorLento = 1f;
+    private float Vel { get { return velocidade * (Time.time < lentoAte ? fatorLento : 1f); } }
+    // "Provocar": por alguns segundos ele só quer saber de quem gritou
+    public void Provocar(Transform quem, float segundos) { provocador = quem; provocadoAte = Time.time + segundos; proximaBusca = 0f; }
+    // "Tremor": anda mais devagar (fator 0,5 = metade da velocidade)
+    public void Lentidao(float fator, float segundos) { fatorLento = Mathf.Clamp(fator, 0.1f, 1f); lentoAte = Time.time + segundos; if (anim != null) StartCoroutine(AnimLenta(segundos)); }
+    private IEnumerator AnimLenta(float s) { anim.speed = Mathf.Max(0.4f, fatorLento + 0.15f); yield return new WaitForSeconds(s); if (anim != null) anim.speed = 1f; }
+    public void Empurrar(Vector3 impulso) { empurrao += impulso; }
+
     private void Awake()
     {
         cc = GetComponent<CharacterController>();
@@ -107,6 +118,11 @@ public class InimigoEsqueleto : MonoBehaviour
             if (v != null && v.Morto) continue;
             float d = (p.transform.position - transform.position).sqrMagnitude;
             if (d < melhor) { melhor = d; achado = p.transform; vAchada = v; }
+        }
+        if (provocador != null && Time.time < provocadoAte)
+        {
+            Vida pv = provocador.GetComponent<Vida>();
+            if (pv == null || !pv.Morto) { achado = provocador; vAchada = pv; }
         }
         alvo = achado; vidaAlvo = vAchada;
     }
@@ -154,6 +170,7 @@ public class InimigoEsqueleto : MonoBehaviour
     private void Update()
     {
         if (SoVisual || estado == Estado.Morto || estado == Estado.Surgindo) return;
+        if (SessaoDeJogo.MenuAberto || CameraDeCena.Ativa) return;      // cena de câmera / menu: ninguém ataca
         if (Time.time >= proximaBusca && estado != Estado.Atacando) { proximaBusca = Time.time + 0.5f; AcharAlvo(); }
 
         Vector3 mover = Vector3.zero;
@@ -173,7 +190,7 @@ public class InimigoEsqueleto : MonoBehaviour
                     if (temLimite && (areaDentro != null ? !EstaDentro(transform.position) : paraCentro.magnitude > limiteRaio - 8f))
                     {
                         Girar(paraCentro);
-                        mover = transform.forward * velocidade;
+                        mover = transform.forward * Vel;
                         Tocar(animAndar);
                     }
                     else Tocar(animParado);
@@ -182,7 +199,7 @@ public class InimigoEsqueleto : MonoBehaviour
                 Girar(paraAlvo);
                 if (dist > distanciaParaAtacar)
                 {
-                    mover = transform.forward * velocidade + Separacao();
+                    mover = transform.forward * Vel + Separacao();
                     Tocar(animAndar);
                 }
                 else if (Time.time >= proximoAtaque)

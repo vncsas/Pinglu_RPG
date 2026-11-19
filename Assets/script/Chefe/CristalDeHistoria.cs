@@ -169,7 +169,7 @@ public class CristalDeHistoria : MonoBehaviour
             transform.position = flutua + Vector3.up * Mathf.Sin(t * 1.7f) * 0.25f;
             luz.intensity = 5f + Mathf.Sin(t * 5f) * 0.6f;
             jogador = JogadorPerto();
-            if (podePegar && jogador != null && !SessaoDeJogo.MenuAberto && !DialogoUI.Aberto && Input.GetKeyDown(tecla))
+            if (podePegar && jogador != null && !SessaoDeJogo.MenuAberto && !DialogoUI.Aberto && Comandos.Apertou(Acao.Cristal))
             {
                 if (aoApertar != null) { Action ap = aoApertar; aoApertar = null; fase = Fase.Controlado; ap(); return; }
                 fase = Fase.Voando; t = 0f; partida = transform.position;
@@ -237,7 +237,7 @@ public class CristalDeHistoria : MonoBehaviour
         float e = Screen.height / 1080f;
         GUIStyle s = new GUIStyle(GUI.skin.label) { alignment = TextAnchor.MiddleCenter, fontStyle = FontStyle.Bold, fontSize = Mathf.RoundToInt(34 * e) };
         Rect r = new Rect(0f, Screen.height * 0.78f, Screen.width, 50f * e);
-        s.normal.textColor = new Color(0f, 0f, 0f, 0.85f); GUI.Label(new Rect(r.x + 2f, r.y + 2f, r.width, r.height), "[" + tecla + "] Pegar o cristal", s);
-        s.normal.textColor = Color.Lerp(Color.white, cor, 0.35f); GUI.Label(r, "[" + tecla + "] Pegar o cristal", s);
+        s.normal.textColor = new Color(0f, 0f, 0f, 0.85f); GUI.Label(new Rect(r.x + 2f, r.y + 2f, r.width, r.height), "[" + Comandos.Dica(Acao.Cristal) + "] Pegar o cristal", s);
+        s.normal.textColor = Color.Lerp(Color.white, cor, 0.35f); GUI.Label(r, "[" + Comandos.Dica(Acao.Cristal) + "] Pegar o cristal", s);
     }
 }

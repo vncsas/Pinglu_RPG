@@ -66,7 +66,7 @@ public class PlayerLocomotion : MonoBehaviour
             if (entrada == null)
             {
                 entrada = GetComponent<EntradaDoPersonagem>();
-                if (entrada == null) { EntradaHumana h = gameObject.AddComponent<EntradaHumana>(); h.teclaGuardarSacar = teclaGuardarSacar; entrada = h; }
+                if (entrada == null) { EntradaHumana h = gameObject.AddComponent<EntradaHumana>(); entrada = h; }
             }
             return entrada;
         }
@@ -102,6 +102,16 @@ public class PlayerLocomotion : MonoBehaviour
     public bool Rolando => isRolling;
     public int GolpeAtual => golpeAtual;            // 0, 1, 2 = combo ; -1 = pesado
     public bool Controlavel { get; set; } = true;   // falso quando morto
+    // durante uma habilidade especial: não anda, não ataca e não se assusta com golpes (veja HabilidadesDoPersonagem)
+    public bool TravadoPorHabilidade { get; set; }
+    // buff de velocidade (Impulsionar): 1 = normal, 1.2 = 20% mais rápido
+    public float BonusDeVelocidade { get; set; } = 1f;
+    // se a espada está guardada, saca e devolve quantos segundos faltam para ela estar na mão
+    public float SacarSeGuardada() { if (usaBainha && !armado) { Sacar(); return tempoParaSacar; } return 0f; }
+    // água (AmbienteDaAgua): andando na água fica mais lento; fundo demais = nada na superfície, sem pular nem rolar
+    public bool Nadando { get; set; }
+    public float AlturaDeNado { get; set; }
+    public float FatorDeAgua { get; set; } = 1f;
     public bool Companheiro { get; set; }           // true nos aventureiros controlados pela CPU (não são "o jogador local")
     // voo (usado pelo Tanque): sem gravidade, sobe/desce na velocidade pedida e não ataca nem defende
     public bool Voando { get; set; }
@@ -189,7 +199,7 @@ public class PlayerLocomotion : MonoBehaviour
             if (animator != null) { animator.SetFloat("Speed", 0.5f); animator.SetBool("Block", false); }
             return;
         }
-        if (!Controlavel || SessaoDeJogo.MenuAberto || Time.time < atordoadoAte)
+        if (!Controlavel || SessaoDeJogo.MenuAberto || Time.time < atordoadoAte || TravadoPorHabilidade)
         {
             // morto ou atordoado: só gravidade e empurrão
             if (controller.isGrounded && verticalVelocity < 0f) verticalVelocity = -0.5f; else verticalVelocity += gravity * Time.deltaTime;
@@ -238,7 +248,7 @@ public class PlayerLocomotion : MonoBehaviour
         // --- Rolagem (Esquiva) --- (cancela o combo)
         if (rollCooldownTimer > 0f) rollCooldownTimer -= Time.deltaTime;
 
-        if (ent.RolarApertou && !isRolling && rollCooldownTimer <= 0f && !Voando)
+        if (ent.RolarApertou && !isRolling && rollCooldownTimer <= 0f && !Voando && !Nadando)
         {
             // Rola na direção que o jogador está segurando (WASD); se não estiver segurando nada, rola pra frente
             rollDirection = moveDir.sqrMagnitude > 0.001f ? moveDir : transform.forward;
@@ -247,7 +257,7 @@ public class PlayerLocomotion : MonoBehaviour
         }
 
         // --- Pulo ---
-        if (ent.PularApertou && controller.isGrounded && !isRolling && !atacando && !Voando)
+        if (ent.PularApertou && controller.isGrounded && !isRolling && !atacando && !Voando && !Nadando)
         {
             verticalVelocity = Mathf.Sqrt(jumpHeight * -2f * gravity);
             if (animator != null) animator.SetTrigger("Jump");
@@ -299,6 +309,10 @@ public class PlayerLocomotion : MonoBehaviour
         {
             verticalVelocity = VelocidadeVerticalDeVoo;
         }
+        else if (Nadando)
+        {
+            verticalVelocity = Mathf.Clamp((AlturaDeNado - transform.position.y) * 6f, -4f, 4f);   // boia na superfície
+        }
         else if (controller.isGrounded && verticalVelocity < 0f)
         {
             verticalVelocity = -0.5f; // pequena força pra manter no chão
@@ -309,7 +323,7 @@ public class PlayerLocomotion : MonoBehaviour
         }
 
         // --- Movimento final ---
-        float targetMoveSpeed = inputMagnitude * (correndo ? runSpeed : walkSpeed);
+        float targetMoveSpeed = inputMagnitude * (correndo ? runSpeed : walkSpeed) * BonusDeVelocidade * FatorDeAgua;
         if (Voando) targetMoveSpeed *= MultiplicadorDeVoo;
         if (atacando) targetMoveSpeed = inputMagnitude * walkSpeed * movimentoDuranteGolpe;
         else if (isBlocking) targetMoveSpeed = inputMagnitude * walkSpeed * 0.5f;
@@ -322,7 +336,7 @@ public class PlayerLocomotion : MonoBehaviour
 
         // --- Avisa o Animator se o personagem está no chão, DEPOIS do Move() ---
         // (precisa ser depois do Move, senão ele ainda reflete o chão do frame anterior)
-        if (animator != null) animator.SetBool("Grounded", controller.isGrounded);
+        if (animator != null) animator.SetBool("Grounded", controller.isGrounded || Nadando);
     }
 
     // ------------------------------------------------------------------
@@ -420,6 +434,7 @@ public class PlayerLocomotion : MonoBehaviour
         if (usaBainha && !armado) Sacar();
         Vector3 dir = transform.position - origem; dir.y = 0f;
         if (dir.sqrMagnitude > 0.001f) empurrao = dir.normalized * (bloqueado ? 2.5f : 4f);
+        if (TravadoPorHabilidade) return;   // conjurando: não interrompe a habilidade
         if (bloqueado)
         {
             EscudoAnimacao escudo = GetComponent<EscudoAnimacao>();

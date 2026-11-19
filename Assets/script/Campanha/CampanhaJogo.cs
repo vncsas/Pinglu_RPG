@@ -23,8 +23,18 @@ public class CampanhaJogo : MonoBehaviour
     private void AoMudarEtapa(Etapa e)
     {
         if (e == Etapa.Intro) return;
+        bool mesmaEtapa = e == ultimaEtapa; ultimaEtapa = e;
+        if (mesmaEtapa)                      // só um dos três lugares foi concluído: avisa pelo HUD, sem a faixa grande
+        {
+            if (e == Etapa.Cristais) HUDJogador.Mostrar("Objetivo atualizado (" + Campanha.QuantosFeitos + "/3)", 3.5f);
+            return;
+        }
         faixaTexto = Campanha.Capitulo(e); faixaSub = Campanha.Objetivo(e); faixaAte = Time.unscaledTime + 5f;
+        if (e == Etapa.Dragao) Invoke(nameof(CenaDosTresLugares), 3.5f);
     }
+
+    private Etapa ultimaEtapa = Etapa.Intro;
+    private void CenaDosTresLugares() { DialogoUI.Abrir(Roteiro.TresLugaresVencidos, null); }
 
     private void Update()
     {
@@ -37,7 +47,7 @@ public class CampanhaJogo : MonoBehaviour
         }
         if (fase == Fase.Abertura)
         {
-            bool pula = Input.GetKeyDown(KeyCode.E) || Input.GetKeyDown(KeyCode.Space) || Input.GetKeyDown(KeyCode.Return) || Input.GetMouseButtonDown(0);
+            bool pula = Comandos.Apertou(Acao.Interagir) || Comandos.NavConfirmar() || Input.GetMouseButtonDown(0);
             float t = Time.unscaledTime - slideInicio, total = Roteiro.Abertura[slide].Length / 38f + 2.5f;
             if (pula) { if (t < Roteiro.Abertura[slide].Length / 38f) slideInicio = -999f; else slide = ProximoSlide(); }
             else if (t > total) slide = ProximoSlide();
@@ -58,6 +68,7 @@ public class CampanhaJogo : MonoBehaviour
 
     private void OnGUI()
     {
+        if (TelaDeMorte.Ativa) return;
         float e = Screen.height / 1080f;
         GUI.matrix = Matrix4x4.TRS(Vector3.zero, Quaternion.identity, new Vector3(e, e, 1f));
         float W = Screen.width / e;
@@ -75,7 +86,7 @@ public class CampanhaJogo : MonoBehaviour
             string t = Roteiro.Abertura[slide]; float s = Time.unscaledTime - slideInicio;
             int n = Mathf.Min(t.Length, Mathf.FloorToInt(s * 38f));
             GUI.color = Color.white; GUI.Label(new Rect(W * 0.15f, 300f, W * 0.7f, 460f), t.Substring(0, n), estNarra);
-            GUI.color = new Color(1f, 1f, 1f, 0.5f); GUI.Label(new Rect(W - 520f, 1000f, 480f, 40f), "[E] continuar", new GUIStyle(estObj) { fontSize = 24, alignment = TextAnchor.MiddleRight });
+            GUI.color = new Color(1f, 1f, 1f, 0.5f); GUI.Label(new Rect(W - 520f, 1000f, 480f, 40f), "[" + Comandos.Dica(Acao.Interagir) + "] continuar", new GUIStyle(estObj) { fontSize = 24, alignment = TextAnchor.MiddleRight });
             GUI.color = Color.white;
             return;
         }

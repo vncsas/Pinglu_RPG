@@ -92,6 +92,7 @@ public class GerenciadorDeOndas : MonoBehaviour
 
     [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
     private static void ZerarCheckpoint() { CheckpointOnda = 0; HordaVencida = false; }
+    public static void ReiniciarTudo() { CheckpointOnda = 0; HordaVencida = false; checkpointEtapa = Etapa.Intro; }
 
     // true depois que o chefe cai: a horda não recomeça mais
     public static bool HordaVencida;
@@ -170,6 +171,7 @@ public class GerenciadorDeOndas : MonoBehaviour
             if (t != null && Vector3.Distance(t.position, transform.position) < distanciaParaComecar)
             {
                 Ativo = true;
+                MarcarPontoDeRenascer();
                 StartCoroutine(Ciclo());
                 break;
             }
@@ -206,6 +208,34 @@ public class GerenciadorDeOndas : MonoBehaviour
         AtualizarJogadores();
         HordaVencida = false; Ativo = true; OndaAtual = ondasAntesDoChefe + 1; Restantes = 0;
         StartCoroutine(RotinaDoChefe());
+    }
+
+    // ponto de renascer da luta: a entrada do cemitério (de onde o jogador chega)
+    private void MarcarPontoDeRenascer()
+    {
+        Vector3 destino = pontoDeChegada != null ? pontoDeChegada.position : transform.position + transform.forward * 16f;
+        Terrain t = Terrain.activeTerrain;
+        if (t != null) destino.y = t.SampleHeight(destino) + t.transform.position.y + 0.2f;
+        Renascimento.DefinirParaLuta(destino, Quaternion.LookRotation(-transform.forward));
+    }
+
+    private void OnEnable() { Renascimento.AoRenascer += ReiniciarAposMorte; }
+    private void OnDisable() { Renascimento.AoRenascer -= ReiniciarAposMorte; }
+
+    // o jogador morreu e renasceu (R): a horda e a luta contra o Guardião recomeçam do ponto em que estava
+    private void ReiniciarAposMorte()
+    {
+        if (!Ativo && !HordaVencida && CheckpointOnda <= 0) return;
+        if (HordaVencida) return;
+        StopAllCoroutines();
+        foreach (InimigoEsqueleto e in vivos.ToArray()) if (e != null) Destroy(e.gameObject);
+        vivos.Clear();
+        foreach (ChefeGuardiao c in FindObjectsByType<ChefeGuardiao>(FindObjectsSortMode.None)) Destroy(c.gameObject);
+        if (PracaDoGuardiao.Instancia != null) PracaDoGuardiao.Instancia.Reiniciar();
+        TituloDeChefe.Barras(false); CameraDeCena.Soltar(); SessaoDeJogo.MenuAberto = false;
+        Ativo = false; Restantes = 0; voltouAoCheckpoint = true;
+        OndaAtual = Mathf.Max(0, CheckpointOnda - 1);
+        Aviso("Os mortos esperam por você...", 3f);
     }
 
     private void LevarJogadorAteAqui(Transform jogador)
@@ -318,12 +348,12 @@ public class GerenciadorDeOndas : MonoBehaviour
         if (!caiu) yield break;                       // o grupo morreu: segue o fluxo normal de morte (volta na onda do chefe)
         yield return new WaitForSeconds(7.5f);        // espera o Guardião estilhaçar
         Aviso("O Guardião das Lápides caiu!", 3.5f);
-        HordaVencida = true; CheckpointOnda = 0; OndaAtual = 0; Ativo = false;
+        HordaVencida = true; CheckpointOnda = 0; OndaAtual = 0; Ativo = false; Renascimento.Liberar();
         if (AoVencerHorda != null) AoVencerHorda();
-        if ((int)Campanha.Atual <= (int)Etapa.Cemiterio && (!SessaoDeJogo.Online || SessaoDeJogo.SouHost))
+        if (!Campanha.CemiterioFeito && (!SessaoDeJogo.Online || SessaoDeJogo.SouHost))
         {
             yield return new WaitForSeconds(1.5f);
-            System.Action seguir = () => DialogoUI.Abrir(Roteiro.RouboDoCristal, () => Campanha.Ir(Etapa.Castelo));
+            System.Action seguir = () => DialogoUI.Abrir(Roteiro.RouboDoCristal, () => Campanha.Concluir(Local.Cemiterio));
             if (praca != null) { Aviso("Um cristal surge do buraco!", 4f); yield return RotinaDoRoubo(praca, seguir); }
             else seguir();
         }
@@ -471,9 +501,9 @@ public class GerenciadorDeOndas : MonoBehaviour
             jogador.position = destino; Vector3 olhar = pr.Centro() - destino; olhar.y = 0f; jogador.rotation = Quaternion.LookRotation(olhar);
             if (cc != null) cc.enabled = true;
         }
-        HordaVencida = true; CheckpointOnda = 0; Ativo = false;
-        if ((int)Campanha.Atual < (int)Etapa.Cemiterio) Campanha.Ir(Etapa.Cemiterio);
-        System.Action seguir = () => DialogoUI.Abrir(Roteiro.RouboDoCristal, () => Campanha.Ir(Etapa.Castelo));
+        HordaVencida = true; CheckpointOnda = 0; Ativo = false; Renascimento.Liberar();
+        if (Campanha.Atual < Etapa.Cristais) Campanha.Ir(Etapa.Cristais);
+        System.Action seguir = () => DialogoUI.Abrir(Roteiro.RouboDoCristal, () => Campanha.Concluir(Local.Cemiterio));
         StartCoroutine(RotinaDoRoubo(pr, seguir, true));
     }
 

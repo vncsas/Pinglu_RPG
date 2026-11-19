@@ -32,6 +32,7 @@ public class CombateJogador : MonoBehaviour
     [SerializeField] private float ganhoAoLevarDano = 4f;
 
     public float Especial { get; private set; }
+    public float EspecialMaximo => especialMaximo;
 
     // ponto do acerto (usado pelos efeitos visuais da espada)
     public event System.Action<Vector3> AoAcertar;
@@ -144,7 +145,7 @@ public class CombateJogador : MonoBehaviour
             Vida alvo = c.GetComponentInParent<Vida>();
             if (alvo == null || alvo == vida || atingidos.Contains(alvo) || alvo.Morto) continue;
             atingidos.Add(alvo);
-            if (alvo.ReceberDano(dano, transform.position))
+            if (alvo.ReceberDano(dano * StatusDeBatalha.DanoDe(gameObject), transform.position))
             {
                 acertou = true;
                 loco.MarcarCombate();

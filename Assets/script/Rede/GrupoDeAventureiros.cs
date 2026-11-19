@@ -7,7 +7,7 @@ using UnityEngine;
 // (G reunir, Y ajudar, T atacar o alvo da mira), revive todo mundo quando um chefe cai e desenha o painel do grupo.
 public class GrupoDeAventureiros : MonoBehaviour
 {
-    public static bool Ativo = true;                       // desligue para jogar sem companheiros
+    public static bool Ativo = false;                      // desligue para jogar sem companheiros
     public static readonly List<PlayerLocomotion> Companheiros = new List<PlayerLocomotion>();
     public static readonly List<PlayerLocomotion> Membros = new List<PlayerLocomotion>();        // jogador + companheiros
     public static readonly List<InimigoVisto> Inimigos = new List<InimigoVisto>();
@@ -39,7 +39,7 @@ public class GrupoDeAventureiros : MonoBehaviour
     static void Reiniciar()
     {
         Companheiros.Clear(); Membros.Clear(); Inimigos.Clear(); nomes.Clear(); cerebros.Clear(); cacheInimigos.Clear(); chefesOuvidos.Clear();
-        instancia = null; Ativo = true; Humano = null; reunirAte = ajudarAte = alvoForcadoAte = 0f; alvoForcado = null; ajudanteLuta = ajudanteCura = null;
+        instancia = null; Ativo = false; Humano = null; reunirAte = ajudarAte = alvoForcadoAte = 0f; alvoForcado = null; ajudanteLuta = ajudanteCura = null;
     }
 
     // ------------------------------------------------------------------

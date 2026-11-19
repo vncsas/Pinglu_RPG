@@ -41,8 +41,6 @@ public class VooTanque : MonoBehaviour
         if (SessaoDeJogo.MenuAberto) return;
 
         EntradaDoPersonagem ent = loco.Entrada;
-        EntradaHumana humana = ent as EntradaHumana;
-        if (humana != null) { humana.teclaVoar = teclaVoar; humana.teclaSubir = teclaSubir; humana.teclaDescer = teclaDescer; }
         if (ent.VoarApertou)
         {
             if (!voando) { if (cc.isGrounded && !loco.Atacando && !loco.Bloqueando && !loco.Rolando) Decolar(); }

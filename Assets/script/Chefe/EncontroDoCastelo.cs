@@ -60,7 +60,7 @@ public class EncontroDoCastelo : MonoBehaviour
         if (SessaoDeJogo.Online && !SessaoDeJogo.SouHost) return;     // por enquanto só o host cuida do castelo (rede vem depois)
         Transform local = JogadorLocal(); if (local == null) return;
 
-        if (fase == Fase.Esperando && Campanha.Atual == Etapa.Castelo)
+        if (fase == Fase.Esperando && Campanha.Atual == Etapa.Cristais && !Campanha.CasteloFeito)
         {
             if (cav == null && (local.position - estrutura.position).sqrMagnitude < 150f * 150f) cav = Criar(prefabCavaleiro, Ponto(0f, -2f), PrefabVida(prefabCavaleiro, 1100f));
             if (cav != null && !cav.Despertou && (local.position - cav.transform.position).sqrMagnitude < 34f * 34f) AcordarCavaleiro();
@@ -77,7 +77,27 @@ public class EncontroDoCastelo : MonoBehaviour
         InimigoCavaleiro i = prefab.GetComponent<InimigoCavaleiro>(); return i != null ? i.vidaBase : padrao;
     }
 
-    private void AcordarCavaleiro() { fase = Fase.Cavaleiro; StartCoroutine(CenaDoCavaleiro()); }
+    private void AcordarCavaleiro()
+    {
+        fase = Fase.Cavaleiro;
+        Renascimento.DefinirParaLuta(Ponto(0f, 46f) + Vector3.up * 0.3f, Quaternion.LookRotation(-estrutura.forward));     // a entrada do castelo
+        StartCoroutine(CenaDoCavaleiro());
+    }
+
+    private void OnEnable() { Renascimento.AoRenascer += ReiniciarLuta; }
+    private void OnDisable() { Renascimento.AoRenascer -= ReiniciarLuta; }
+
+    // o jogador morreu e renasceu (R): o Cavaleiro Antigo e o Ladrão voltam ao começo
+    private void ReiniciarLuta()
+    {
+        if (fase == Fase.Esperando || fase == Fase.Cristal || fase == Fase.Feito) return;
+        StopAllCoroutines();
+        if (cav != null) Destroy(cav.gameObject);
+        if (lad != null) Destroy(lad.gameObject);
+        cav = lad = null; fase = Fase.Esperando;
+        TituloDeChefe.Barras(false); CameraDeCena.Soltar(); SessaoDeJogo.MenuAberto = false;
+        proxBusca = 0f;
+    }
 
     // cena de apresentação do Cavaleiro Antigo: a aura acende, a câmera mostra o pátio, vai para o rosto dele, ele faz a pose de desafio e aparece o título
     private IEnumerator CenaDoCavaleiro()
@@ -184,6 +204,7 @@ public class EncontroDoCastelo : MonoBehaviour
 
     private IEnumerator AposOLadrao()
     {
+        Renascimento.Liberar();
         yield return new WaitForSeconds(2.8f);
         fase = Fase.Cristal;
         DialogoUI.Abrir(Roteiro.LadraoDerrotado, () =>
@@ -194,7 +215,7 @@ public class EncontroDoCastelo : MonoBehaviour
             {
                 fase = Fase.Feito;
                 HUDJogador.Mostrar("Segundo cristal recuperado!", 4f);
-                Campanha.Ir(Etapa.Panteano);
+                Campanha.Concluir(Local.Castelo);
             });
         });
     }
@@ -211,7 +232,7 @@ public class EncontroDoCastelo : MonoBehaviour
         foreach (GameObject go in FindObjectsByType<GameObject>(FindObjectsSortMode.None)) if (go.name == "Espada cravada") Destroy(go);
         foreach (CristalDeHistoria c in FindObjectsByType<CristalDeHistoria>(FindObjectsSortMode.None)) Destroy(c.gameObject);
         GerenciadorDeOndas.HordaVencida = true;                 // o cemitério conta como feito
-        Campanha.Ir(Etapa.Castelo);                              // e a conversa com o Caio também
+        Campanha.Ir(Etapa.Cristais);                            // e a conversa com o Caio também
         Transform local = JogadorLocal();
         if (local != null)
         {

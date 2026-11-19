@@ -1,3 +1,5 @@
 Fontes (Google Fonts, licença SIL OFL):
 - Uncial Antiqua (Astigmatic) - titulo do Guardiao das Lapides
 - Pirata One (Rodrigo Fuenzalida) - reserva para outros chefes
+- Cinzel Bold (NDISCOVER) - titulo da tela de morte (estilo inscricao romana)
+- IM Fell English (Igino Marini) - texto da tela de morte

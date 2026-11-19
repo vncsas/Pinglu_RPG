@@ -11,6 +11,8 @@ public class NpcFalante : MonoBehaviour
 
     private Transform jogador; private float proximaBusca; private bool perto; private GUIStyle est;
 
+    private void OnEnable() { DialogoUI.Registrar(nomeExibido, transform); }
+
     private void Update()
     {
         if (Time.time >= proximaBusca)
@@ -24,13 +26,13 @@ public class NpcFalante : MonoBehaviour
                 if (d < melhor) { melhor = d; jogador = p.transform; }
             }
         }
-        perto = jogador != null && !SessaoDeJogo.MenuAberto && !DialogoUI.Aberto && (jogador.position - transform.position).sqrMagnitude < alcance * alcance;
+        perto = jogador != null && !SessaoDeJogo.MenuAberto && !DialogoUI.Aberto && !TutorialDoMapa.Ativo && (jogador.position - transform.position).sqrMagnitude < alcance * alcance;
         if (jogador != null && (jogador.position - transform.position).sqrMagnitude < 36f)
         {
             Vector3 d = jogador.position - transform.position; d.y = 0f;
             if (d.sqrMagnitude > 0.01f) transform.rotation = Quaternion.Slerp(transform.rotation, Quaternion.LookRotation(d), Time.deltaTime * 3f);
         }
-        if (perto && Input.GetKeyDown(KeyCode.E) && Time.unscaledTime - DialogoUI.UltimoFechamento > 0.5f)
+        if (perto && Comandos.Apertou(Acao.Interagir) && Time.unscaledTime - DialogoUI.UltimoFechamento > 0.5f)
         {
             System.Action fim;
             Fala[] falas = Roteiro.Caio(Campanha.Atual, out fim);
@@ -48,6 +50,6 @@ public class NpcFalante : MonoBehaviour
         Rect r = new Rect(Screen.width * 0.5f - 300f * e, Screen.height * 0.72f, 600f * e, 60f * e);
         GUI.color = new Color(0f, 0f, 0f, 0.6f); GUI.DrawTexture(r, Texture2D.whiteTexture); GUI.color = Color.white;
         GUIStyle s = new GUIStyle(est) { fontSize = Mathf.RoundToInt(34 * e) };
-        GUI.Label(r, "[E] Falar com " + nomeExibido, s);
+        GUI.Label(r, "[" + Comandos.Dica(Acao.Interagir) + "] Falar com " + nomeExibido, s);
     }
 }

@@ -1,0 +1,35 @@
+CAVALO (Cavalo.fbx) - esqueleto + animacoes + colisao
+======================================================
+Fonte: scan "Scaniverse" (cavalo arabe) em C:\Users\Thiago\Documentos\horse. Malha reduzida para ~31 mil triangulos, textura 2048x1024.
+
+ESQUELETO (39 ossos, tipo Generic - animal nao e Humanoid)
+  Root > Pelvis > Spine1 > Spine2 > Chest > Neck1-3 > Head (Jaw, Ear_L, Ear_R)
+  Pelvis > Tail1..Tail5 | Pelvis > {LH,RH}_Thigh > Shin > Cannon > Pastern > Hoof
+  Chest > {LF,RF}_Shoulder > Arm > Forearm > Cannon > Pastern > Hoof     (L = esquerda do cavalo, R = direita)
+  Frente do cavalo = +Z no Unity. Pe no chao (y = 0). ~1,5 m na cernelha, ~2,0 m de corpo (+ cauda).
+
+CLIPES (todos "no lugar", o jogo move o animal; root motion desligado)
+  Idle (5 s)  Walk (1,5 s)  Trot (1 s)  Gallop (0,75 s)  Comer (3,75 s, cabeca no chao mastigando)
+  Comer_Entrar / Comer_Sair (1,25 s, transicoes de abaixar/levantar a cabeca; nao repetem)
+
+COLISAO (nao da para atravessar)
+  O prefab tem 3 colisores: capsula do corpo, capsula do pescoco/cabeca e caixa das pernas + Rigidbody kinematico.
+  Testei com um CharacterController andando de 6 direcoes contra o cavalo: 6 de 6 foram bloqueadas.
+
+COMO USAR NO UNITY
+  1) Copie a pasta Cavalo inteira para Assets/Personagens/Cavalo (fbx, jpg, Editor, Scripts).
+  2) Menu  Cavalo > Montar tudo  -> configura o rig, loops, material e cria Cavalo.prefab.
+  3) No projeto do jogo (que tem o script AnimalAmbiente) o prefab ja sai com ele ligado a Idle/Walk/Comer.
+     Fora do jogo ele usa o CavaloDemo: teclas 1 a 7 trocam a animacao (Idle, Walk, Trot, Gallop, Comer_Entrar, Comer, Comer_Sair).
+  4) Menu  Cavalo > Cena de teste  cria chao + cavalo para ver.
+  O colisor fica no root do prefab: se for escalar o animal, escale o prefab inteiro (o colisor acompanha).
+
+LIMITES (honesto)
+  - A malha e um scan: a barriga tem um tom alaranjado e a crina/cauda sao "placas" coladas, entao deformam de forma rigida.
+  - Cada perna na pose original estava em um ponto do trote; reposicionei para "em pe", mas o pelo das patas pode mostrar leve esticamento.
+  - Gallop e Trot sao procedurais (nao mocap). Sem sela e sem montaria ainda.
+
+ATUALIZACAO (patas refeitas)
+  As 4 patas do scan (abaixo do meio do antebraco/tibia) foram substituidas no Blender por patas limpas (scripts/11_pernas_novas.py):
+  tubos com joelho/jarrete, canela fina, boleto, quartela e casco, pesos por articulacao, pelo claro que escurece no boleto e casco escuro.
+  A textura ganhou uma faixa extra no fim (gradiente das patas) - use o Cavalo_cor.jpg novo junto com o FBX.

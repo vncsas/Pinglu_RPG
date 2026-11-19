@@ -69,6 +69,7 @@ public class MenuRede : MonoBehaviour
     private void Awake()
     {
         Application.runInBackground = true; // para testar dois jogos abertos no mesmo PC
+        SessaoDeJogo.SairParaSelecao = () => Voltar(null);
     }
 
     private void Start()
@@ -233,6 +234,7 @@ public class MenuRede : MonoBehaviour
         }
         else NascerSozinho(f);
         GrupoDeAventureiros.Formar(personagens, escolhido, nascimento, rotacaoNascimento);   // os outros 3 aventureiros (CPU)
+        Renascimento.Definir(nascimento, rotacaoNascimento);                                 // primeiro ponto de renascer: onde o jogo começa
         tela = Tela.Jogando;
         SairDoMenu();
     }

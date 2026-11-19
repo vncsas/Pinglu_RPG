@@ -40,6 +40,17 @@ public class ApresentacaoDoChefe
         };
     }
 
+    // O Devorador do Lago (chefe do Pântano): letras que surgem da água, verde-musgo com brilho de lodo
+    public static ApresentacaoDoChefe Angler()
+    {
+        return new ApresentacaoDoChefe
+        {
+            nome = "Devorador do Lago", epiteto = "O Terror do Pântano",
+            fonte = "Fontes/UncialAntiqua", animacao = AnimacaoDoTitulo.Surgir,
+            corLetra = new Color(0.72f, 0.86f, 0.74f), corBrilho = new Color(0.25f, 0.95f, 0.6f), duracao = 5f, tamanho = 1f
+        };
+    }
+
     // O Ladrão: aparece de repente (sem estampar), tom frio e discreto
     public static ApresentacaoDoChefe Ladrao()
     {

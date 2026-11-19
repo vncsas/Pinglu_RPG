@@ -107,9 +107,9 @@ public class MiniMapa : MonoBehaviour
         if (Time.time >= proximaBusca) { proximaBusca = Time.time + 0.4f; Procurar(); }
         if (SessaoDeJogo.MenuAberto || jogador == null) return;
 
-        if (abrirComTecla && Input.GetKeyDown(teclaMapaCompleto)) mapaAberto = !mapaAberto;
-        if (Input.GetKey(teclaAproximar) || Input.GetKey(KeyCode.KeypadPlus)) metrosVisiveis = Mathf.Max(metrosMinimo, metrosVisiveis - 120f * Time.deltaTime);
-        if (Input.GetKey(teclaAfastar) || Input.GetKey(KeyCode.KeypadMinus)) metrosVisiveis = Mathf.Min(metrosMaximo, metrosVisiveis + 120f * Time.deltaTime);
+        if (abrirComTecla && Campanha.TemMapa && Comandos.Apertou(Acao.Mapa)) mapaAberto = !mapaAberto;
+        if (Comandos.Segurando(Acao.ZoomMais)) metrosVisiveis = Mathf.Max(metrosMinimo, metrosVisiveis - 120f * Time.deltaTime);
+        if (Comandos.Segurando(Acao.ZoomMenos)) metrosVisiveis = Mathf.Min(metrosMaximo, metrosVisiveis + 120f * Time.deltaTime);
 
         if (usarNevoa && Time.time >= proximaNevoa) { proximaNevoa = Time.time + 0.25f; Revelar(jogador.position); }
         AtualizarRegiao();
@@ -180,7 +180,7 @@ public class MiniMapa : MonoBehaviour
             }
             if (nome != "Campos") descobertos.Add(nome);      // conta para o "Biomas descobertos" do mapa (sem aviso na tela)
         }
-        regiaoAtual = nome;
+        regiaoAtual = NomesDoMapa.Exibir(nome);
     }
 
     private static float PlanoDist(Vector3 a, Vector3 b) { return new Vector2(a.x - b.x, a.z - b.z).magnitude; }
@@ -202,6 +202,9 @@ public class MiniMapa : MonoBehaviour
 
     private void OnGUI()
     {
+        if (TelaDeMorte.Ativa) return;
+        if (!Campanha.TemMiniMapa && !mapaAberto) return;          // só depois do tutorial do Caio
+        if (!Configuracoes.MostrarMinimapa && !mapaAberto) return;
         if ((SessaoDeJogo.MenuAberto && !mapaAberto) || jogador == null || mapa == null || material == null) return;
         float e = Screen.height / 1080f;
         if (estiloRegiao == null || Event.current.type == EventType.Layout) Estilos(e);
@@ -294,7 +297,11 @@ public class MiniMapa : MonoBehaviour
         HashSet<string> jaDesenhado = new HashSet<string>();
         if (biomas != null)
             foreach (ClimaDosBiomas.Bioma b in biomas.biomas)
-                if (jaDesenhado.Add(b.nome)) GUI.Label(new Rect(NoMapa(b.centro).x - 120f * e, NoMapa(b.centro).y - 15f * e, 240f * e, 30f * e), Conhecido(b.nome) ? b.nome : "???", estiloNome);
+                if (jaDesenhado.Add(b.nome))
+                {
+                    Vector2 pn = NoMapa(NomesDoMapa.Ancora(biomas, marcadores, b.nome, b.centro));          // um lugar próprio para cada nome
+                    GUI.Label(new Rect(pn.x - 120f * e, pn.y - 15f * e, 240f * e, 30f * e), Conhecido(b.nome) ? NomesDoMapa.Exibir(b.nome) : "???", estiloNome);
+                }
         RotasNoPergaminho(NoMapa, e);
         foreach (Marcador m in marcadores)
             if (Explorado(m.posicao)) Icone(IconeDo(m.tipo), NoMapa(m.posicao), 30f * e, 0f, 1f);

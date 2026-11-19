@@ -13,9 +13,47 @@ public class DialogoUI : MonoBehaviour
     public Font fonteTexto, fonteNome;
     public Texture2D retratoCaio;          // quando existir a foto/arte do Caio, é só colocar aqui
 
-    private IList<Fala> falas; private int indice; private float inicioDaFala; private Action aoFim; private bool menuAntes;
+    private IList<Fala> falas; private int indice; private float inicioDaFala, inicioDaFala0; private Action aoFim; private bool menuAntes;
     private GUIStyle estTexto, estNome, estDica; private Texture2D pixel;
     const float VELOCIDADE = 48f;      // letras por segundo
+
+    // quebra as falas longas em balões curtos (uma ou duas frases), mantendo quem fala e a emoção
+    const int MAX_BALAO = 96;
+    private static IList<Fala> Paginar(IList<Fala> lista)
+    {
+        var res = new List<Fala>();
+        foreach (Fala f in lista)
+        {
+            string t = f.texto; Emocao em = f.emocao;
+            if (t.Length <= MAX_BALAO + 14) { res.Add(f); continue; }
+            var frases = new List<string>(); int ini = 0;
+            for (int i = 0; i < t.Length; i++)
+            {
+                bool fim = t[i] == '.' || t[i] == '!' || t[i] == '?';
+                if (!fim) continue;
+                int j = i; while (j + 1 < t.Length && (t[j + 1] == '.' || t[j + 1] == '!' || t[j + 1] == '?' || t[j + 1] == '"')) j++;
+                if (j + 1 >= t.Length || t[j + 1] == ' ') { frases.Add(t.Substring(ini, j + 1 - ini).Trim()); ini = j + 1; i = j; }
+            }
+            if (ini < t.Length) frases.Add(t.Substring(ini).Trim());
+            var pagina = new System.Text.StringBuilder();
+            Action<string> fecha = txt => { if (txt.Length > 0) res.Add(new Fala(f.quem, txt, null, em)); };
+            foreach (string fr0 in frases)
+            {
+                string fr = fr0;
+                while (fr.Length > MAX_BALAO + 14)                          // frase enorme: corta na vírgula/espaço mais perto
+                {
+                    int corte = fr.LastIndexOf(", ", MAX_BALAO); if (corte < 30) corte = fr.LastIndexOf(' ', MAX_BALAO); if (corte < 30) corte = MAX_BALAO;
+                    if (pagina.Length > 0) { fecha(pagina.ToString().Trim()); pagina.Length = 0; }
+                    fecha(fr.Substring(0, corte + 1).Trim()); fr = fr.Substring(corte + 1).Trim();
+                }
+                if (pagina.Length > 0 && pagina.Length + 1 + fr.Length > MAX_BALAO) { fecha(pagina.ToString().Trim()); pagina.Length = 0; }
+                if (pagina.Length > 0) pagina.Append(' ');
+                pagina.Append(fr);
+            }
+            fecha(pagina.ToString().Trim());
+        }
+        return res;
+    }
 
     private void Awake() { Instancia = this; }
     private void OnDestroy() { if (Instancia == this) Instancia = null; }
@@ -23,7 +61,7 @@ public class DialogoUI : MonoBehaviour
     public static void Abrir(IList<Fala> lista, Action quandoAcabar)
     {
         if (Instancia == null || lista == null || lista.Count == 0) { if (quandoAcabar != null) quandoAcabar(); return; }
-        Instancia.abertoEm = Time.unscaledTime; Instancia.falas = lista; Instancia.indice = 0; Instancia.inicioDaFala = Time.unscaledTime; Instancia.aoFim = quandoAcabar;
+        Instancia.abertoEm = Time.unscaledTime; Instancia.falas = Paginar(lista); Instancia.indice = 0; Instancia.inicioDaFala = Instancia.inicioDaFala0 = Time.unscaledTime; Instancia.ancoraDaFala = -1; Instancia.aoFim = quandoAcabar;
         Instancia.menuAntes = SessaoDeJogo.MenuAberto; SessaoDeJogo.MenuAberto = true;
     }
 
@@ -43,12 +81,12 @@ public class DialogoUI : MonoBehaviour
         if (Input.GetKeyDown(KeyCode.Escape)) { Fechar(); return; }           // Esc pula a conversa toda
         // na última fala a conversa se encerra sozinha pouco depois de ler
         if (ultima && terminouDeEscrever && Time.unscaledTime - inicioDaFala > t.Length / VELOCIDADE + 3.5f) { Fechar(); return; }
-        bool avancar = Input.GetKeyDown(KeyCode.E) || Input.GetKeyDown(KeyCode.Space) || Input.GetKeyDown(KeyCode.Return) || Input.GetMouseButtonDown(0);
+        bool avancar = Comandos.Apertou(Acao.Interagir) || Comandos.NavConfirmar() || Input.GetMouseButtonDown(0);
         if (!avancar) return;
         if (!terminouDeEscrever) { inicioDaFala = -999f; return; }    // mostra a fala inteira
         if (ultima) { Fechar(); return; }                              // última fala: aperta qualquer botão e sai
         indice++;
-        inicioDaFala = Time.unscaledTime;
+        inicioDaFala = inicioDaFala0 = Time.unscaledTime;
     }
 
     private void Fechar()
@@ -87,168 +125,324 @@ public class DialogoUI : MonoBehaviour
         GUI.DrawTexture(r, pixel, ScaleMode.StretchToFill, true, 0f, c, new Vector4(esp, esp, esp, esp), new Vector4(canto, canto, canto, canto));
     }
 
-    static float Hash(int i, int k) { float v = Mathf.Sin(i * 127.1f + k * 311.7f) * 43758.5453f; return v - Mathf.Floor(v); }
-
-    // ponto na borda do balão (s de 0 a 1 dá a volta inteira)
-    static Vector2 NaBorda(Rect r, float s, out Vector2 normal)
+    // ====================================================================================================
+    //  Balão de fala no estilo Octopath Traveler: pergaminho com ponta, plaquinha com o nome, ♦ para continuar.
+    //  Fica em cima da cabeça de quem fala (ou ao lado / embaixo, se faltar espaço na tela) e o FORMATO muda com a emoção:
+    //  surpresa = estrela, raiva = pontas afiadas, alegre = nuvenzinha saltitante, triste = pálido e caído, pensando = nuvem com bolinhas...
+    // ====================================================================================================
+    static readonly Dictionary<string, Transform> registro = new Dictionary<string, Transform>();
+    public static void Registrar(string nome, Transform t) { if (!string.IsNullOrEmpty(nome) && t != null) registro[Normaliza(nome)] = t; }
+    static string Normaliza(string s)
     {
-        float P = 2f * (r.width + r.height), d = s * P;
-        if (d < r.width) { normal = Vector2.down; return new Vector2(r.x + d, r.y); }
-        d -= r.width; if (d < r.height) { normal = Vector2.right; return new Vector2(r.xMax, r.y + d); }
-        d -= r.height; if (d < r.width) { normal = Vector2.up; return new Vector2(r.xMax - d, r.yMax); }
-        d -= r.width; normal = Vector2.left; return new Vector2(r.x, r.yMax - d);
+        if (s == null) return "";
+        s = s.ToLowerInvariant().Replace('ã', 'a').Replace('á', 'a').Replace('â', 'a').Replace('à', 'a').Replace('é', 'e').Replace('ê', 'e').Replace('í', 'i').Replace('ó', 'o').Replace('ô', 'o').Replace('õ', 'o').Replace('ú', 'u').Replace('ç', 'c');
+        return s.Trim();
     }
 
-    // partículas na borda: cada personagem tem a sua (brasas, fumaça, brilhos, faíscas de aço...)
-    private void Particulas(Rect r, string tipo, EstiloDeFala est, float ap)
+    // quem está falando (cache por fala)
+    private int ancoraDaFala = -1; private Transform ancora; private Renderer[] ancoraRend;
+    private void ResolverAncora(Fala f)
     {
-        int n = 30; float t = Time.unscaledTime;
-        for (int i = 0; i < n; i++)
+        ancora = null; ancoraRend = null;
+        string q = Normaliza(f.quem);
+        if (f.quem == Roteiro.VOCE || q == "aventureiro")
         {
-            float ciclo = 1.6f + Hash(i, 1) * 2.4f;
-            float fase = Mathf.Repeat(t / ciclo + Hash(i, 2), 1f);
-            Vector2 normal; Vector2 p = NaBorda(r, Hash(i, 3), out normal);
-            float tam = 3f + Hash(i, 4) * 5f, a, dx = 0f, dy = 0f; Color c = est.brilho;
-            switch (tipo)
-            {
-                case "demonio": case "tanque": case "cavaleirosombrio":      // brasas que sobem
-                    dy = -fase * 70f; dx = Mathf.Sin(fase * 6f + i) * 8f; a = Mathf.Sin(fase * Mathf.PI); tam *= 0.8f; break;
-                case "ladrao": case "morgana":                               // fumaça que se espalha para fora
-                    dx = normal.x * fase * 36f + Mathf.Sin(fase * 4f + i) * 6f; dy = normal.y * fase * 36f - fase * 14f;
-                    a = Mathf.Sin(fase * Mathf.PI) * 0.7f; tam = (tam + 5f) * (0.6f + fase); break;
-                case "caio": case "curandeiro":                              // brilhos que piscam parados na moldura
-                    a = Mathf.Pow(Mathf.Abs(Mathf.Sin(fase * Mathf.PI * 2f)), 3f); dx = normal.x * 4f; dy = normal.y * 4f; break;
-                default:                                                     // faíscas de aço
-                    a = Mathf.Pow(Mathf.Abs(Mathf.Sin(fase * Mathf.PI * 4f)), 6f); tam *= 0.7f; break;
-            }
-            c.a = a * 0.85f * ap; if (c.a <= 0.01f) continue;
-            Retangulo(new Rect(p.x + dx - tam * 0.5f, p.y + dy - tam * 0.5f, tam, tam), c, tam);
+            foreach (PlayerLocomotion p in FindObjectsByType<PlayerLocomotion>(FindObjectsSortMode.None)) if (p.enabled && !p.Companheiro && p.gameObject.activeInHierarchy) { ancora = p.transform; break; }
         }
+        else
+        {
+            Transform t; if (registro.TryGetValue(q, out t) && t != null && t.gameObject.activeInHierarchy) ancora = t;
+            if (ancora == null && q.Length > 2 && q != "???")
+            {
+                float melhor = float.MaxValue;
+                foreach (Transform tr in FindObjectsByType<Transform>(FindObjectsSortMode.None))
+                {
+                    if (!tr.gameObject.activeInHierarchy || !Normaliza(tr.name).Contains(q)) continue;
+                    if (tr.GetComponentInChildren<Renderer>() == null) continue;
+                    float d = tr.position.sqrMagnitude * 0f + (tr.GetComponent<Animator>() != null || tr.GetComponentInChildren<Animator>() != null ? 0f : 1000f) + tr.GetComponentsInParent<Transform>().Length;
+                    if (d < melhor) { melhor = d; ancora = tr; }
+                }
+            }
+        }
+        if (ancora != null) ancoraRend = System.Array.FindAll(ancora.GetComponentsInChildren<Renderer>(false), r => !(r is ParticleSystemRenderer) && !(r is TrailRenderer) && !(r is LineRenderer));
     }
 
-    // enfeites dos cantos, diferentes por personagem
-    private void Enfeites(Rect r, string tipo, EstiloDeFala est, float ap)
+    // retângulos (em tela) de quem está na cena: o balão não deve cobri-los
+    private readonly Dictionary<Transform, Renderer[]> cacheRend = new Dictionary<Transform, Renderer[]>();
+    private bool TelaDe(Transform t, out Vector2 cabeca, out Vector2 pe)
     {
-        Color c = est.borda; c.a = ap;
-        Vector2[] cantos = { new Vector2(r.x, r.y), new Vector2(r.xMax, r.y), new Vector2(r.x, r.yMax), new Vector2(r.xMax, r.yMax) };
-        Matrix4x4 m0 = GUI.matrix;
-        for (int k = 0; k < 4; k++)
+        cabeca = pe = Vector2.zero; Camera cam = Camera.main; if (t == null || cam == null || !t.gameObject.activeInHierarchy) return false;
+        Renderer[] rs; if (!cacheRend.TryGetValue(t, out rs)) { rs = System.Array.FindAll(t.GetComponentsInChildren<Renderer>(false), q => !(q is ParticleSystemRenderer) && !(q is TrailRenderer) && !(q is LineRenderer)); cacheRend[t] = rs; }
+        Vector3 topo = t.position + Vector3.up * 2f, base0 = t.position;
+        if (rs.Length > 0)
         {
-            Vector2 p = cantos[k];
-            switch (tipo)
-            {
-                case "caio": case "curandeiro":     // losangos dourados
-                    GUIUtility.RotateAroundPivot(45f, p); Retangulo(new Rect(p.x - 9f, p.y - 9f, 18f, 18f), c, 2f);
-                    GUI.matrix = m0; GUIUtility.RotateAroundPivot(45f, p); Retangulo(new Rect(p.x - 4f, p.y - 4f, 8f, 8f), new Color(est.fundo.r, est.fundo.g, est.fundo.b, ap), 1f); break;
-                case "ladrao": case "morgana":      // garras (triângulos finos)
-                    GUIUtility.RotateAroundPivot(45f, p); Retangulo(new Rect(p.x - 3f, p.y - 22f, 6f, 44f), c, 0f); break;
-                case "demonio": case "tanque": case "cavaleirosombrio":    // espinhos
-                    GUIUtility.RotateAroundPivot(45f + k * 0f, p); Retangulo(new Rect(p.x - 4f, p.y - 16f, 8f, 32f), c, 0f);
-                    GUI.matrix = m0; GUIUtility.RotateAroundPivot(-45f, p); Retangulo(new Rect(p.x - 3f, p.y - 12f, 6f, 24f), c, 0f); break;
-                default:                            // rebites
-                    Retangulo(new Rect(p.x - 7f, p.y - 7f, 14f, 14f), c, 14f);
-                    Retangulo(new Rect(p.x - 3f, p.y - 3f, 6f, 6f), new Color(est.fundo.r, est.fundo.g, est.fundo.b, ap), 6f); break;
-            }
-            GUI.matrix = m0;
+            Bounds b = new Bounds(); bool ok = false;
+            foreach (Renderer r in rs) { if (r == null) continue; if (!ok) { b = r.bounds; ok = true; } else b.Encapsulate(r.bounds); }
+            if (ok) { topo = new Vector3(b.center.x, b.max.y, b.center.z); base0 = new Vector3(b.center.x, b.min.y, b.center.z); }
         }
+        Vector3 a = cam.WorldToScreenPoint(topo), c = cam.WorldToScreenPoint(base0);
+        if (a.z < 0.3f || c.z < 0.3f) return false;
+        cabeca = new Vector2(a.x, Screen.height - a.y); pe = new Vector2(c.x, Screen.height - c.y); return true;
     }
+    private List<Rect> Protegidos(Vector2 cabFalante, Vector2 peFalante, float e)
+    {
+        var l = new List<Rect>();
+        Action<Vector2, Vector2> add = (c, p) => { float alt = Mathf.Max(60f * e, p.y - c.y), w = Mathf.Max(70f * e, alt * 0.55f); l.Add(new Rect(c.x - w * 0.5f, c.y - 8f * e, w, alt + 8f * e)); };
+        add(cabFalante, peFalante);
+        Vector2 a, b;
+        foreach (var kv in registro) if (kv.Value != ancora && TelaDe(kv.Value, out a, out b)) add(a, b);
+        foreach (PlayerLocomotion pl in FindObjectsByType<PlayerLocomotion>(FindObjectsSortMode.None))
+            if (pl.enabled && !pl.Companheiro && pl.transform != ancora && TelaDe(pl.transform, out a, out b)) add(a, b);
+        return l;
+    }
+    private static Rect Sobre(Rect a, Rect b)
+    {
+        float x0 = Mathf.Max(a.x, b.x), x1 = Mathf.Min(a.xMax, b.xMax), y0 = Mathf.Max(a.y, b.y), y1 = Mathf.Min(a.yMax, b.yMax);
+        return x1 > x0 && y1 > y0 ? new Rect(x0, y0, x1 - x0, y1 - y0) : new Rect(0, 0, 0, 0);
+    }
+
+    // topo da cabeça e pé do falante em coordenadas de tela (y para baixo). false = fora da câmera
+    private bool NaTela(out Vector2 cabeca, out Vector2 pe)
+    {
+        cabeca = pe = Vector2.zero;
+        Camera cam = Camera.main; if (ancora == null || cam == null) return false;
+        Vector3 topo, base0;
+        if (ancoraRend != null && ancoraRend.Length > 0)
+        {
+            Bounds b = new Bounds(); bool ok = false;
+            foreach (Renderer r in ancoraRend) { if (r == null) continue; if (!ok) { b = r.bounds; ok = true; } else b.Encapsulate(r.bounds); }
+            if (!ok) { topo = ancora.position + Vector3.up * 2f; base0 = ancora.position; }
+            else { topo = new Vector3(b.center.x, b.max.y, b.center.z); base0 = new Vector3(b.center.x, b.min.y, b.center.z); }
+        }
+        else { topo = ancora.position + Vector3.up * 2f; base0 = ancora.position; }
+        Vector3 a = cam.WorldToScreenPoint(topo), c = cam.WorldToScreenPoint(base0);
+        if (a.z < 0.3f || c.z < 0.3f) return false;
+        cabeca = new Vector2(a.x, Screen.height - a.y); pe = new Vector2(c.x, Screen.height - c.y);
+        return true;
+    }
+
+    // ---------------------------------------------------------------- desenho com GL (polígonos)
+    private Material matGL; private bool semShader; private static bool glOk;
+    private void PrepararGL()
+    {
+        if (matGL == null)
+        {
+            Shader sh = Shader.Find("Hidden/Internal-Colored"); if (sh == null) sh = Shader.Find("UI/Default"); if (sh == null) sh = Shader.Find("Sprites/Default");
+            if (sh == null) { semShader = true; return; }
+            matGL = new Material(sh) { hideFlags = HideFlags.HideAndDontSave };
+            matGL.SetInt("_SrcBlend", (int)UnityEngine.Rendering.BlendMode.SrcAlpha); matGL.SetInt("_DstBlend", (int)UnityEngine.Rendering.BlendMode.OneMinusSrcAlpha);
+            matGL.SetInt("_Cull", (int)UnityEngine.Rendering.CullMode.Off); matGL.SetInt("_ZWrite", 0);
+        }
+        glOk = matGL != null; if (!glOk) return;
+        matGL.SetPass(0);
+        GL.PushMatrix(); GL.LoadPixelMatrix(0f, Screen.width, Screen.height, 0f);
+    }
+    private void FimGL() { if (matGL != null) GL.PopMatrix(); }
+
+    private static void Preencher(List<Vector2> pts, Color c)
+    {
+        if (!glOk) return;
+        Vector2 cen = Vector2.zero; foreach (Vector2 p in pts) cen += p; cen /= pts.Count;
+        GL.Begin(GL.TRIANGLES); GL.Color(c);
+        for (int i = 0; i < pts.Count; i++) { Vector2 a = pts[i], b = pts[(i + 1) % pts.Count]; GL.Vertex3(cen.x, cen.y, 0f); GL.Vertex3(a.x, a.y, 0f); GL.Vertex3(b.x, b.y, 0f); }
+        GL.End();
+    }
+    private static void Linha(Vector2 a, Vector2 b, float esp, Color c)
+    {
+        if (!glOk) return;
+        Vector2 d = (b - a); if (d.sqrMagnitude < 0.0001f) return; d.Normalize(); Vector2 n = new Vector2(-d.y, d.x) * esp * 0.5f;
+        GL.Begin(GL.TRIANGLES); GL.Color(c);
+        GL.Vertex3(a.x - n.x, a.y - n.y, 0f); GL.Vertex3(a.x + n.x, a.y + n.y, 0f); GL.Vertex3(b.x + n.x, b.y + n.y, 0f);
+        GL.Vertex3(a.x - n.x, a.y - n.y, 0f); GL.Vertex3(b.x + n.x, b.y + n.y, 0f); GL.Vertex3(b.x - n.x, b.y - n.y, 0f);
+        GL.End();
+    }
+    private static void Contornar(List<Vector2> pts, float esp, Color c, bool fechar = true)
+    {
+        int n = fechar ? pts.Count : pts.Count - 1;
+        for (int i = 0; i < n; i++) Linha(pts[i], pts[(i + 1) % pts.Count], esp, c);
+    }
+    private static void Disco(Vector2 c, float r, Color cor)
+    {
+        var l = new List<Vector2>(); for (int i = 0; i < 14; i++) { float a = i / 14f * Mathf.PI * 2f; l.Add(c + new Vector2(Mathf.Cos(a), Mathf.Sin(a)) * r); }
+        Preencher(l, cor);
+    }
+
+    // contorno do balão: retângulo com cantos cortados e pontas nas laterais; a emoção deforma a borda
+    private static List<Vector2> Perimetro(Rect r, Emocao em, float esc, float t)
+    {
+        float c = (em == Emocao.Triste ? 26f : 16f) * esc, tip = (em == Emocao.Triste ? 4f : 12f) * esc, cy = r.center.y;
+        Vector2[] baseV = {
+            new Vector2(r.x + c, r.y), new Vector2(r.xMax - c, r.y), new Vector2(r.xMax, r.y + c), new Vector2(r.xMax + tip, cy), new Vector2(r.xMax, r.yMax - c),
+            new Vector2(r.xMax - c, r.yMax), new Vector2(r.x + c, r.yMax), new Vector2(r.x, r.yMax - c), new Vector2(r.x - tip, cy), new Vector2(r.x, r.y + c) };
+        float passo = 5f * esc; var res = new List<Vector2>(); float s = 0f;
+        for (int i = 0; i < baseV.Length; i++)
+        {
+            Vector2 a = baseV[i], b = baseV[(i + 1) % baseV.Length], d = b - a; float len = d.magnitude; if (len < 0.01f) continue; d /= len;
+            Vector2 n = new Vector2(d.y, -d.x);                       // para fora (contorno no sentido horário, y para baixo)
+            int k = Mathf.Max(1, Mathf.CeilToInt(len / passo));
+            for (int j = 0; j < k; j++)
+            {
+                float u = j / (float)k; Vector2 p = a + d * (len * u); float ss = s + len * u, off = 0f;
+                switch (em)
+                {
+                    case Emocao.Surpresa: off = 9f * esc * Tri(ss / (27f * esc)); break;
+                    case Emocao.Raiva: off = 12f * esc * Tri(ss / (17f * esc)); break;
+                    case Emocao.Alegre: off = 3.5f * esc * Mathf.Abs(Mathf.Sin(Mathf.PI * ss / (46f * esc))); break;
+                    case Emocao.Pensando: off = 6f * esc * Mathf.Abs(Mathf.Sin(Mathf.PI * ss / (60f * esc))); break;
+                    case Emocao.Triste: off = -2.5f * esc * Mathf.Abs(Mathf.Sin(Mathf.PI * ss / (80f * esc))); break;
+                    case Emocao.Medo: off = 2.5f * esc * Tri(ss / (11f * esc)); break;
+                }
+                res.Add(p + n * off);
+            }
+            s += len;
+        }
+        return res;
+    }
+    static float Tri(float x) { x = x - Mathf.Floor(x); return x < 0.5f ? x * 2f : (1f - x) * 2f; }
+
+    static Color Pergaminho(Emocao e) { return new Color(0.93f, 0.89f, 0.8f); }
 
     private void OnGUI()
     {
         if (falas == null) return;
-        float e = Screen.height / 1080f;
-        GUI.matrix = Matrix4x4.TRS(Vector3.zero, Quaternion.identity, new Vector3(e, e, 1f));
-        float W = Screen.width / e, H = 1080f;
         if (pixel == null) { pixel = new Texture2D(1, 1); pixel.SetPixel(0, 0, Color.white); pixel.Apply(); }
-        if (seta == null)
-        {
-            seta = new Texture2D(32, 32, TextureFormat.RGBA32, false) { filterMode = FilterMode.Bilinear, wrapMode = TextureWrapMode.Clamp };
-            for (int yy = 0; yy < 32; yy++) for (int xx = 0; xx < 32; xx++)
-            {
-                float halfW = (yy / 31f) * 15f;                    // triângulo apontando para baixo (y=0 é a ponta)
-                float a = Mathf.Clamp01(halfW - Mathf.Abs(xx - 15.5f) + 0.5f);
-                seta.SetPixel(xx, yy, new Color(1, 1, 1, a));
-            }
-            seta.Apply();
-        }
+        float e = Screen.height / 1080f, W = Screen.width, H = Screen.height;
+        Fala f = falas[indice];
+        if (ancoraDaFala != indice) { ancoraDaFala = indice; ResolverAncora(f); }
+        string quem = NomeDe(f);
+        EstiloDeFala est = EstiloDeFala.Para(quem);
+        Emocao em = f.emocao;
+        float t = Time.unscaledTime;
+        float ap = Mathf.Clamp01((t - inicioDaFala0) / 0.2f);                       // entrada do balão desta fala
+        float pop = ap < 1f ? Mathf.LerpUnclamped(0.55f, 1f, 1f + 2.2f * Mathf.Pow(ap - 1f, 3f) + 1.2f * Mathf.Pow(ap - 1f, 2f)) : 1f;   // "estoura" e assenta
+        if (em == Emocao.Surpresa && ap >= 1f) pop = 1f + 0.03f * Mathf.Sin((t - inicioDaFala0) * 16f) * Mathf.Exp(-(t - inicioDaFala0) * 2f);
+
+        // ---- medidas do texto
         if (estTexto == null)
         {
-            estTexto = new GUIStyle(GUI.skin.label) { fontSize = 30, wordWrap = true, alignment = TextAnchor.UpperLeft, font = fonteTexto };
-            estNome = new GUIStyle(GUI.skin.label) { fontSize = 34, fontStyle = FontStyle.Bold, font = fonteNome != null ? fonteNome : fonteTexto };
-            estDica = new GUIStyle(GUI.skin.label) { fontSize = 24, alignment = TextAnchor.LowerRight, font = fonteTexto };
+            estTexto = new GUIStyle(GUI.skin.label) { alignment = TextAnchor.UpperLeft, wordWrap = true, font = fonteTexto };
+            estNome = new GUIStyle(GUI.skin.label) { fontStyle = FontStyle.Bold, font = fonteNome != null ? fonteNome : fonteTexto, alignment = TextAnchor.MiddleCenter };
         }
-        Fala f = falas[indice];
-        string quem = NomeDe(f);
-        string tipo = EstiloDeFala.Tipo(quem);
-        EstiloDeFala est = EstiloDeFala.Para(quem);
-        float ap = Mathf.SmoothStep(0f, 1f, (Time.unscaledTime - abertoEm) / 0.35f);      // entrada: sobe e aparece
-        float t = Time.unscaledTime;
-        Color tx = est.texto; tx.a = ap; estTexto.normal.textColor = tx;
-        Color nm = est.nome; nm.a = ap; estNome.normal.textColor = nm;
+        estTexto.fontSize = Mathf.RoundToInt(29f * e); estNome.fontSize = Mathf.RoundToInt(26f * e);
+        string completo = f.texto, visivel = TextoVisivel();
+        float maxW = Mathf.Min(W - 160f * e, 600f * e), padX = 32f * e, padY = 22f * e;
+        float natural = estTexto.CalcSize(new GUIContent(completo)).x;
+        float textoW = Mathf.Clamp(Mathf.Min(natural + 6f * e, maxW), 260f * e, maxW);
+        float textoH = estTexto.CalcHeight(new GUIContent(completo), textoW);
+        float bw = textoW + padX * 2f + 22f * e, bh = textoH + padY * 2f;
 
-        float larg = Mathf.Min(W - 260f, 1120f), alt = 190f, x = (W - larg) * 0.5f, y = H - alt - 30f + (1f - ap) * 50f;
-        float retr = 132f, textoX = x + retr + 50f, textoL = larg - retr - 80f;
-        Rect caixa = new Rect(x, y, larg, alt);
-
-        // brilho pulsando atrás do balão (na cor do personagem)
-        float pulso = 0.5f + 0.5f * Mathf.Sin(t * 2.2f);
-        for (int g = 3; g >= 1; g--)
+        // ---- onde fica: testa várias posições e escolhe a melhor (sem cobrir quem está na cena, sempre dentro da tela)
+        Vector2 cab, pe; bool temAncora = NaTela(out cab, out pe);
+        Rect r; Vector2 alvo = Vector2.zero; int lado = 0;          // 0 sem ponta, 1 ponta embaixo (balão em cima), 2 ponta à esquerda (balão à direita), 3 ponta à direita, 4 ponta em cima (balão embaixo)
+        float margem = 36f * e, topoMin = 60f * e;
+        if (temAncora)
         {
-            Color gc = est.brilho; gc.a = (0.05f + 0.04f * pulso) * ap * (4 - g) / 3f;
-            Retangulo(new Rect(x - g * 6f, y - g * 6f, larg + g * 12f, alt + g * 12f), gc, est.cantos + g * 6f);
+            var proibidos = Protegidos(cab, pe, e);
+            float folga = 40f * e, meio = cab.y + (pe.y - cab.y) * 0.3f;
+            var cand = new List<KeyValuePair<Rect, KeyValuePair<int, float>>>();     // retângulo, (lado, custo base)
+            Action<float, float, int, float> add = (x, y, ld, custo) => cand.Add(new KeyValuePair<Rect, KeyValuePair<int, float>>(new Rect(x, y, bw, bh), new KeyValuePair<int, float>(ld, custo)));
+            float ya = cab.y - folga - bh;
+            add(cab.x - bw * 0.5f, ya, 1, 0f);
+            add(cab.x - bw * 0.25f, ya, 1, 2500f); add(cab.x - bw * 0.75f, ya, 1, 2500f);
+            add(cab.x - bw + 70f * e, ya, 1, 5000f); add(cab.x - 70f * e, ya, 1, 5000f);
+            add(cab.x + 70f * e, meio - bh * 0.5f, 2, 7000f); add(cab.x - 70f * e - bw, meio - bh * 0.5f, 3, 7000f);
+            add(cab.x - bw * 0.5f, pe.y + 34f * e, 4, 11000f);
+            float melhor = float.MaxValue; r = new Rect((W - bw) * 0.5f, H - bh - 90f * e, bw, bh); lado = 0;
+            foreach (var c in cand)
+            {
+                Rect q = c.Key; float custo = c.Value.Value;
+                float fx = Mathf.Clamp(q.x, margem, W - bw - margem), fy = Mathf.Clamp(q.y, topoMin, H - bh - margem);
+                custo += (Mathf.Abs(fx - q.x) + Mathf.Abs(fy - q.y)) * 40f;                     // empurrar para dentro da tela custa
+                q.x = fx; q.y = fy;
+                foreach (Rect pr in proibidos) { Rect o = Sobre(q, pr); custo += o.width * o.height; }
+                if (custo < melhor) { melhor = custo; r = q; lado = c.Value.Key; }
+            }
+            alvo = lado == 1 ? cab + new Vector2(0f, -8f * e) : lado == 4 ? pe + new Vector2(0f, 6f * e) : new Vector2(cab.x + (lado == 2 ? 14f : -14f) * e, meio);
         }
-        Particulas(caixa, tipo, est, ap);
+        else { r = new Rect((W - bw) * 0.5f, H - bh - 90f * e, bw, bh); }
 
-        Retangulo(new Rect(x + 4f, y + 6f, larg, alt), new Color(0, 0, 0, 0.35f * ap), est.cantos);
-        Color fundo = est.fundo; fundo.a *= ap; Retangulo(caixa, fundo, est.cantos);
-        // faixa de luz em cima, como um reflexo
-        Color luz = Color.white; luz.a = 0.05f * ap; Retangulo(new Rect(x + 6f, y + 6f, larg - 12f, alt * 0.38f), luz, Mathf.Max(0f, est.cantos - 4f));
-        Color bd = est.borda; bd.a = ap;
-        Contorno(caixa, bd, 3f, est.cantos);
-        Color fina = est.borda; fina.a = 0.35f * ap;
-        Contorno(new Rect(x + 8f, y + 8f, larg - 16f, alt - 16f), fina, 1.5f, Mathf.Max(0f, est.cantos - 6f));
-        Enfeites(caixa, tipo, est, ap);
+        // movimento próprio de cada emoção
+        Vector2 mov = Vector2.zero;
+        if (em == Emocao.Raiva || em == Emocao.Medo) mov = new Vector2(Mathf.Sin(t * 53f), Mathf.Cos(t * 47f)) * 1.2f * e;    // só um tremidinho
+        r.position += mov;
+        Vector2 pivo = lado == 0 ? r.center : alvo;
 
-        // retrato: anel de brilho, pulinhos enquanto fala
-        bool escrevendo = t - inicioDaFala < f.texto.Length / VELOCIDADE;
-        float salto = escrevendo ? Mathf.Abs(Mathf.Sin(t * 11f)) * 3f : 0f;
-        Rect rr = new Rect(x + 24f, y + 28f - salto, retr, retr);
-        Color anel = est.brilho; anel.a = (0.25f + 0.25f * pulso + (escrevendo ? 0.2f : 0f)) * ap;
-        Retangulo(new Rect(rr.x - 10f, rr.y - 10f, rr.width + 20f, rr.height + 20f), anel, est.cantos * 0.6f + 8f);
-        Retangulo(new Rect(rr.x - 4f, rr.y - 4f, rr.width + 8f, rr.height + 8f), bd, est.cantos * 0.5f + 2f);
-        Texture2D ret = (quem == "Caio" && retratoCaio != null) ? retratoCaio : RetratosDeDialogo.Obter(quem);
-        GUI.color = new Color(1, 1, 1, ap);
-        float cr = est.cantos * 0.4f;
-        GUI.DrawTexture(rr, ret, ScaleMode.ScaleAndCrop, true, 0f, new Color(1, 1, 1, ap), Vector4.zero, new Vector4(cr, cr, cr, cr));
-        GUI.color = Color.white;
-
-        // nome com uma linha enfeitada embaixo
-        GUI.Label(new Rect(textoX, y + 14f, textoL, 46f), quem.ToUpper(), estNome);
-        Color lin = est.borda; lin.a = 0.6f * ap;
-        Retangulo(new Rect(textoX, y + 58f, Mathf.Min(textoL, 60f + quem.Length * 22f), 2f), lin, 1f);
-        Retangulo(new Rect(textoX, y + 56f, 8f, 6f), bd, 3f);
-
-        float areaAlt = alt - 70f - 40f;
-        int tam = 30; estTexto.fontSize = tam;
-        while (tam > 20 && estTexto.CalcHeight(new GUIContent(f.texto), textoL) > areaAlt) { tam -= 2; estTexto.fontSize = tam; }
-        GUI.Label(new Rect(textoX, y + 66f, textoL, areaAlt + 6f), TextoVisivel(), estTexto);
-
-        // pontinhos (já ditas apagadas, a atual brilha, as que faltam só com contorno) e a seta que pula
-        int total = falas.Count; float d = total > 14 ? 7f : 10f, espaco = d + 8f;
-        float px = x + larg - 70f - total * espaco, py = y + alt - 36f;
-        for (int i = 0; i < total; i++)
+        if (Event.current.type == EventType.Repaint)
         {
-            Rect p = new Rect(px + i * espaco, py, d, d);
-            if (i < indice) Retangulo(p, new Color(est.borda.r, est.borda.g, est.borda.b, 0.35f * ap), d);
-            else if (i == indice) Retangulo(p, new Color(est.brilho.r, est.brilho.g, est.brilho.b, ap), d);
-            else Contorno(p, new Color(est.borda.r, est.borda.g, est.borda.b, 0.7f * ap), 1.5f, d);
+            List<Vector2> pol = Perimetro(r, em, e, t);
+            Color perg = Pergaminho(em), borda = new Color(0.22f, 0.17f, 0.14f), sombra = new Color(0f, 0f, 0f, 0.3f * ap);
+            Func<Vector2, Vector2> esc = p => pivo + (p - pivo) * pop;
+            for (int i = 0; i < pol.Count; i++) pol[i] = esc(pol[i]);
+            // ponta (ou bolinhas, se estiver pensando)
+            List<Vector2> ponta = null; Vector2 b1 = Vector2.zero, b2 = Vector2.zero, apice = alvo;
+            if (lado != 0)
+            {
+                float semi = 13f * e; Vector2 b0;
+                if (lado == 1) { b0 = new Vector2(Mathf.Clamp(alvo.x, r.x + 40f * e, r.xMax - 40f * e), r.yMax); b1 = b0 + new Vector2(-semi, 0f); b2 = b0 + new Vector2(semi, 0f); }
+                else if (lado == 4) { b0 = new Vector2(Mathf.Clamp(alvo.x, r.x + 40f * e, r.xMax - 40f * e), r.y); b1 = b0 + new Vector2(-semi, 0f); b2 = b0 + new Vector2(semi, 0f); }
+                else if (lado == 2) { b0 = new Vector2(r.x - 8f * e, Mathf.Clamp(alvo.y, r.y + 30f * e, r.yMax - 30f * e)); b1 = b0 + new Vector2(0f, -semi); b2 = b0 + new Vector2(0f, semi); }
+                else { b0 = new Vector2(r.xMax + 8f * e, Mathf.Clamp(alvo.y, r.y + 30f * e, r.yMax - 30f * e)); b1 = b0 + new Vector2(0f, -semi); b2 = b0 + new Vector2(0f, semi); }
+                b1 = esc(b1); b2 = esc(b2); apice = esc(alvo);
+                ponta = new List<Vector2> { b1, apice, b2 };
+            }
+            PrepararGL();
+            // sombra
+            var sh = new List<Vector2>(pol.Count); foreach (Vector2 p in pol) sh.Add(p + new Vector2(4f, 6f) * e); Preencher(sh, sombra);
+            if (ponta != null && em != Emocao.Pensando) Preencher(new List<Vector2> { b1 + new Vector2(4f, 6f) * e, apice + new Vector2(4f, 6f) * e, b2 + new Vector2(4f, 6f) * e }, sombra);
+            // corpo
+            Color corpo = perg; corpo.a = ap; Color bd = borda; bd.a = ap;
+            Preencher(pol, corpo);
+            // ponta: triângulo fino (ou três bolinhas que diminuem, se estiver pensando)
+            if (ponta != null)
+            {
+                if (em == Emocao.Pensando)
+                {
+                    Vector2 b0 = (b1 + b2) * 0.5f;
+                    for (int k = 0; k < 3; k++) { Vector2 pc = Vector2.Lerp(b0, apice, 0.25f + k * 0.35f); float rr = (11f - k * 3f) * e * pop; Disco(pc, rr + 1.8f * e, bd); Disco(pc, rr, corpo); }
+                }
+                else
+                {
+                    Preencher(ponta, corpo);
+                    Linha(b1, apice, 2.5f * e, bd); Linha(b2, apice, 2.5f * e, bd);
+                }
+            }
+            Contornar(pol, 3f * e, bd);
+            if (ponta != null && em != Emocao.Pensando) { Linha(b1, apice, 2.5f * e, bd); Linha(b2, apice, 2.5f * e, bd); Preencher(new List<Vector2> { b1 + (apice - b1) * 0.02f, b1 + (apice - b1) * 0.55f + (b2 - b1) * 0.16f, b2 + (apice - b2) * 0.55f - (b2 - b1) * 0.16f, b2 + (apice - b2) * 0.02f }, corpo); }
+            // plaquinha do nome (colada no canto de cima, à esquerda)
+            float nw = estNome.CalcSize(new GUIContent(quem)).x + 54f * e, nh = 34f * e;
+            Rect tab = new Rect(r.x + 14f * e, r.y - nh * 0.62f, nw, nh);
+            var tp = new List<Vector2> { new Vector2(tab.x + 12f * e, tab.y), new Vector2(tab.xMax - 12f * e, tab.y), new Vector2(tab.xMax, tab.yMax), new Vector2(tab.x, tab.yMax) };
+            for (int i = 0; i < tp.Count; i++) tp[i] = esc(tp[i]);
+            Preencher(tp, corpo); Contornar(tp, 3f * e, bd, false);
+            // marquinhas de emoção
+            FimGL();
+
+            // texto
+            if (ap >= 0.8f)
+            {
+                Color tc = new Color(0.16f, 0.12f, 0.1f, 1f); estTexto.normal.textColor = tc;
+                GUI.Label(new Rect(r.x + padX, r.y + padY, textoW + 2f, textoH + 6f), visivel, estTexto);
+                estNome.normal.textColor = tc;
+                GUI.Label(new Rect(tab.x, tab.y, tab.width, tab.height), quem, estNome);
+                // ♦ de continuar
+                bool escrevendo = t - inicioDaFala < f.texto.Length / VELOCIDADE;
+                if (!escrevendo)
+                {
+                    float pulo = Mathf.Abs(Mathf.Sin(t * 4.5f)) * 5f * e;
+                    Vector2 dc = new Vector2(r.xMax - 30f * e, r.yMax - 28f * e + pulo);
+                    PrepararGL();
+                    Color a1 = new Color(0.18f, 0.3f, 0.25f), a2 = new Color(0.4f, 0.65f, 0.5f);
+                    Preencher(new List<Vector2> { dc + new Vector2(0, -12f * e), dc + new Vector2(10f * e, 0), dc + new Vector2(0, 12f * e), dc + new Vector2(-10f * e, 0) }, a1);
+                    Preencher(new List<Vector2> { dc + new Vector2(0, -7f * e), dc + new Vector2(6f * e, 0), dc + new Vector2(0, 7f * e), dc + new Vector2(-6f * e, 0) }, a2);
+                    FimGL();
+                }
+            }
         }
-        if (!escrevendo)
+        else if (ap >= 0.8f)
         {
-            float pulo = Mathf.Abs(Mathf.Sin(t * 4.5f)) * 7f;
-            GUI.color = new Color(est.brilho.r, est.brilho.g, est.brilho.b, 0.95f * ap);
-            GUI.DrawTexture(new Rect(x + larg - 58f, y + alt - 42f + pulo, 26f, 22f), seta);
-            GUI.color = Color.white;
+            Color tc = new Color(0.16f, 0.12f, 0.1f, 1f); estTexto.normal.textColor = tc; estNome.normal.textColor = tc;
+            GUI.Label(new Rect(r.x + padX, r.y + padY, textoW + 2f, textoH + 6f), visivel, estTexto);
         }
     }
+
 }

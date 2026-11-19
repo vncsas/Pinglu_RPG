@@ -7,6 +7,8 @@ public static class SessaoDeJogo
     public static int PersonagemEscolhido;
     public static bool MenuAberto;        // menu inicial na tela (cursor livre, sem controle)
     public static string MensagemAoVoltar;
+    // volta para a tela de seleção de personagem (preenchido pelo menu da partida); usado pelo menu de pausa
+    public static System.Action SairParaSelecao;
 
     // preenchidos pela sala de espera no PC do host (o resto do jogo usa sem precisar saber de rede)
     public static System.Action<string, float> AvisarTodos;              // mensagem na tela de todos os jogadores

@@ -23,7 +23,7 @@ public class BarraDeChefe : MonoBehaviour
     private void OnGUI()
     {
         if (Event.current.type != EventType.Repaint || vida == null) return;
-        bool mostrar = visivel != null && visivel() && !SessaoDeJogo.MenuAberto;
+        bool mostrar = visivel != null && visivel() && !SessaoDeJogo.MenuAberto && !TelaDeMorte.Ativa;
         exibir = Mathf.MoveTowards(exibir, mostrar ? 1f : 0f, Time.unscaledDeltaTime * (mostrar ? 0.9f : 2.5f));
         if (exibir <= 0.01f) return;
         float fr = Mathf.Clamp01(vida.Fracao);

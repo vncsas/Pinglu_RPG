@@ -18,6 +18,9 @@ public abstract class EntradaDoPersonagem : MonoBehaviour
     public abstract bool SubirSegurando { get; }
     public abstract bool DescerSegurando { get; }
 
+    // habilidades especiais (0, 1 e 2 = teclas 1, 2 e 3). CPU: ainda não usa.
+    public virtual bool HabilidadeApertou(int indice) { return false; }
+
     // CPUs andam em direções do MUNDO (não existe câmera para elas): se TemDirecaoDeMundo, ela vale no lugar de Mover.
     // O tamanho do vetor (0 a 1) é a intensidade (0,5 = andar devagar).
     public virtual bool TemDirecaoDeMundo { get { return false; } }
@@ -27,20 +30,18 @@ public abstract class EntradaDoPersonagem : MonoBehaviour
     public virtual Vector3 FrenteDeMira { get { return Vector3.forward; } }
 }
 
-// Teclado e mouse: exatamente o que o jogo já fazia antes.
+// Teclado, mouse e controle: lê tudo pela camada Comandos, então vale o que o jogador escolheu em Configurações > Teclado e mouse / Controle.
 public class EntradaHumana : EntradaDoPersonagem
 {
-    public KeyCode teclaGuardarSacar = KeyCode.H;
-    public KeyCode teclaVoar = KeyCode.F, teclaSubir = KeyCode.Space, teclaDescer = KeyCode.C;
-
-    public override Vector2 Mover { get { return new Vector2(Input.GetAxis("Horizontal"), Input.GetAxis("Vertical")); } }
-    public override bool Correr { get { return Input.GetKey(KeyCode.LeftShift); } }
-    public override bool PularApertou { get { return Input.GetKeyDown(KeyCode.Space); } }
-    public override bool RolarApertou { get { return Input.GetKeyDown(KeyCode.LeftControl); } }
-    public override bool AtaqueApertou { get { return Input.GetMouseButtonDown(0); } }
-    public override bool DefenderSegurando { get { return Input.GetMouseButton(1) || Input.GetKey(KeyCode.Q); } }
-    public override bool GuardarSacarApertou { get { return Input.GetKeyDown(teclaGuardarSacar); } }
-    public override bool VoarApertou { get { return Input.GetKeyDown(teclaVoar); } }
-    public override bool SubirSegurando { get { return Input.GetKey(teclaSubir); } }
-    public override bool DescerSegurando { get { return Input.GetKey(teclaDescer); } }
+    public override Vector2 Mover { get { return Comandos.Mover(); } }
+    public override bool Correr { get { return Comandos.Segurando(Acao.Correr); } }
+    public override bool PularApertou { get { return Comandos.Apertou(Acao.Pular); } }
+    public override bool RolarApertou { get { return Comandos.Apertou(Acao.Rolar); } }
+    public override bool AtaqueApertou { get { return Comandos.Apertou(Acao.Atacar); } }
+    public override bool DefenderSegurando { get { return Comandos.Segurando(Acao.Defender); } }
+    public override bool GuardarSacarApertou { get { return Comandos.Apertou(Acao.GuardarSacar); } }
+    public override bool HabilidadeApertou(int indice) { return Comandos.Apertou(Acao.Habilidade1 + indice); }
+    public override bool VoarApertou { get { return Comandos.Apertou(Acao.Voar); } }
+    public override bool SubirSegurando { get { return Comandos.Segurando(Acao.Subir); } }
+    public override bool DescerSegurando { get { return Comandos.Segurando(Acao.Descer); } }
 }

@@ -722,6 +722,7 @@ GameObject:
   - component: {fileID: 9056451586686083003}
   - component: {fileID: 508347458070907746}
   - component: {fileID: 6249713553780237238}
+  - component: {fileID: 1314898511554315526}
   m_Layer: 0
   m_Name: Jogador_CavaleiroSombrio
   m_TagString: Untagged
@@ -1112,6 +1113,70 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::JogadorRede
   ShowTopMostFoldoutHeaderGroup: 1
+--- !u!114 &1314898511554315526
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 3797705696538078137}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 100460d65e2449fe29c203b0234da16c, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::HabilidadesDoPersonagem
+  classe: 0
+  habilidades:
+  - nome: Corte Vertical
+    descricao: "Um \xFAnico grande corte vertical que causa dano."
+    custo: 0.33
+    recarga: 1
+    clipe: {fileID: 0}
+    estadoAlternativo: attack_heavy
+    duracao: 1.4
+    momentoDoEfeito: 0.45
+    dano: 90
+    raio: 0
+    valor: 0
+    duracaoEfeito: 0
+    efeito: {fileID: 3153472991145048103, guid: 3407e378c048bb5438424b28c7740b48, type: 3}
+    efeito2: {fileID: 6526302276393259002, guid: f9d9793366789ae48a7e1b0692763acc, type: 3}
+    rotacaoDoEfeito: {x: 0, y: 0, z: 90}
+    escalaDoEfeito: 1
+  - nome: Bicuda
+    descricao: Um chute com dano extremamente elevado.
+    custo: 0.66
+    recarga: 2
+    clipe: {fileID: 0}
+    estadoAlternativo: attack_heavy
+    duracao: 1.1
+    momentoDoEfeito: 0.45
+    dano: 160
+    raio: 0
+    valor: 0
+    duracaoEfeito: 0
+    efeito: {fileID: 0}
+    efeito2: {fileID: 0}
+    rotacaoDoEfeito: {x: 0, y: 0, z: 0}
+    escalaDoEfeito: 1
+  - nome: Aplicar Julgamento
+    descricao: "Ultimate: crava a espada no ch\xE3o e causa dano em \xE1rea."
+    custo: 1
+    recarga: 4
+    clipe: {fileID: 0}
+    estadoAlternativo: attack_heavy
+    duracao: 2
+    momentoDoEfeito: 0.6
+    dano: 220
+    raio: 9
+    valor: 0
+    duracaoEfeito: 0
+    efeito: {fileID: 4994997792314849709, guid: 3dd50886582244645be87adb42aa8528, type: 3}
+    efeito2: {fileID: 2944396702758532163, guid: e190bf97c041e58448af6b043116cba0, type: 3}
+    rotacaoDoEfeito: {x: 0, y: 0, z: 0}
+    escalaDoEfeito: 1.5
+  materialRaio: {fileID: 2100000, guid: 410fa9a27b8dd1f4989dd201babd7d76, type: 2}
+  regenPorSegundo: 0
 --- !u!1 &3917464967678504862
 GameObject:
   m_ObjectHideFlags: 0

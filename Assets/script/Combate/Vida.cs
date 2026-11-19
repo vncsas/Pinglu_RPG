@@ -25,6 +25,12 @@ public class Vida : MonoBehaviour
     public Action<float> RedirecionarCura;
 
     private float invulneravelAte;
+    private float imortalAte;
+    // "O Imbatível": enquanto durar, nenhum dano tira vida (usado pelas habilidades)
+    public bool Imortal { get { return Time.time < imortalAte; } }
+    public float ImortalRestante { get { return Mathf.Max(0f, imortalAte - Time.time); } }
+    public void DesfazerImortal() { imortalAte = 0f; }
+    public void TornarImortal(float segundos) { imortalAte = Mathf.Max(imortalAte, Time.time + segundos); }
 
     private void Awake() { Atual = vidaMaxima; }
 
@@ -38,6 +44,7 @@ public class Vida : MonoBehaviour
     {
         if (Morto || dano <= 0f) return false;
         if (Redirecionar != null) return Redirecionar(dano, origem);
+        if (Time.time < imortalAte) return false;
         if (Time.time < invulneravelAte) return false;
         if (FiltroDeDano != null) dano = FiltroDeDano(dano, origem);
         if (dano <= 0f) return false;
