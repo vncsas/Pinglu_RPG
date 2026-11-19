@@ -58,8 +58,16 @@ public class MapaDoMundo : MonoBehaviour
     private Vector3 cliqueMouse;
 
     public bool Aberto { get { return aberto; } }
+    public Vector3 PivoAlvo { get { return alvoPivo; } }
+    public float YawAlvo { get { return alvoYaw; } }
+    public float DistAlvo { get { return alvoDist; } }
+    public int AbaAtual { get { return (int)aba; } }
+    public Rect RetanguloPainelEsq { get { return rPainelEsq; } }
+    public Rect RetanguloPainelDir { get { return rPainelDir; } }
+    public Rect RetanguloAbas { get { return rAbas; } }
     // durante o tutorial do mapa o jogador não pode fechar sozinho
     public static bool Travado;
+    public static Rect BloqueioExtra;              // área de tela (pixels, y para baixo) que conta como interface: clique ali não mexe no mapa
     public bool AbrirTutorial() { if (aberto) return true; Abrir(); return aberto; }
     public void FecharTutorial() { if (aberto && !fechando) Fechar(); }
 
@@ -198,7 +206,7 @@ public class MapaDoMundo : MonoBehaviour
     {
         Vector3 mouse = Input.mousePosition;
         Vector2 mg = new Vector2(mouse.x, Screen.height - mouse.y);
-        bool sobreUI = rPainelEsq.Contains(mg) || rPainelDir.Contains(mg) || rAbas.Contains(mg);
+        bool sobreUI = rPainelEsq.Contains(mg) || rPainelDir.Contains(mg) || rAbas.Contains(mg) || (BloqueioExtra.width > 1f && BloqueioExtra.Contains(mg));
 
         float roda = Input.mouseScrollDelta.y;
         if (Mathf.Abs(roda) > 0.01f && !sobreUI) alvoDist = Mathf.Clamp(alvoDist * (1f - roda * 0.12f), distanciaMinima, distanciaMaxima);
@@ -349,7 +357,7 @@ public class MapaDoMundo : MonoBehaviour
         PainelEsquerdo(e);
         PainelDireito(e);
         Abas(e);
-        Dicas(e);
+        if (!Travado) Dicas(e);                          // no tutorial a barra de dicas fica escondida
         GUI.color = Color.white;
     }
 
@@ -477,22 +485,30 @@ public class MapaDoMundo : MonoBehaviour
 
     private void PainelEsquerdo(float e)
     {
-        float w = 320f * e;
-        float y0 = 130f * e;
+        float w = 390f * e;
+        float y0 = 130f * e, pad = 18f * e;
         List<MiniMapa.Marcador> locais = miniMapa != null ? miniMapa.marcadores : new List<MiniMapa.Marcador>();
-        int nb = NomesUnicosDeBiomas().Count;
-        float h = (90f + (locais.Count + nb) * 34f + 40f + 80f) * e;
+        int nb = biomas != null ? NomesUnicosDeBiomas().Count : 0;
+        GPSDoMapa gps = GPSDoMapa.Instancia;
+        // estilos sem corte (o texto nunca é cortado: itens em uma linha com folga, textos longos quebram e a altura é medida)
+        GUIStyle item = new GUIStyle(estItem) { wordWrap = false, clipping = TextClipping.Overflow };
+        GUIStyle quebra = new GUIStyle(estPequeno) { wordWrap = true };
+        GUIStyle quebraItem = new GUIStyle(estItem) { wordWrap = true };
+        float larg = w - pad * 2f;
+        string textoGps = gps != null && gps.Ativo ? gps.NomeDoDestino + "  •  " + Mathf.RoundToInt(gps.DistanciaRestante) + " m" : "Clique num lugar do mapa para traçar o caminho";
+        float hGps = gps == null ? 0f : (gps.Ativo ? quebraItem : quebra).CalcHeight(new GUIContent(textoGps), larg) + (gps.Ativo ? 38f * e : 6f * e);
+        float h = 14f * e + 38f * e + locais.Count * 34f * e + (nb > 0 ? 8f * e + 38f * e + nb * 34f * e : 0f) + (gps != null ? 10f * e + 36f * e + hGps : 0f) + 18f * e;
         rPainelEsq = new Rect(28f * e, y0, w, h);
         Painel(rPainelEsq, 0.82f);
-        float x = rPainelEsq.x + 18f * e, y = y0 + 14f * e;
-        GUI.Label(new Rect(x, y, w, 30f * e), "LOCAIS", estTitulo); y += 38f * e;
+        float x = rPainelEsq.x + pad, y = y0 + 14f * e;
+        GUI.Label(new Rect(x, y, larg, 30f * e), "LOCAIS", estTitulo); y += 38f * e;
         foreach (MiniMapa.Marcador m in locais)
         {
             bool conhecido = miniMapa.Explorado(m.posicao);
             Texture2D ic = Icone(m.tipo);
             if (ic != null) { Color a = GUI.color; if (!conhecido) GUI.color = new Color(0.5f, 0.5f, 0.5f, a.a); GUI.DrawTexture(new Rect(x, y + 3f * e, 24f * e, 24f * e), ic); GUI.color = a; }
-            Rect rr = new Rect(x + 34f * e, y, w - 60f * e, 30f * e);
-            if (GUI.Button(rr, conhecido ? m.nome : "???", estItem) && conhecido)
+            Rect rr = new Rect(x + 34f * e, y, larg - 34f * e, 30f * e);
+            if (GUI.Button(rr, conhecido ? m.nome : "???", item) && conhecido)
             {
                 aba = Aba.Mundo; VoarPara(m.posicao, 110f);
                 if (GPSDoMapa.Instancia != null) GPSDoMapa.Instancia.AlternarPorMarcador(m);
@@ -502,27 +518,26 @@ public class MapaDoMundo : MonoBehaviour
         if (biomas != null)
         {
             y += 8f * e;
-            GUI.Label(new Rect(x, y, w, 30f * e), "BIOMAS", estTitulo); y += 38f * e;
+            GUI.Label(new Rect(x, y, larg, 30f * e), "BIOMAS", estTitulo); y += 38f * e;
             HashSet<string> jaMostrado = new HashSet<string>();
             foreach (ClimaDosBiomas.Bioma b in biomas.biomas)
             {
                 if (!jaMostrado.Add(b.nome)) continue;
                 bool conhecido = miniMapa != null && miniMapa.Conhecido(b.nome);
-                if (GUI.Button(new Rect(x + 34f * e, y, w - 60f * e, 30f * e), conhecido ? NomesDoMapa.Exibir(b.nome) : "???", estItem) && conhecido) { aba = Aba.Mundo; VoarPara(NomesDoMapa.Ancora(biomas, miniMapa != null ? miniMapa.marcadores : null, b.nome, b.centro), 420f); }
+                if (GUI.Button(new Rect(x + 34f * e, y, larg - 34f * e, 30f * e), conhecido ? NomesDoMapa.Exibir(b.nome) : "???", item) && conhecido) { aba = Aba.Mundo; VoarPara(NomesDoMapa.Ancora(biomas, miniMapa != null ? miniMapa.marcadores : null, b.nome, b.centro), 420f); }
                 y += 34f * e;
             }
         }
-        GPSDoMapa gps = GPSDoMapa.Instancia;
         if (gps != null)
         {
             y += 10f * e;
-            GUI.Label(new Rect(x, y, w, 30f * e), "GPS", estTitulo); y += 36f * e;
+            GUI.Label(new Rect(x, y, larg, 30f * e), "GPS", estTitulo); y += 36f * e;
             if (gps.Ativo)
             {
-                GUI.Label(new Rect(x, y, w - 20f * e, 30f * e), gps.NomeDoDestino + " • " + Mathf.RoundToInt(gps.DistanciaRestante) + " m", estItem); y += 32f * e;
-                if (GUI.Button(new Rect(x, y, w - 40f * e, 30f * e), "Cancelar GPS (X)", estItem)) gps.Cancelar();
+                GUI.Label(new Rect(x, y, larg, quebraItem.CalcHeight(new GUIContent(textoGps), larg) + 2f), textoGps, quebraItem); y += quebraItem.CalcHeight(new GUIContent(textoGps), larg) + 6f * e;
+                if (GUI.Button(new Rect(x, y, larg, 30f * e), "Cancelar GPS (X)", item)) gps.Cancelar();
             }
-            else GUI.Label(new Rect(x, y, w - 20f * e, 30f * e), "Clique num lugar para traçar o caminho", estPequeno);
+            else GUI.Label(new Rect(x, y, larg, hGps), textoGps, quebra);
         }
     }
 

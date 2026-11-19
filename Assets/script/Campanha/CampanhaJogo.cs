@@ -42,7 +42,7 @@ public class CampanhaJogo : MonoBehaviour
         if (fase == Fase.Esperando)
         {
             if (SessaoDeJogo.MenuAberto || FindFirstObjectByType<PlayerLocomotion>() == null) return;
-            if (Campanha.Atual == Etapa.Intro && !pularAbertura) { fase = Fase.Abertura; slide = 0; slideInicio = Time.unscaledTime; menuAntes = SessaoDeJogo.MenuAberto; SessaoDeJogo.MenuAberto = true; }
+            if (Campanha.Atual == Etapa.Intro && !pularAbertura && !IntroDoJogo.JaViu) { fase = Fase.Abertura; slide = 0; slideInicio = Time.unscaledTime; menuAntes = SessaoDeJogo.MenuAberto; SessaoDeJogo.MenuAberto = true; }
             else { fase = Fase.Jogando; if (Campanha.Atual == Etapa.Intro) Campanha.Ir(Etapa.FalarComCaio); else AoMudarEtapa(Campanha.Atual); }
         }
         if (fase == Fase.Abertura)

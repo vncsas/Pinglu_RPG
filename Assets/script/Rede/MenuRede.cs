@@ -198,7 +198,7 @@ public class MenuRede : MonoBehaviour
     {
         if (tela == Tela.Jogando && claraoMundo > 0f) claraoMundo = Mathf.MoveTowards(claraoMundo, 0f, Time.unscaledDeltaTime / 1.4f);
         if (tela == Tela.Sala) AtualizarSala();
-        if (tela == Tela.Principal || tela == Tela.Sala)
+        if ((tela == Tela.Principal || tela == Tela.Sala) && !IntroDoJogo.Ativa)
         {
             int dir = Input.GetKeyDown(KeyCode.RightArrow) ? 1 : (Input.GetKeyDown(KeyCode.LeftArrow) ? -1 : 0);
             for (int passo = 1; dir != 0 && passo <= personagens.Count; passo++)
