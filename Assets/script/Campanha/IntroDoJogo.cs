@@ -6,7 +6,8 @@ using UnityEngine;
 // Conta a história da ilha, do dragão e dos três cristais em cenas desenhadas por código (silhuetas, céu, brilhos, partículas),
 // com câmera lenta, narração letra por letra e barras de cinema.
 // Enter / Espaço / clique: avança a fala.  Esc: pula tudo.
-public class IntroDoJogo : MonoBehaviour
+[DefaultExecutionOrder(5000)]
+public partial class IntroDoJogo : MonoBehaviour
 {
     public static bool Ativa { get; private set; }
     public static bool JaViu { get; private set; }
@@ -22,7 +23,7 @@ public class IntroDoJogo : MonoBehaviour
     }
 
     // ------------------------------------------------------------------ roteiro
-    class Cena { public float dur; public string texto; public Action<float> desenha; public float z0 = 1f, z1 = 1.12f; public Vector2 p0, p1; }
+    class Cena { public Action<float> cam3, vivo; public Action entra, sai; public Amb amb; public float dur; public string texto; public Action<float> desenha; public float z0 = 1f, z1 = 1.12f; public Vector2 p0, p1; }
     List<Cena> cenas;
     int atual; float inicioCena, fimGeral = -1f; bool digitado;
     const float VEL = 26f;               // letras por segundo
@@ -32,8 +33,10 @@ public class IntroDoJogo : MonoBehaviour
     void Awake()
     {
         Ativa = true; inicioTudo = Time.unscaledTime;
+        if (seqPendente != null) { sequencia = true; aoTerminarSeq = seqAoTerminar; menuAntesSeq = SessaoDeJogo.MenuAberto; dicaTexto = "[Enter] avançar     [Esc] pular a cena"; }
         fCinzel = Resources.Load<Font>("Fontes/CinzelBold"); fFell = Resources.Load<Font>("Fontes/IMFellEnglish");
-        Montar();
+        if (sequencia) { cenas = MontarSequencia(seqPendente); seqPendente = null; seqAoTerminar = null; } else Montar();
+        if (!sequencia && CinematicaDeVideo.Tocar("Abertura", () => { videoRodando = false; Terminar(); })) videoRodando = true;      // vídeo pronto (Resources/Videos/Abertura) no lugar das cenas em código
         atual = 0; inicioCena = Time.unscaledTime + 0.4f;
     }
 
@@ -57,11 +60,14 @@ public class IntroDoJogo : MonoBehaviour
     }
 
     // ------------------------------------------------------------------ controle
+    void Start() { if (!sequencia && !videoRodando) { Preparar3D(); Aviso3D(); } }
+
     void Update()
     {
         if (fimGeral >= 0f) { if (Time.unscaledTime - fimGeral > 1.1f) Destroy(gameObject); return; }
         if (!Ativa) return;
         SessaoDeJogo.MenuAberto = true;
+        if (videoRodando) return;
         if (Input.GetKeyDown(KeyCode.Escape)) { Terminar(); return; }
         float t = Time.unscaledTime - inicioCena; if (t < 0f) return;
         Cena c = cenas[atual];
@@ -78,17 +84,20 @@ public class IntroDoJogo : MonoBehaviour
 
     void Proxima()
     {
+        Sai3D();
         atual++; inicioCena = Time.unscaledTime;
-        if (atual >= cenas.Count) Terminar();
+        if (atual >= cenas.Count) Terminar(); else Entra3D();
     }
 
     void Terminar()
     {
         if (fimGeral >= 0f) return;
-        fimGeral = Time.unscaledTime; JaViu = true; Ativa = false;                // a seleção de personagens já pode receber o teclado
+        Limpar3D();
+        fimGeral = Time.unscaledTime; if (!sequencia) JaViu = true; Ativa = false;                // a seleção de personagens já pode receber o teclado
         encerrando = true;
+        if (sequencia) { SessaoDeJogo.MenuAberto = menuAntesSeq; if (aoTerminarSeq != null) { Action a = aoTerminarSeq; aoTerminarSeq = null; a(); } }
     }
-    bool encerrando;
+    bool encerrando, videoRodando;
 
     // ------------------------------------------------------------------ desenho (GL)
     Material matA, matAdd; bool modoAdd, glPronto; float sc, gz = 1f, gA = 1f; Vector2 gpan; float tempo;
@@ -148,7 +157,7 @@ public class IntroDoJogo : MonoBehaviour
     {
         if (!glPronto || pts.Count < 3) return;
         var s = new Vector2[pts.Count]; Vector2 cen = Vector2.zero;
-        for (int i = 0; i < pts.Count; i++) { Vector2 p = pts[i]; if (espelha) p.x = -p.x; s[i] = T(pos + p * escala, par); cen += s[i]; }
+        for (int i = 0; i < pts.Count; i++) { Vector2 p = pts[i]; if (espelha) p.x = -p.x; s[i] = T(RotM(pos + p * escala), par); cen += s[i]; }
         cen /= s.Length;
         GL.Begin(GL.TRIANGLES); GL.Color(Ga(c));
         for (int i = 0; i < s.Length; i++) { V(cen); V(s[i]); V(s[(i + 1) % s.Length]); }
@@ -279,7 +288,7 @@ public class IntroDoJogo : MonoBehaviour
         Poli(V2(110, 20, 135, 62, 118, 64, 90, 28), cor, par, c, s, esp);                                                             // pata
         Poli(V2(-40, 28, -15, 72, -34, 74, -64, 30), cor, par, c, s, esp);
         Poli(RodarAsa(asa), cor, par, c + new Vector2(10f * f, -34f) * s, s, esp);
-        Brilho(c + new Vector2(208f * f, -66f) * s, 14f * s, C(1f, 0.55f, 0.1f, 0.95f), par);
+        Brilho(RotM(c + new Vector2(208f * f, -66f) * s), 14f * s, C(1f, 0.55f, 0.1f, 0.95f), par);
     }
     List<Vector2> RodarAsa(float ang)
     {
@@ -675,6 +684,7 @@ public class IntroDoJogo : MonoBehaviour
             if (Ativa) ev.Use();                                      // a seleção de personagens por trás não recebe clique nem tecla
         }
         if (ev.type != EventType.Repaint) return;
+        if (videoRodando) return;
         float W = Screen.width, H = Screen.height; sc = Mathf.Max(W / 1920f, H / 1080f); tempo = Time.unscaledTime - inicioTudo;
         if (encerrando && !Ativa)
         {
@@ -685,11 +695,12 @@ public class IntroDoJogo : MonoBehaviour
         Cena c = cenas[atual]; float t = Time.unscaledTime - inicioCena;
         PrepararGL(); tituloPend = null;
         gA = 1f;
-        Grad(-800f, -600f, 2720f, 1500f, C(0f, 0f, 0f), C(0f, 0f, 0f));
+        bool tres = modo3D && c.cam3 != null;                           // cena em 3D: o mundo aparece por trás, sem fundo preto
+        if (!tres) Grad(-800f, -600f, 2720f, 1500f, C(0f, 0f, 0f), C(0f, 0f, 0f));
         float k = Mathf.Clamp01(Mathf.Max(0f, t) / c.dur);
         gz = Mathf.Lerp(c.z0, c.z1, Suave(k)); gpan = Vector2.Lerp(c.p0, c.p1, k);
         float fade = Mathf.Min(Suave(t / 0.9f), Suave((c.dur - t) / 0.9f));
-        if (t >= 0f) { gA = 1f; c.desenha(k); }
+        if (t >= 0f && !tres) { gA = 1f; c.desenha(k); }
         gA = 1f;
         // barras de cinema e degradê para a legenda
         float barra = H * 0.1f;
@@ -710,7 +721,7 @@ public class IntroDoJogo : MonoBehaviour
         ls.normal.textColor = new Color(0.97f, 0.93f, 0.82f, aT); GUI.Label(lr, c.texto.Substring(0, n), ls);
         GUIStyle dica = new GUIStyle { font = fFell, fontSize = Mathf.RoundToInt(22f * e), alignment = TextAnchor.MiddleRight };
         dica.normal.textColor = new Color(0.8f, 0.77f, 0.7f, 0.65f);
-        GUI.Label(new Rect(W - 640f * e, H - barra * 0.85f, 600f * e, 40f * e), "[Enter] avançar     [Esc] pular a abertura", dica);
+        GUI.Label(new Rect(W - 640f * e, H - barra * 0.85f, 600f * e, 40f * e), dicaTexto, dica);
         // indicador de cenas
         for (int i = 0; i < cenas.Count; i++) { Color pc = i == atual ? new Color(1f, 0.85f, 0.5f, 0.95f) : new Color(1f, 1f, 1f, i < atual ? 0.45f : 0.18f); GUI.color = pc; GUI.DrawTexture(new Rect(40f * e + i * 24f * e, H - barra * 0.55f, 14f * e, 4f * e), Texture2D.whiteTexture); }
         GUI.color = Color.white;

@@ -42,7 +42,8 @@ public static class FxCena
         texBrilho.Apply(); return texBrilho;
     }
 
-    public class Billboard : MonoBehaviour { void LateUpdate() { Camera c = Camera.main; if (c != null) transform.rotation = c.transform.rotation; } }
+    public static Camera CamOverride;   // câmera usada pelos quadros virados para a câmera (a abertura em 3D usa a sua)
+    public class Billboard : MonoBehaviour { void LateUpdate() { Camera c = CamOverride != null ? CamOverride : Camera.main; if (c != null) transform.rotation = c.transform.rotation; } }
 
     // quadro desenhado virado para a câmera (nuvem, poeira, brilho)
     public static GameObject Nuvem(Vector3 pos, float tam, Color cor, Texture2D tex = null, int ordem = 0)

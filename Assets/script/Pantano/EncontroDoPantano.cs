@@ -62,8 +62,7 @@ public class EncontroDoPantano : MonoBehaviour
     void Update()
     {
 #if UNITY_EDITOR || DEVELOPMENT_BUILD
-        if (Input.GetKeyDown(KeyCode.F5)) IrDiretoParaOLago();
-        if (Input.GetKeyDown(KeyCode.F7)) IrParaOPantano();
+        if (Input.GetKeyDown(KeyCode.F4)) IrDiretoParaOLago();           // F4: vai ao pântano e o Devorador do Lago acorda
 #endif
         if (!temLago || fase != Fase.Esperando || Time.time < proxBusca || SessaoDeJogo.MenuAberto || DialogoUI.Aberto) return;
         proxBusca = Time.time + 0.4f;

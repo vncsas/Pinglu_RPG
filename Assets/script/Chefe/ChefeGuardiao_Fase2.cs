@@ -23,11 +23,13 @@ public partial class ChefeGuardiao
     private GameObject Ef(GameObject g) { efemeros.RemoveAll(x => x == null); efemeros.Add(g); return g; }
     private void LimparEfemeros() { foreach (GameObject g in efemeros) if (g != null) Destroy(g); efemeros.Clear(); }
 
-    // só no editor: F6 deixa o chefe com 52% da vida (para ver a 2ª fase logo)
+    public static bool QuerFase2;       // F5 pediu a luta já na 2ª fase: vale para o próximo Guardião que aparecer
+
+    // só no editor: F5 deixa o chefe com 52% da vida (para ver a 2ª fase logo)
     private void AtalhoDeTeste()
     {
 #if UNITY_EDITOR || DEVELOPMENT_BUILD
-        if (Input.GetKeyDown(KeyCode.F6) && !Fase2 && Vida != null && !Vida.Morto) Vida.DefinirAtual(Vida.Maxima * 0.52f);
+        if ((Input.GetKeyDown(KeyCode.F5) || QuerFase2) && !Fase2 && Vida != null && !Vida.Morto) { QuerFase2 = false; Vida.DefinirAtual(Vida.Maxima * 0.52f); }
 #endif
     }
 

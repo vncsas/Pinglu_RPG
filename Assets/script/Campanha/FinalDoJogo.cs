@@ -7,7 +7,7 @@ using UnityEngine;
 //   3) CRÉDITOS subindo (edite a lista "creditos" logo abaixo);
 //   4) "Fim - Obrigado por jogar": Enter devolve o jogo (dá para continuar explorando a ilha).
 // Enter / Espaço / clique avança a fala. Esc pula direto para a tela final.
-// F9 (só no editor): toca o final na hora para testar.
+// F11 (só no editor): toca o final na hora para testar.
 public class FinalDoJogo : MonoBehaviour
 {
     public static bool Ativo { get; private set; }
@@ -58,11 +58,15 @@ public class FinalDoJogo : MonoBehaviour
         Ativo = true; inicioTudo = inicioEtapa = inicioCena = Time.unscaledTime;
         menuAntes = SessaoDeJogo.MenuAberto;
         fCinzel = Resources.Load<Font>("Fontes/CinzelBold"); fFell = Resources.Load<Font>("Fontes/IMFellEnglish");
+        // vídeo pronto (Resources/Videos/Final) no lugar do epílogo em código; depois dele vêm o título e os créditos
+        if (CinematicaDeVideo.Tocar("Final", () => { videoRodando = false; Ir(Etapas.Titulo); })) videoRodando = true;
     }
+    bool videoRodando;
 
     void Update()
     {
         SessaoDeJogo.MenuAberto = true;
+        if (videoRodando) return;
         if (saindo) { if (Time.unscaledTime - fimSaida > 0.8f) { SessaoDeJogo.MenuAberto = menuAntes; Ativo = false; Destroy(gameObject); } return; }
         bool ok = Input.GetKeyDown(KeyCode.Return) || Input.GetKeyDown(KeyCode.KeypadEnter) || Input.GetKeyDown(KeyCode.Space) || Input.GetMouseButtonDown(0) || Comandos.NavConfirmar();
         if (Input.GetKeyDown(KeyCode.Escape) && etapa != Etapas.Fim) { Ir(Etapas.Fim); return; }
@@ -136,6 +140,7 @@ public class FinalDoJogo : MonoBehaviour
 
     void OnGUI()
     {
+        if (videoRodando) return;
         GUI.depth = -9500;
         if (Event.current.type != EventType.Repaint) return;
         W = Screen.width; H = Screen.height;

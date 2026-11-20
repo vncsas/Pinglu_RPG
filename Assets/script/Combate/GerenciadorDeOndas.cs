@@ -160,8 +160,10 @@ public class GerenciadorDeOndas : MonoBehaviour
         // espera a chegada pelo portal terminar antes de dar a dica
 #if UNITY_EDITOR || DEVELOPMENT_BUILD
         if (Input.GetKeyDown(teclaIrAteAqui)) LevarJogadorAteAqui(local);      // atalho só para testar; não existe no jogo final
-        if (Input.GetKeyDown(KeyCode.F3)) IrDiretoParaOChefe(local);
-        if (Input.GetKeyDown(KeyCode.F1)) IrDiretoParaORoubo();               // idem: vai direto para a cena do roubo do cristal           // idem: pula as 5 ondas e vai para o chefe
+        // F5: vai direto para o Guardião das Lápides já na 2ª fase (se ele já está lutando, o próprio chefe baixa a vida dele)
+        if (Input.GetKeyDown(KeyCode.F5) && FindObjectsByType<ChefeGuardiao>(FindObjectsSortMode.None).Length == 0) { ChefeGuardiao.QuerFase2 = true; IrDiretoParaOChefe(local); }
+        // F6: cena depois de matar o Guardião (o Ladrão rouba o cristal)
+        if (Input.GetKeyDown(KeyCode.F6)) IrDiretoParaORoubo();
 #endif
 
         // no multiplayer, só o host comanda as hordas
@@ -177,7 +179,7 @@ public class GerenciadorDeOndas : MonoBehaviour
             }
     }
 
-    // F3 (só no editor): cancela as ondas, leva o jogador ao cemitério e começa a cena do chefe
+    // F5 (só no editor): cancela as ondas, leva o jogador ao cemitério e começa a cena do chefe
     private void IrDiretoParaOChefe(Transform jogador)
     {
         if (SessaoDeJogo.Online && !SessaoDeJogo.SouHost) return;
@@ -479,7 +481,7 @@ public class GerenciadorDeOndas : MonoBehaviour
         if (aoTerminar != null) aoTerminar();
     }
 
-    // F1 (só no editor): vai direto para a cena do roubo, com a praça já aberta
+    // F6 (só no editor): vai direto para a cena do roubo, com a praça já aberta
     private void IrDiretoParaORoubo()
     {
         PracaDoGuardiao pr = PracaDoGuardiao.Instancia != null ? PracaDoGuardiao.Instancia : FindFirstObjectByType<PracaDoGuardiao>();

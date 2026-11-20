@@ -222,6 +222,15 @@ public static class Roteiro
         new Fala("Ladrão", "Este mundo acabou!", null, Emocao.Raiva),
     };
 
+    // o último guardião caiu: o Ladrão aparece, debocha e foge com o terceiro cristal
+    public static readonly Fala[] LadraoFoge =
+    {
+        new Fala("Ladrão", "Ora, ora... vocês são mesmo melhores do que eu imaginava.", null, Emocao.Alegre),
+        new Fala(VOCE, "Ladrão! Devolva o cristal do cemitério!", null, Emocao.Raiva),
+        new Fala("Ladrão", "Devolver? Ele é a peça que faltava, e eu tenho pressa. Ainda temos um encontro marcado, e não será aqui.", null, Emocao.Raiva),
+        new Fala("Ladrão", "Sigam o meu rastro, aventureiros. Se tiverem coragem... Hahahaha!", "Siga o meu rastro, aventureiro. Se tiver coragem... Hahahaha!", Emocao.Alegre),
+    };
+
     // metade da vida: o Ladrão aparece e se funde ao dragão
     public static readonly Fala[] FusaoComDragao =
     {

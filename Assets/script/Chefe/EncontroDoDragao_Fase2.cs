@@ -36,6 +36,37 @@ public partial class EncontroDoDragao
         StartCoroutine(CinematicaFase2(chefe));
     }
 
+    // F9 (só no editor): o dragão sombrio aparece à sua frente e morre; toca a animação da morte e depois a conversa final
+    void IrDiretoMorteDoDragao()
+    {
+        if (DialogoUI.Aberto || fase == Fase.Cena) return;
+        if (modelo == null) { Debug.LogWarning("[Dragão] F9: rode o menu Pinglu > 84 primeiro (o modelo do dragão ainda não foi ligado)."); return; }
+        Transform local = JogadorLocal(); if (local == null) return;
+        StopAllCoroutines(); LimparTudo();
+        TituloDeChefe.Barras(false); CameraDeCena.Soltar(); SessaoDeJogo.MenuAberto = false;
+        GerenciadorDeOndas.HordaVencida = true;
+        Campanha.CemiterioFeito = Campanha.CasteloFeito = Campanha.PantanoFeito = true;
+        if (Campanha.Atual != Etapa.Dragao) Campanha.Ir(Etapa.Dragao);
+        cinematicaFeita = true; perseguicaoFeita = true;
+        Vector3 fwd = Camera.main != null ? Achatar(Camera.main.transform.forward) : Achatar(local.forward); if (fwd.sqrMagnitude < 0.05f) fwd = Achatar(local.forward); fwd.Normalize();
+        Vector3 centro = NoChao(local.position + fwd * 48f); centroArena = centro;
+        GameObject g = new GameObject("Drakthar"); g.transform.position = centro; g.transform.rotation = Quaternion.LookRotation(-fwd);
+        chefe = g.AddComponent<ChefeDragao>();
+        chefe.modelo = modelo; chefe.animVoo = animVoo; chefe.animPlanar = animPlanar; chefe.animSopro = animSopro; chefe.materialParticula = materialParticula;
+        chefe.Preparar(centro, raioArena, QuantosJogadores());
+        chefe.PrepararParaTesteDeMorte();
+        // céu de tempestade, para ver a claridade voltando no fim
+        GameObject cg = new GameObject("Ceu sombrio"); ceu = cg.AddComponent<FxCena.CeuSombrio>(); restos.Add(cg); ceu.escuro = ceu.alvo = 0.7f;
+        chefe.AoMorrer += c => StartCoroutine(AposODragao(c));
+        fase = Fase.Luta;
+        StartCoroutine(MatarDepoisDeUmInstante(chefe));
+    }
+    IEnumerator MatarDepoisDeUmInstante(ChefeDragao d)
+    {
+        yield return new WaitForSeconds(1.5f);
+        if (d != null && d.Vida != null) d.Vida.DefinirAtual(0f);
+    }
+
     // ------------------------------------------------------------ efeitos da cena
     // um fiapo de fumaça negra que voa em curva até o dragão
     IEnumerator FumacaVoando(Vector3 de, Func<Vector3> para, float atraso, float dur, float tam)
@@ -69,7 +100,6 @@ public partial class EncontroDoDragao
         if (Camera.main != null && farOriginal < 0f) farOriginal = Camera.main.farClipPlane;
         if (ceu == null) { GameObject cg = new GameObject("Ceu sombrio"); ceu = cg.AddComponent<FxCena.CeuSombrio>(); restos.Add(cg); }
         ceu.alvo = 0.55f; ceu.vel = 0.3f;
-        d.AoMorrer += x => { if (ceu != null) { ceu.alvo = 0f; ceu.vel = 0.05f; } };
         AuraSombria aura = d.CriarAura(); aura.intensidade = 0f;
         GameObject ladrao = null;
         try

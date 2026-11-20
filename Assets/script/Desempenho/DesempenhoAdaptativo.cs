@@ -6,7 +6,7 @@ using UnityEngine.Rendering.Universal;
 //  - limita a 60 quadros e liga o vsync (sem isso a placa de vídeo trabalha 100% o tempo todo e o notebook esquenta e trava)
 //  - corta o que está longe da câmera (distância máxima de desenho, coberta pela neblina)
 //  - ajusta sozinho a resolução da imagem: se o FPS cai, a imagem fica um pouco mais "macia" (mais leve); se sobra, volta
-//  Teclas: F9 liga/desliga o MODO LEVE (resolução 60%, sombras curtas).
+//  Teclas: F12 liga/desliga o MODO LEVE (resolução 60%, sombras curtas).
 // Nasce sozinho ao abrir a cena; não precisa colocar em objeto nenhum.
 public class DesempenhoAdaptativo : MonoBehaviour
 {
@@ -14,7 +14,7 @@ public class DesempenhoAdaptativo : MonoBehaviour
     [SerializeField] private float escalaMinima = 0.55f;
     [SerializeField] private float escalaMaxima = 1f;
     [SerializeField] private float distanciaMaximaDaCamera = 320f;
-    [SerializeField] private KeyCode teclaModoLeve = KeyCode.F9;
+    [SerializeField] private KeyCode teclaModoLeve = KeyCode.F12;
 
     private UniversalRenderPipelineAsset urp;
     private float escalaOriginal, sombraOriginal;
@@ -117,6 +117,6 @@ public class DesempenhoAdaptativo : MonoBehaviour
     private void OnGUI()
     {
         if (!modoLeve) return;
-        GUI.Label(new Rect(10, Screen.height - 28, 300, 24), "Modo leve (F9)");
+        GUI.Label(new Rect(10, Screen.height - 28, 300, 24), "Modo leve (F12)");
     }
 }

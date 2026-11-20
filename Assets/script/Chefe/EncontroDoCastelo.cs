@@ -53,7 +53,7 @@ public class EncontroDoCastelo : MonoBehaviour
     {
         if (estrutura == null) return;
 #if UNITY_EDITOR || DEVELOPMENT_BUILD
-        if (Input.GetKeyDown(KeyCode.F4)) IrDiretoParaOCastelo();
+        if (Input.GetKeyDown(KeyCode.F3)) IrDiretoParaOCastelo();        // F3: vai ao castelo
 #endif
         if (Time.time < proxBusca || SessaoDeJogo.MenuAberto) return;
         proxBusca = Time.time + 0.4f;

@@ -1,7 +1,7 @@
 using UnityEngine;
 
 // Coloque UM destes na cena. Cuida da cutscene de abertura, do objetivo na tela e dos avisos de capítulo.
-// Teste rápido (só no editor): F9 avança a história, F10 volta ao começo.
+// Teste rápido (só no editor): F10 volta ao começo da história. Todas as teclas de teste estão listadas em AtalhosDeTeste.cs.
 public class CampanhaJogo : MonoBehaviour
 {
     public Font fonteTexto, fonteTitulo;
@@ -52,7 +52,6 @@ public class CampanhaJogo : MonoBehaviour
             else if (t > total) slide = ProximoSlide();
         }
 #if UNITY_EDITOR || DEVELOPMENT_BUILD
-        if (Input.GetKeyDown(KeyCode.F9)) Campanha.Avancar();
         if (Input.GetKeyDown(KeyCode.F10)) Campanha.Recomecar();
 #endif
     }

@@ -8,9 +8,12 @@ public class CameraDeCena : MonoBehaviour
     private bool ativa; private float saida; private Vector3 pos; private Quaternion rot = Quaternion.identity;
 
     [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
-    private static void Zerar() { inst = null; }
+    private static void Zerar() { inst = null; Externa = false; }
 
     private static CameraDeCena Inst { get { if (inst == null) inst = new GameObject("Câmera de cena").AddComponent<CameraDeCena>(); return inst; } }
+
+    // true quando outro sistema (Timeline/Cinemachine) move a câmera: aqui só acompanhamos a pose, sem mexer nela
+    public static bool Externa;
 
     public static bool Ativa { get { return inst != null && inst.ativa; } }
     public static Vector3 Posicao { get { return Inst.pos; } }
@@ -29,6 +32,7 @@ public class CameraDeCena : MonoBehaviour
     private void LateUpdate()
     {
         if (!ativa && saida <= 0f) return;
+        if (Externa) return;
         Camera cam = Camera.main; if (cam == null) return;
         Transform ct = cam.transform;
         if (ativa) ct.SetPositionAndRotation(pos, rot);

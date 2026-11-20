@@ -1075,30 +1075,173 @@ public class ChefeDragao : MonoBehaviour, IAfetavelPorHabilidade
     void Morrer()
     {
         if (morto) return;
-        morto = true; StopAllCoroutines();
+        morto = true; StopAllCoroutines(); inicioMorte = Time.time;
         foreach (GameObject g in avisos) if (g != null) Destroy(g); avisos.Clear();
         if (luzJato != null) luzJato.intensity = 0f;
         atordoado = false; balanco = 0f; cargaProg = -1f; foreach (GameObject e in estrelas) if (e != null) Destroy(e); estrelas.Clear();
-        if (aura != null) aura.intensidade = 0f;
         if (ThirdPersonCameraFollow.FocoDeChefe == transform) ThirdPersonCameraFollow.FocoDeChefe = null;
         foreach (BoxCollider b in GetComponents<BoxCollider>()) b.enabled = false;
+        PontoDaQueda = new Vector3(transform.position.x, Chao(transform.position), transform.position.z);
         StartCoroutine(Queda());
         AoMorrer?.Invoke(this);
     }
+
+    // ------------------------------------------------------------------ A MORTE DE DRAKTHAR (dura ~19 s; quem filma usa TempoDeMorte)
+    //   0 -  1,6 s  despenca e se arrebenta no chão
+    //   1,6 - 4,6 s CONVULSÃO: treme, a aura falha e solta raios, luz branco-violeta vaza por dentro do corpo
+    //   4,6 - 7,6 s EXPULSÃO: uma coluna de fumaça negra (o poder do Ladrão) é cuspida para o céu, raios caem, ondas de choque
+    //   7,6 - 14,6  CINZAS: o corpo racha (brilho laranja), encolhe e se desfaz em cinzas e brasas levadas pelo vento
+    //  14,6 - 19 s  CALMA: um pilar de luz dourada desce do céu e almas brilhantes sobem devagar
+    public float TempoDeMorte { get { return inicioMorte < 0f ? -1f : Time.time - inicioMorte; } }
+    public bool MorteTerminou { get; private set; }
+    public Vector3 PontoDaQueda { get; private set; }
+    float inicioMorte = -1f;
+
+    ParticleSystem PSMorte(string nome, int max, bool cresce)
+    {
+        GameObject g = new GameObject(nome); Destroy(g, 40f);
+        ParticleSystem ps = g.AddComponent<ParticleSystem>(); ps.Stop(true, ParticleSystemStopBehavior.StopEmittingAndClear);
+        var m = ps.main; m.loop = true; m.playOnAwake = false; m.simulationSpace = ParticleSystemSimulationSpace.World; m.maxParticles = max; m.startLifetime = 3f; m.startSize = 2f;
+        var em = ps.emission; em.enabled = false; var sh = ps.shape; sh.enabled = false;
+        var col = ps.colorOverLifetime; col.enabled = true; Gradient gr = new Gradient();
+        gr.SetKeys(new[] { new GradientColorKey(Color.white, 0f), new GradientColorKey(Color.white, 1f) }, new[] { new GradientAlphaKey(0f, 0f), new GradientAlphaKey(0.85f, 0.15f), new GradientAlphaKey(0.6f, 0.6f), new GradientAlphaKey(0f, 1f) });
+        col.color = new ParticleSystem.MinMaxGradient(gr);
+        if (cresce) { var sz = ps.sizeOverLifetime; sz.enabled = true; sz.size = new ParticleSystem.MinMaxCurve(1f, AnimationCurve.EaseInOut(0f, 0.5f, 1f, 1.7f)); var nz = ps.noise; nz.enabled = true; nz.strength = 2f; nz.frequency = 0.25f; }
+        ParticleSystemRenderer r = g.GetComponent<ParticleSystemRenderer>(); r.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off; r.receiveShadows = false;
+        Material mt = new Material(FxCena.Sprite()); mt.mainTexture = FxCena.TexNuvem(); r.sharedMaterial = mt; ps.Play(); return ps;
+    }
+    static void Brota(ParticleSystem ps, Vector3 pos, Vector3 vel, float tam, float vida, Color cor)
+    {
+        var ep = new ParticleSystem.EmitParams(); ep.position = pos; ep.velocity = vel; ep.startSize = tam; ep.startLifetime = vida; ep.startColor = cor; ps.Emit(ep, 1);
+    }
+    Vector3 PontoDoCorpo()
+    {
+        if (aura != null && aura.pontos.Count > 0) { Transform t = aura.pontos[UnityEngine.Random.Range(0, aura.pontos.Count)]; if (t != null) return t.position; }
+        return corpoModelo != null ? corpoModelo.position + UnityEngine.Random.insideUnitSphere * 3f * esc : transform.position;
+    }
+    void PrepararMats()
+    {
+        if (matsModelo.Count > 0 || modeloGo == null) return;
+        foreach (Renderer r in modeloGo.GetComponentsInChildren<Renderer>()) foreach (Material m in r.materials)
+        { matsModelo.Add(m); coresOrig.Add(m.HasProperty("_BaseColor") ? m.GetColor("_BaseColor") : (m.HasProperty("_Color") ? m.GetColor("_Color") : Color.white)); }
+    }
+    void CorEBrilho(Color cor, Color brilho)
+    {
+        PrepararMats();
+        foreach (Material m in matsModelo)
+        {
+            if (m == null) continue; if (m.HasProperty("_BaseColor")) m.SetColor("_BaseColor", cor); else if (m.HasProperty("_Color")) m.SetColor("_Color", cor);
+            if (m.HasProperty("_EmissionColor")) { m.EnableKeyword("_EMISSION"); m.SetColor("_EmissionColor", brilho); }
+        }
+    }
+
     IEnumerator Queda()
     {
         Pose(1); ampAsa = 6f; aberturaAlvo = 1f;
-        Vector3 de = transform.position, chao = de; chao.y = Chao(de) + 2.4f * esc; float dur = Mathf.Clamp((de.y - chao.y) / 14f, 0.8f, 3f);
-        Quaternion r0 = transform.rotation;
-        for (float t = 0f; t < dur; t += Time.deltaTime)
+        Vector3 de = transform.position, chao = de; chao.y = Chao(de) + AltChao * 0.7f; Quaternion r0 = transform.rotation; float lado = de.x > centro.x ? 1f : -1f;
+        FxCena.GarantirTela();
+        // 1) despenca
+        for (float t = 0f; t < 1.6f; t += Time.deltaTime)
         {
-            float k = t / dur; transform.position = Vector3.Lerp(de, chao, k * k); transform.rotation = r0 * Quaternion.Euler(0f, 0f, 25f * k * (de.x > centro.x ? 1f : -1f));
-            Emitir(transform.position, Vector3.up * 5f + UnityEngine.Random.insideUnitSphere * 4f, 3.5f, 0.9f, 3);
+            float k = t / 1.6f; transform.position = Vector3.Lerp(de, chao, k * k); transform.rotation = r0 * Quaternion.Euler(0f, 0f, 28f * k * lado);
+            Emitir(transform.position, Vector3.up * 5f + UnityEngine.Random.insideUnitSphere * 4f, 3.5f * esc, 0.9f, 3); yield return null;
+        }
+        transform.position = chao; Tremor(0.5f, 1.6f); Explosao(chao, 9f); StartCoroutine(OndaDeChoque(PontoDaQueda, 22f));
+        for (int i = 0; i < 8; i++) { Vector3 q = chao + UnityEngine.Random.insideUnitSphere * 9f; q.y = Chao(q); ZonaDeFogo.Criar(this, q, 2.6f, 7f, 0f); }
+        ParticleSystem coluna = PSMorte("Coluna negra do dragao", 2500, true), cinza = PSMorte("Cinzas do dragao", 4000, true);
+        GameObject lg = new GameObject("Luz da morte do dragao"); Destroy(lg, 40f); Light luz = lg.AddComponent<Light>(); luz.type = LightType.Point; luz.range = 90f; luz.intensity = 0f; luz.shadows = LightShadows.None;
+        Vector3 peito = chao + Vector3.up * 3f * esc;
+
+        // 2) convulsão: treme, a aura falha, luz vaza pelo corpo
+        Rugir(2.6f); float dc = 3f; Vector3 localBase = corpoModelo != null ? corpoModelo.localPosition : Vector3.zero;
+        for (float t = 0f; t < dc && !false; t += Time.deltaTime)
+        {
+            float k = t / dc; if (corpoModelo != null) corpoModelo.localPosition = localBase + UnityEngine.Random.insideUnitSphere * (0.25f + 0.5f * k) * esc;
+            balanco = Mathf.Sin(t * 38f) * (3f + 7f * k); if (aura != null) aura.intensidade = Mathf.Abs(Mathf.Sin(t * 11f)) * 1.5f * (1f - 0.6f * k);
+            luz.transform.position = peito; luz.color = Color.Lerp(new Color(0.6f, 0.15f, 1f), new Color(0.95f, 0.85f, 1f), k); luz.intensity = Mathf.Lerp(2f, 34f, k) * (0.8f + 0.2f * Mathf.Sin(t * 30f));
+            CorEBrilho(Color.Lerp(new Color(0.3f, 0.24f, 0.36f), new Color(0.4f, 0.34f, 0.46f), k), new Color(0.7f, 0.45f, 1f) * (k * 1.8f * (0.7f + 0.3f * Mathf.Sin(t * 25f))));
+            for (int i = 0; i < 2 + (int)(5 * k); i++) Brota(cinza, PontoDoCorpo(), UnityEngine.Random.onUnitSphere * UnityEngine.Random.Range(8f, 18f), UnityEngine.Random.Range(0.8f, 1.8f), UnityEngine.Random.Range(0.5f, 1f), new Color(0.9f, 0.75f, 1f));
+            if (UnityEngine.Random.value < 0.15f + 0.35f * k) { Vector3 a = PontoDoCorpo(), b = a + UnityEngine.Random.onUnitSphere * UnityEngine.Random.Range(8f, 20f) * esc; b.y = Mathf.Max(b.y, Chao(b) + 0.5f); FxCena.Raio(a, b, 0.5f, 0.12f, new Color(0.8f, 0.5f, 1f, 1f)); }
+            Tremor(0.15f + 0.3f * k, 0.3f); yield return null;
+        }
+
+        // 3) expulsão: o poder negro sai do peito em direção ao céu
+        float de3 = 3f; float proxRaio = 0f, proxOnda = 0f; if (corpoModelo != null) corpoModelo.localPosition = localBase;
+        for (float t = 0f; t < de3; t += Time.deltaTime)
+        {
+            float k = t / de3; luz.intensity = Mathf.Lerp(34f, 60f, k); luz.color = Color.Lerp(new Color(0.95f, 0.85f, 1f), Color.white, k);
+            if (aura != null) aura.intensidade = Mathf.Lerp(1f, 2.4f, k);
+            for (int i = 0; i < 14; i++)
+            {
+                Vector2 c = UnityEngine.Random.insideUnitCircle * 2.4f * esc; Vector3 p = peito + new Vector3(c.x, UnityEngine.Random.Range(0f, 4f), c.y);
+                Brota(coluna, p, new Vector3(c.x * 3f, UnityEngine.Random.Range(40f, 72f), c.y * 3f), UnityEngine.Random.Range(4f, 9f) * esc, UnityEngine.Random.Range(1.6f, 2.6f), new Color(0.08f, 0.02f, 0.13f));
+                if (i % 3 == 0) Brota(cinza, p, new Vector3(c.x * 2f, UnityEngine.Random.Range(55f, 85f), c.y * 2f), UnityEngine.Random.Range(1.5f, 3f), UnityEngine.Random.Range(1f, 1.8f), new Color(0.95f, 0.8f, 1f));
+            }
+            proxRaio -= Time.deltaTime; if (proxRaio <= 0f) { proxRaio = 0.45f; FxCena.Raio(peito + Vector3.up * 150f + new Vector3(UnityEngine.Random.Range(-25f, 25f), 0f, UnityEngine.Random.Range(-25f, 25f)), peito, 2.4f, 0.25f, new Color(0.85f, 0.6f, 1f, 1f)); }
+            proxOnda -= Time.deltaTime; if (proxOnda <= 0f) { proxOnda = 0.8f; StartCoroutine(OndaDeChoque(PontoDaQueda, 26f)); }
+            balanco = Mathf.Sin(t * 30f) * 5f; CorEBrilho(Color.Lerp(new Color(0.4f, 0.34f, 0.46f), new Color(0.5f, 0.48f, 0.5f), k), new Color(1f, 0.9f, 1f) * (1.8f + 1.5f * k));
+            Tremor(0.45f, 0.3f); yield return null;
+        }
+        if (aura != null) aura.intensidade = 0f; balanco = 0f;
+        FxCena.Branco = 0.75f; StartCoroutine(ClaraoGrande(peito, 110f)); Explosao(chao, 12f); Tremor(0.7f, 1.5f);
+        for (float t = 0f; t < 0.6f; t += Time.deltaTime) { FxCena.Branco = Mathf.Lerp(0.75f, 0f, t / 0.6f); yield return null; }
+        FxCena.Branco = 0f;
+
+        // 4) o corpo racha, encolhe e vira cinzas levadas pelo vento
+        float dd = 7f; Vector3 vento = new Vector3(0.8f, 0f, 0.35f).normalized; Vector3 c0 = transform.position;
+        for (float t = 0f; t < dd; t += Time.deltaTime)
+        {
+            float k = t / dd, e = Mathf.Pow(Mathf.SmoothStep(0f, 1f, k), 1.3f), sc = Mathf.Max(0.001f, 1f - e);
+            if (corpoModelo != null) corpoModelo.localScale = Vector3.one * sc;
+            transform.position = new Vector3(c0.x, Mathf.Lerp(c0.y, Chao(c0) + AltChao * 0.35f, e), c0.z);
+            CorEBrilho(Color.Lerp(new Color(0.5f, 0.48f, 0.5f), new Color(0.22f, 0.2f, 0.2f), k), new Color(1f, 0.38f, 0.07f) * (2.4f * Mathf.Sin(Mathf.Clamp01(k * 1.15f) * Mathf.PI) + 0.2f));
+            luz.transform.position = peito + Vector3.down * 1.5f * e; luz.color = new Color(1f, 0.55f, 0.18f); luz.intensity = Mathf.Lerp(24f, 2f, k) * (0.85f + 0.15f * Mathf.Sin(t * 17f));
+            int n = Mathf.RoundToInt(Mathf.Lerp(520f, 180f, k) * Time.deltaTime * (0.5f + sc) + UnityEngine.Random.value);
+            for (int i = 0; i < n; i++)
+            {
+                bool brasa = UnityEngine.Random.value < 0.3f;
+                Brota(cinza, PontoDoCorpo() + UnityEngine.Random.insideUnitSphere * 1.2f, vento * UnityEngine.Random.Range(5f, 15f) + Vector3.up * UnityEngine.Random.Range(2f, 9f) + UnityEngine.Random.insideUnitSphere * 2f,
+                    UnityEngine.Random.Range(brasa ? 0.5f : 1f, brasa ? 1.1f : 2.6f) * (0.6f + 0.6f * esc), UnityEngine.Random.Range(3f, 5.5f), brasa ? new Color(1f, 0.5f + 0.3f * UnityEngine.Random.value, 0.12f) : new Color(0.42f, 0.41f, 0.43f));
+            }
+            Tremor(0.08f, 0.3f); yield return null;
+        }
+        if (modeloGo != null) modeloGo.SetActive(false);
+        luz.intensity = 0f;
+
+        // 5) calma: pilar de luz dourada e almas subindo
+        GameObject pilar = FxCena.Nuvem(PontoDaQueda + Vector3.up * 105f, 1f, new Color(1f, 0.9f, 0.6f, 0f), FxCena.TexBrilho(), 2); pilar.transform.localScale = new Vector3(26f, 240f, 1f);
+        GameObject nucleoP = FxCena.Nuvem(PontoDaQueda + Vector3.up * 105f, 1f, new Color(1f, 1f, 0.9f, 0f), FxCena.TexBrilho(), 3); nucleoP.transform.localScale = new Vector3(9f, 240f, 1f);
+        GameObject lp = new GameObject("Luz do pilar"); Light lz = lp.AddComponent<Light>(); lz.type = LightType.Point; lz.color = new Color(1f, 0.85f, 0.5f); lz.range = 80f; lz.intensity = 0f; lz.shadows = LightShadows.None; lp.transform.position = PontoDaQueda + Vector3.up * 8f;
+        int nAlmas = 14; var almas = new GameObject[nAlmas]; var par = new Vector3[nAlmas];
+        for (int i = 0; i < nAlmas; i++) { almas[i] = FxCena.Nuvem(PontoDaQueda, 1.6f, new Color(1f, 0.95f, 0.8f, 0f), FxCena.TexBrilho(), 4); float a = UnityEngine.Random.value * 6.28f; par[i] = new Vector3(Mathf.Cos(a) * UnityEngine.Random.Range(2f, 9f) * esc * 0.7f, UnityEngine.Random.Range(0f, 3f), Mathf.Sin(a) * UnityEngine.Random.Range(2f, 9f) * esc * 0.7f); }
+        float dm = 4.4f;
+        for (float t = 0f; t < dm; t += Time.deltaTime)
+        {
+            float k = t / dm, al = Mathf.Sin(Mathf.Clamp01(k) * Mathf.PI); Vector3 pc = PontoDaQueda;
+            FxCena.Pintar(pilar, new Color(1f, 0.85f, 0.5f, 0.42f * al)); FxCena.Pintar(nucleoP, new Color(1f, 1f, 0.92f, 0.55f * al)); lz.intensity = 14f * al;
+            for (int i = 0; i < nAlmas; i++)
+            {
+                float u = t * (1.1f + 0.05f * i) + par[i].y; Vector3 p = pc + new Vector3(par[i].x + Mathf.Sin(u * 1.3f + i) * 1.4f, 1f + u * 3.2f, par[i].z + Mathf.Cos(u * 1.1f + i) * 1.4f);
+                almas[i].transform.position = p; FxCena.Pintar(almas[i], new Color(1f, 0.95f, 0.8f, 0.85f * al * (0.7f + 0.3f * Mathf.Sin(t * 5f + i))));
+            }
+            if (UnityEngine.Random.value < 0.5f) Brota(cinza, pc + UnityEngine.Random.insideUnitSphere * 10f * esc, vento * 3f + Vector3.up * 2f, UnityEngine.Random.Range(0.6f, 1.4f), 3f, new Color(0.45f, 0.44f, 0.45f));
             yield return null;
         }
-        Tremor(0.45f, 1.6f); Explosao(chao, 9f);
-        for (int i = 0; i < 8; i++) { Vector3 q = chao + UnityEngine.Random.insideUnitSphere * 8f; q.y = Chao(q); ZonaDeFogo.Criar(this, q, 2.4f, 6f, 0f); }
-        // fica caído, soltando fumaça, e a chama se apaga
-        for (float t = 0f; t < 9f; t += Time.deltaTime) { Emitir(transform.position + UnityEngine.Random.insideUnitSphere * 5f, Vector3.up * 4f, 3f, 1.2f, 1); yield return null; }
+        Destroy(pilar); Destroy(nucleoP); Destroy(lp); foreach (GameObject a in almas) if (a != null) Destroy(a);
+        MorteTerminou = true; Destroy(gameObject, 3f);
+    }
+    IEnumerator ClaraoGrande(Vector3 p, float alcance)
+    {
+        GameObject g = new GameObject("Clarao grande"); g.transform.position = p; Light l = g.AddComponent<Light>(); l.type = LightType.Point; l.color = new Color(0.9f, 0.8f, 1f); l.range = alcance; l.shadows = LightShadows.None;
+        for (float t = 0f; t < 0.9f; t += Time.deltaTime) { l.intensity = 40f * (1f - t / 0.9f); yield return null; }
+        Destroy(g);
+    }
+
+    // teste (F9): já está na fase 2, com a aura, e espera morrer
+    public void PrepararParaTesteDeMorte()
+    {
+        despertou = true; pediuFase2 = true; sombrio = true; esc = 1.5f; transform.localScale = Vector3.one * esc;
+        CorDoJato(true); Tinta(1f); CriarAura().intensidade = 1f;
+        Vector3 p = transform.position; p.y = Chao(p) + AltChao; transform.position = p; Pose(1); ampAsa = 8f;
     }
 }

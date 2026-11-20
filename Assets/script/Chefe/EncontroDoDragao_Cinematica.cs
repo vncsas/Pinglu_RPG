@@ -22,7 +22,7 @@ public partial class EncontroDoDragao
     {
         StopAllCoroutines();
         if (chefe != null) Destroy(chefe.gameObject);
-        chefe = null; fase = Fase.Esperando; cinematicaFeita = false; desdeDragao = -1f;
+        chefe = null; fase = Fase.Esperando; cinematicaFeita = false; perseguicaoFeita = false; desdeDragao = -1f; LimparRastro();
         TituloDeChefe.Barras(false); CameraDeCena.Soltar();
         RestaurarMundo();
         foreach (GameObject g in restos) if (g != null) Destroy(g);
@@ -115,7 +115,7 @@ public partial class EncontroDoDragao
     // ------------------------------------------------------------ a cinemática
     IEnumerator CinematicaDoVilao(Transform local)
     {
-        fase = Fase.Cena; cinematicaFeita = true; menuAntes = SessaoDeJogo.MenuAberto;
+        fase = Fase.Cena; cinematicaFeita = true; perseguicaoFeita = true; menuAntes = SessaoDeJogo.MenuAberto; if (rastro != null) rastro.Dissipar(); rastro = null;
         Vector3 ancora = NoChao(local.position); centroArena = ancora;
         Vector3 fwd = Camera.main != null ? Achatar(Camera.main.transform.forward) : Achatar(local.forward); if (fwd.sqrMagnitude < 0.05f) fwd = Achatar(local.forward); fwd.Normalize();
         Vector3 dir = Vector3.Cross(Vector3.up, fwd);
@@ -335,7 +335,7 @@ public partial class EncontroDoDragao
         Campanha.Dica = "Derrote Drakthar, o dragão que despertou!";
         fase = Fase.Luta; chefe.Despertar();
         chefe.AoFase2 += c => StartCoroutine(CinematicaFase2(c));
-        chefe.AoMorrer += c => { StartCoroutine(AposODragao(c)); if (ceu != null) { ceu.alvo = 0f; ceu.vel = 0.05f; } if (tempestade != null) StartCoroutine(DissiparTempestade()); };
+        chefe.AoMorrer += c => StartCoroutine(AposODragao(c));          // o céu clareia durante a cena da morte (AposODragao)
     }
 
     IEnumerator TituloNoRugido()
