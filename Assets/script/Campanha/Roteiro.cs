@@ -109,7 +109,7 @@ public static class Roteiro
                     new Fala("Caio", "Vão, rápido! Vocês têm dois cristais e coragem de sobra. Detenham-no!", "Vá, rápido! Você tem dois cristais e coragem de sobra. Detenha-o!"),
                 };
             case Etapa.Recompensa:
-                aoTerminar = () => Campanha.Ir(Etapa.Fim);
+                aoTerminar = () => { Campanha.Ir(Etapa.Fim); FinalDoJogo.Tocar(); };
                 return new[]
                 {
                     new Fala("Caio", "Vocês conseguiram! " + NOME_DA_VILA + " está salva, e a vila inteira agradece.", "Você conseguiu! " + NOME_DA_VILA + " está salva, e a vila inteira agradece."),

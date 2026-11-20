@@ -60,7 +60,8 @@ public partial class EncontroDoDragao : MonoBehaviour
     {
 #if UNITY_EDITOR || DEVELOPMENT_BUILD
         if (Input.GetKeyDown(KeyCode.F6)) IrDireto();
-        if (Input.GetKeyDown(KeyCode.F8)) IrDiretoFase2();                 // vem antes de tudo: funciona em qualquer etapa da história
+        if (Input.GetKeyDown(KeyCode.F8)) IrDiretoFase2();
+        if (Input.GetKeyDown(KeyCode.F9)) FinalDoJogo.Tocar();                  // testa o final do jogo (epílogo + créditos)                 // vem antes de tudo: funciona em qualquer etapa da história
 #endif
         if (fase == Fase.Cena) return;
         if (Campanha.Atual < Etapa.Dragao) { if (cinematicaFeita || montanhaQuebrada) LimparTudo(); desdeDragao = -1f; return; }
