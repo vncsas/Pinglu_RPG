@@ -191,7 +191,7 @@ public class AnimalVivo : MonoBehaviour
         proximoMedo = Time.time + 0.35f;
         AtualizarListas();
         Vector3 pior = Vector3.zero; float melhor = float.MaxValue; bool achou = false;
-        foreach (Transform t in gente) { float d = (t.position - transform.position).sqrMagnitude; if (d < distanciaDeSusto * distanciaDeSusto && d < melhor) { melhor = d; pior = t.position; achou = true; } }
+        foreach (Transform t in gente) { if (t == null) continue; float d = (t.position - transform.position).sqrMagnitude; if (d < distanciaDeSusto * distanciaDeSusto && d < melhor) { melhor = d; pior = t.position; achou = true; } }
         foreach (Transform t in monstros) { if (t == null) continue; float d = (t.position - transform.position).sqrMagnitude; if (d < distanciaDeMonstro * distanciaDeMonstro && d < melhor) { melhor = d; pior = t.position; achou = true; } }
         if (!achou) return;
         ultimoMedo = Time.time;

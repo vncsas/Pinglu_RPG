@@ -309,6 +309,7 @@ public class InimigoEsqueleto : MonoBehaviour, IAfetavelPorHabilidade
     // ------------------------------------------------------------------
     private void AoLevarDano(float valor, Vector3 origem)
     {
+        if (this == null) return;                      // o esqueleto já foi destruído (o evento da Vida ainda chama)
         if (barra != null) barra.gameObject.SetActive(true);
         if (estado == Estado.Morto || estado == Estado.Surgindo) return;
         Vector3 d = transform.position - origem; d.y = 0f;

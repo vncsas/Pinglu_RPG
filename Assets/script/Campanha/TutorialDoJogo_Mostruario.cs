@@ -88,7 +88,7 @@ public partial class TutorialDoJogo
             if (molde != null)
             {
                 g = Instantiate(molde, pos, Quaternion.LookRotation(Vector3.back));
-                foreach (MonoBehaviour mb in g.GetComponents<MonoBehaviour>()) if (mb != null && !(mb is Vida)) DestroyImmediate(mb);      // sem cérebro: fica parado
+                foreach (MonoBehaviour mb in g.GetComponents<MonoBehaviour>()) if (mb != null && !(mb is Vida)) mb.enabled = false;      // sem cérebro: fica parado (desligado, não destruído: a Vida ainda chama os eventos dele)
             }
             else { g = GameObject.CreatePrimitive(PrimitiveType.Capsule); g.transform.position = pos + Vector3.up; g.GetComponent<MeshRenderer>().sharedMaterial = MatD(new Color(0.7f, 0.68f, 0.6f)); }
             Vida v = g.GetComponent<Vida>(); if (v == null) v = g.AddComponent<Vida>(); v.DefinirMaxima(100000f);
