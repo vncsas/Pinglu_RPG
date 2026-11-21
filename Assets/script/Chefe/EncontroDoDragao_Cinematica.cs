@@ -115,6 +115,7 @@ public partial class EncontroDoDragao
     // ------------------------------------------------------------ a cinemática
     IEnumerator CinematicaDoVilao(Transform local)
     {
+        PortalDoMundo.Revelar();
         fase = Fase.Cena; cinematicaFeita = true; perseguicaoFeita = true; menuAntes = SessaoDeJogo.MenuAberto; if (rastro != null) rastro.Dissipar(); rastro = null;
         Vector3 ancora = NoChao(local.position); centroArena = ancora;
         Vector3 fwd = Camera.main != null ? Achatar(Camera.main.transform.forward) : Achatar(local.forward); if (fwd.sqrMagnitude < 0.05f) fwd = Achatar(local.forward); fwd.Normalize();

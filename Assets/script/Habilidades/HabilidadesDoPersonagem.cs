@@ -54,6 +54,10 @@ public class HabilidadesDoPersonagem : MonoBehaviour
     [Tooltip("Pontos de energia ganhos por segundo, parado ou lutando (personagens de apoio)")]
     public float regenPorSegundo = 0f;
 
+    // modo "demonstração" (tutorial): o personagem de mostruário usa a habilidade sem gastar energia e sem olhar para a câmera do jogo
+    [System.NonSerialized] public bool demonstracao;
+    public void Demonstrar(int i) { if (Usando || Dados(i) == null) return; demonstracao = true; StartCoroutine(Executar(i)); }
+
     public bool Usando { get; private set; }
     public int IndiceEmUso { get; private set; } = -1;
     public event System.Action<int> AoUsar;
@@ -173,6 +177,7 @@ public class HabilidadesDoPersonagem : MonoBehaviour
     // para onde a câmera olha (plano), puxando para o inimigo mais perto dessa direção
     void VirarParaAlvo(int i)
     {
+        if (demonstracao) return;
         Camera cam = Camera.main;
         Vector3 f = cam != null ? cam.transform.forward : transform.forward; f.y = 0f;
         if (f.sqrMagnitude < 0.01f) f = transform.forward;

@@ -359,7 +359,7 @@ public class HUDJogador : MonoBehaviour
 
         // efeitos ativos
         float ya = cima.y - 56f * esc;
-        if (vida.Imortal) { Aviso(new Rect(c.x - 130f * esc, ya, 260f * esc, 32f * esc), "IMBATÍVEL  " + vida.ImortalRestante.ToString("0.0") + "s", new Color(0.4f, 0.7f, 1f), esc); ya -= 36f * esc; }
+        if (vida.Imortal && !CameraDeCena.Ativa && !TutorialDoJogo.Aberto) { Aviso(new Rect(c.x - 130f * esc, ya, 260f * esc, 32f * esc), "IMBATÍVEL  " + vida.ImortalRestante.ToString("0.0") + "s", new Color(0.4f, 0.7f, 1f), esc); ya -= 36f * esc; }
         if (status != null && status.Impulsionado) Aviso(new Rect(c.x - 130f * esc, ya, 260f * esc, 32f * esc), "IMPULSIONADO  " + Mathf.CeilToInt(status.ImpulsoRestante) + "s", new Color(1f, 0.75f, 0.25f), esc);
         GUI.color = Color.white;
     }

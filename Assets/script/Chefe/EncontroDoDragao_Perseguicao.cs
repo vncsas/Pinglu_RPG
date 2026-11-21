@@ -23,6 +23,7 @@ public partial class EncontroDoDragao
     // F7 com Shift (só no editor): toca a fuga na hora
     void IrDiretoFuga()
     {
+        PortalDoMundo.Revelar();
         if (DialogoUI.Aberto || fase == Fase.Cena) return;
         Transform local = JogadorLocal(); if (local == null) return;
         StopAllCoroutines(); LimparTudo();
@@ -35,6 +36,7 @@ public partial class EncontroDoDragao
 
     IEnumerator CenaDaFuga(Transform local)
     {
+        PortalDoMundo.Revelar();                                       // o portal do meio do mapa volta a aparecer (a história precisa dele)
         fase = Fase.Cena; perseguicaoFeita = true; menuAntes = SessaoDeJogo.MenuAberto;
         Vector3 ancora = NoChao(local.position), destino = PosicaoDoPortal();
         Vector3 paraPortal = Achatar(destino - ancora); if (paraPortal.sqrMagnitude < 25f) paraPortal = Achatar(local.forward); paraPortal.Normalize();

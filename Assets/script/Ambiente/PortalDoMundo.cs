@@ -54,6 +54,20 @@ public class PortalDoMundo : MonoBehaviour
         Mostrar(false);
     }
 
+    // o portal do meio do mapa só aparece na história (Ladrão): no começo os heróis chegam pela estrada, passando pela placa de Valverde
+    private bool escondido;
+    private void Start() { if (ChegadaNaVila.Pronta) Ocultar(true); }
+
+    public void Ocultar(bool ocultar)
+    {
+        if (escondido == ocultar) return;
+        escondido = ocultar;
+        foreach (Renderer r in GetComponentsInChildren<Renderer>(true)) if (!(r is ParticleSystemRenderer)) r.enabled = !ocultar;
+        foreach (Collider c in GetComponentsInChildren<Collider>(true)) c.enabled = !ocultar;
+        if (efeitos != null) efeitos.gameObject.SetActive(!ocultar);
+    }
+    public static void Revelar() { if (Atual != null) Atual.Ocultar(false); }
+
     private void OnDestroy()
     {
         if (Atual == this) Atual = null;
@@ -91,6 +105,7 @@ public class PortalDoMundo : MonoBehaviour
     // lugar de chegada do jogador i (0 no meio, depois alternando para os lados)
     public Vector3 LugarDeChegada(int i)
     {
+        if (ChegadaNaVila.Pronta) return ChegadaNaVila.Lugar(i);
         float[] lados = { 0f, 0.9f, -0.9f, 1.8f, -1.8f };
         float lado = lados[Mathf.Clamp(i, 0, lados.Length - 1)];
         lado = Mathf.Clamp(lado, -largura * 0.3f, largura * 0.3f);
@@ -100,7 +115,7 @@ public class PortalDoMundo : MonoBehaviour
         return p;
     }
 
-    public Quaternion RotacaoDeChegada { get { return Quaternion.LookRotation(Frente); } }
+    public Quaternion RotacaoDeChegada { get { return ChegadaNaVila.Pronta ? ChegadaNaVila.Rotacao : Quaternion.LookRotation(Frente); } }
 
     // alguém está chegando: o portal abre (e depois se fecha sozinho)
     public void Clarao() { Clarao(true); }

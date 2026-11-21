@@ -29,7 +29,7 @@ public class CampanhaJogo : MonoBehaviour
             if (e == Etapa.Cristais) HUDJogador.Mostrar("Objetivo atualizado (" + Campanha.QuantosFeitos + "/3)", 3.5f);
             return;
         }
-        faixaTexto = Campanha.Capitulo(e); faixaSub = Campanha.Objetivo(e); faixaAte = Time.unscaledTime + 5f;
+        // (a faixa grande "Capítulo..." foi removida: o objetivo já aparece no canto, em Missão)
     }
 
     private Etapa ultimaEtapa = Etapa.Intro;
@@ -103,6 +103,7 @@ public class CampanhaJogo : MonoBehaviour
     }
 
     // ------------------------------------------------------------ objetivo discreto em cima do mapa; segure V (o anel enche) para ver os detalhes
+    private float objA;
     private float progressoV, painel;                  // anel de carregamento (0 a 1) e abertura do painel (0 a 1)
     private const float TEMPO_V = 0.85f;
     private Texture2D anelTex, gradCentro;
@@ -123,7 +124,7 @@ public class CampanhaJogo : MonoBehaviour
         estTexto = new GUIStyle(GUI.skin.label) { fontSize = 23, wordWrap = true, font = fonteTexto, alignment = TextAnchor.UpperLeft };
         estResumo = new GUIStyle(GUI.skin.label) { fontSize = 23, wordWrap = true, font = fonteTexto, alignment = TextAnchor.UpperLeft };
         estRotulo = new GUIStyle(GUI.skin.label) { fontSize = 15, font = fonteTitulo != null ? fonteTitulo : fonteTexto, alignment = TextAnchor.MiddleLeft };
-        estTecla = new GUIStyle(GUI.skin.label) { fontSize = 20, alignment = TextAnchor.MiddleCenter, fontStyle = FontStyle.Bold, font = fonteTitulo != null ? fonteTitulo : fonteTexto };
+        estTecla = new GUIStyle(GUI.skin.label) { fontSize = 22, alignment = TextAnchor.MiddleCenter, fontStyle = FontStyle.Bold };      // letra da tecla na fonte padrão (limpa; a fonte de título deixava o V parecendo um visto)
     }
 
     // arco de círculo (começa no topo e gira para a direita), feito de pedacinhos
@@ -186,36 +187,41 @@ public class CampanhaJogo : MonoBehaviour
         string obj = Campanha.Objetivo(Campanha.Atual);
         if (string.IsNullOrEmpty(obj)) return;
         if (anelTex == null) Construir();
-        bool segurando = Input.GetKey(KeyCode.V);
+        // o objetivo só aparece depois da chegada (cena e tutorial) e entra deslizando pela esquerda
+        bool permitido = !ChegadaNaVila.EmCena && !TutorialDoJogo.Aberto && !CameraDeCena.Ativa && !IntroDoJogo.Ativa;
+        objA = Mathf.MoveTowards(objA, permitido ? 1f : 0f, Time.unscaledDeltaTime * 1.6f);
+        if (objA <= 0.001f) { progressoV = 0f; painel = 0f; return; }
+        float entra = Mathf.SmoothStep(0f, 1f, objA);
+        bool segurando = permitido && Input.GetKey(KeyCode.V);
         float dt = Time.unscaledDeltaTime;
         progressoV = segurando ? Mathf.Min(1f, progressoV + dt / TEMPO_V) : Mathf.Max(0f, progressoV - dt * 3f);
         bool cheio = segurando && progressoV >= 1f;
         painel = Mathf.MoveTowards(painel, cheio ? 1f : 0f, dt * 5f);
         float tempo = Time.unscaledTime;
         Color ouro = new Color(0.86f, 0.68f, 0.34f), ouroFraco = new Color(0.86f, 0.68f, 0.34f, 0.55f);
-        float x0 = 34f, ya = 600f;
+        float x0 = 34f - (1f - entra) * 340f, ya = 600f;
 
-        // ---- compacto: botão V com anel de carregamento + texto discreto
-        Vector2 cb = new Vector2(x0 + 22f, ya + 24f);
-        float raio = 22f;                                   // metade do lado do botão quadrado
-        Rect quad = new Rect(cb.x - raio, cb.y - raio, raio * 2f, raio * 2f);
-        GUI.color = new Color(0.07f, 0.055f, 0.04f, 0.78f); GUI.DrawTexture(quad, pixel);
-        Contorno(quad, 2f, new Color(ouro.r, ouro.g, ouro.b, 0.4f));
-        if (progressoV > 0f) ArcoQuadrado(quad, progressoV, 3.5f, Color.Lerp(ouro, new Color(1f, 0.93f, 0.7f), progressoV));
-        if (cheio && painel < 1f) Contorno(new Rect(quad.x - 6f, quad.y - 6f, quad.width + 12f, quad.height + 12f), 2f, new Color(1f, 0.9f, 0.6f, 1f - painel));
-        estTecla.normal.textColor = Color.Lerp(new Color(0.9f, 0.84f, 0.7f), Color.white, progressoV);
+        // ---- compacto: tecla V (cantos arredondados, anel que enche) + texto discreto
+        float kS = 46f; Rect quad = new Rect(x0, ya - 2f, kS, kS); Vector4 r8 = new Vector4(8f, 8f, 8f, 8f);
+        GUI.DrawTexture(new Rect(quad.x, quad.y + 4f, quad.width, quad.height), pixel, ScaleMode.StretchToFill, true, 0f, new Color(0f, 0f, 0f, 0.4f), Vector4.zero, r8);
+        GUI.DrawTexture(quad, pixel, ScaleMode.StretchToFill, true, 0f, new Color(0.1f, 0.085f, 0.07f, 0.92f), Vector4.zero, r8);
+        GUI.DrawTexture(new Rect(quad.x + 3f, quad.y + 3f, quad.width - 6f, quad.height * 0.5f), pixel, ScaleMode.StretchToFill, true, 0f, new Color(1f, 1f, 1f, 0.07f), Vector4.zero, new Vector4(6f, 6f, 2f, 2f));
+        GUI.DrawTexture(quad, pixel, ScaleMode.StretchToFill, true, 0f, new Color(ouro.r, ouro.g, ouro.b, 0.65f), new Vector4(2f, 2f, 2f, 2f), r8);
+        if (progressoV > 0f) ArcoQuadrado(new Rect(quad.x + 1f, quad.y + 1f, quad.width - 2f, quad.height - 2f), progressoV, 3f, Color.Lerp(ouro, new Color(1f, 0.93f, 0.7f), progressoV));
+        if (cheio && painel < 1f) GUI.DrawTexture(new Rect(quad.x - 6f, quad.y - 6f, quad.width + 12f, quad.height + 12f), pixel, ScaleMode.StretchToFill, true, 0f, new Color(1f, 0.9f, 0.6f, 1f - painel), new Vector4(2f, 2f, 2f, 2f), new Vector4(12f, 12f, 12f, 12f));
+        estTecla.normal.textColor = Color.Lerp(new Color(0.95f, 0.9f, 0.78f), Color.white, progressoV);
         GUI.color = Color.white; GUI.Label(quad, "V", estTecla);
 
-        float tx = x0 + 62f, tw = Mathf.Min(430f, W - tx - 24f);
-        // rótulo pequeno e linha fina que some nas pontas
-        estRotulo.normal.textColor = new Color(ouro.r, ouro.g, ouro.b, 0.85f);
-        GUI.color = Color.white; GUI.Label(new Rect(tx, ya - 4f, 300f, 20f), "M I S S Ã O", estRotulo);
+        float tx = x0 + kS + 18f, tw = Mathf.Min(430f, W - tx - 24f);
+        estRotulo.normal.textColor = new Color(ouro.r, ouro.g, ouro.b, 0.9f);
+        GUI.color = Color.white; GUI.Label(new Rect(tx, ya - 6f, 300f, 20f), "M I S S Ã O", estRotulo);
         GUI.color = new Color(ouro.r, ouro.g, ouro.b, 0.55f); GUI.DrawTexture(new Rect(tx, ya + 15f, tw * 0.9f, 1.5f), gradCentro);
-        Rect rt = new Rect(tx, ya + 19f, tw, 64f);
+        float hObj = estTexto.CalcHeight(new GUIContent(obj), tw);
+        Rect rt = new Rect(tx, ya + 19f, tw, hObj + 4f);
         estTexto.normal.textColor = new Color(0f, 0f, 0f, 0.75f); GUI.color = Color.white; GUI.Label(new Rect(rt.x + 1.5f, rt.y + 1.5f, rt.width, rt.height), obj, estTexto);
         estTexto.normal.textColor = new Color(0.94f, 0.91f, 0.84f, 0.92f); GUI.Label(rt, obj, estTexto);
-        GUIStyle dica = new GUIStyle(estRotulo) { fontSize = 13 }; dica.normal.textColor = new Color(0.8f, 0.77f, 0.7f, 0.6f * (1f - progressoV));
-        GUI.Label(new Rect(x0 + 4f, cb.y + raio + 4f, 70f, 16f), "segure", dica);
+        GUIStyle dica = new GUIStyle(estTexto) { fontSize = 15, fontStyle = FontStyle.Italic, wordWrap = false }; dica.normal.textColor = new Color(0.8f, 0.77f, 0.7f, 0.62f * (1f - progressoV));
+        GUI.Label(new Rect(tx, rt.yMax + 2f, tw, 20f), "segure V para ver os detalhes", dica);
 
         // ---- painel: só a descrição da missão atual (altura calculada pelo texto, nada fica cortado)
         if (painel > 0.01f)

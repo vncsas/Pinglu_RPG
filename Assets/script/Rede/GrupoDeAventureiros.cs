@@ -77,10 +77,11 @@ public class GrupoDeAventureiros : MonoBehaviour
         return PapelCPU.Corpo;
     }
 
-    static PlayerLocomotion Criar(FichaPersonagem f, Vector3 pos, Quaternion rot)
+    // noTerreno = false: não ajusta a altura ao terreno (usado pelo personagem de mostruário do tutorial)
+    public static PlayerLocomotion Criar(FichaPersonagem f, Vector3 pos, Quaternion rot, bool noTerreno = true)
     {
         Terrain t = Terrain.activeTerrain;
-        if (t != null) pos.y = t.SampleHeight(pos) + t.transform.position.y + 0.1f;
+        if (t != null && noTerreno) pos.y = t.SampleHeight(pos) + t.transform.position.y + 0.1f;
         // nasce dentro de um objeto desligado: os scripts só começam depois de tirarmos a parte de rede
         GameObject espera = new GameObject("espera");
         espera.SetActive(false);

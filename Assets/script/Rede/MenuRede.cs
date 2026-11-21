@@ -81,7 +81,12 @@ public class MenuRede : MonoBehaviour
             jogadorDaCena.SetActive(false);
         }
         // os jogadores chegam pelo portal do mundo
-        if (PortalDoMundo.Atual != null)
+        if (ChegadaNaVila.Pronta)                       // chegam pela estrada, passando pela placa de Valverde
+        {
+            nascimento = ChegadaNaVila.Lugar(0);
+            rotacaoNascimento = ChegadaNaVila.Rotacao;
+        }
+        else if (PortalDoMundo.Atual != null)
         {
             nascimento = PortalDoMundo.Atual.LugarDeChegada(0);
             rotacaoNascimento = PortalDoMundo.Atual.RotacaoDeChegada;
@@ -177,6 +182,11 @@ public class MenuRede : MonoBehaviour
                 if (p != null && p.gameObject.scene.IsValid() && p.gameObject.activeInHierarchy && p.enabled && !p.Companheiro)
                 {
                     yield return new WaitForSecondsRealtime(0.2f); // no online, deixa a posição de nascimento chegar
+                    if (ChegadaNaVila.Pronta)                    // chegada pela estrada: caminha até a placa de Valverde e abre o tutorial
+                    {
+                        ChegadaNaVila.Tocar(p, Ficha(escolhido));
+                        yield break;
+                    }
                     PortalDoMundo portal = PortalDoMundo.Atual;
                     if (portal != null)
                     {
@@ -221,6 +231,7 @@ public class MenuRede : MonoBehaviour
         SessaoDeJogo.MenuAberto = false;
         SessaoDeJogo.PersonagemEscolhido = escolhido;
         FichaPersonagem f = Ficha(escolhido);
+        TutorialDoJogo.FichaAtual = f;
         // o 1º personagem é o que já está na cena; os outros nascem do prefab dele
         GrupoDeAventureiros.Desfazer();
         if (escolhido == 0 || f == null || f.prefabJogador == null)
@@ -244,6 +255,7 @@ public class MenuRede : MonoBehaviour
         NetworkManager nm = NetworkManager.Singleton;
         if (nm == null) { erro = "Não achei o NetworkManager na cena. Rode o menu Pinglu > 15."; return false; }
         FichaPersonagem f = Ficha(escolhido);
+        TutorialDoJogo.FichaAtual = f;
         if (f == null || f.prefabJogador == null) { erro = "Esse personagem ainda não tem prefab de jogador."; return false; }
         foreach (FichaPersonagem p in personagens)
             if (p != null && p.prefabJogador != null && !nm.NetworkConfig.Prefabs.Contains(p.prefabJogador))

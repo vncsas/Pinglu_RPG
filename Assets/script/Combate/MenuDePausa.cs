@@ -69,8 +69,9 @@ public class MenuDePausa : MonoBehaviour
     {
         if (confirmando) { if (i == 1) Sair(); else confirmando = false; return; }
         if (i == 0) Fechar();
-        else if (i == 1) { configAberta = true; config.Abrir(); }
-        else if (i == 2) { confirmando = true; sel = 0; }
+        else if (i == 1) { Fechar(); TutorialDoJogo.Abrir(TutorialDoJogo.FichaAtual, null); }      // como jogar: movimento e habilidades
+        else if (i == 2) { configAberta = true; config.Abrir(); }
+        else if (i == 3) { confirmando = true; sel = 0; }
     }
 
     void Update()
@@ -84,7 +85,7 @@ public class MenuDePausa : MonoBehaviour
 
         if (configAberta)
         {
-            if (config.Atualizar() || config.ConsumirVoltar()) { config.Fechar(); configAberta = false; sel = 1; }
+            if (config.Atualizar() || config.ConsumirVoltar()) { config.Fechar(); configAberta = false; sel = 2; }
             return;
         }
 
@@ -93,7 +94,7 @@ public class MenuDePausa : MonoBehaviour
         if (d.y != 0)
         {
             if (confirmando) sel = 1 - sel;
-            else sel = (sel - d.y + 3) % 3;
+            else sel = (sel - d.y + 4) % 4;
         }
         else if (confirmando && d.x != 0) sel = d.x > 0 ? 1 : 0;
         if (Comandos.NavConfirmar()) Ativar(sel);
@@ -146,16 +147,16 @@ public class MenuDePausa : MonoBehaviour
             Cor(new Rect(x0 - 2f * esc, ly - 6f * esc, 12f * esc, 12f * esc), new Color(ouro.r, ouro.g, ouro.b, fade)); GUI.matrix = m;
         }
 
-        string[] nomes = { "CONTINUAR", "CONFIGURAÇÕES", "SAIR" };
+        string[] nomes = { "CONTINUAR", "TUTORIAL", "CONFIGURAÇÕES", "SAIR" };
         float iy = y0 + 232f * esc, ih = 88f * esc;
-        for (int i = 0; i < 3; i++)
+        for (int i = 0; i < 4; i++)
         {
             Rect r = new Rect(x0 - 30f * esc, iy + ih * i, 640f * esc, ih - 8f * esc);
             bool sobre = r.Contains(ev.mousePosition);
             if (sobre && ev.type == EventType.MouseMove) sel = i;
             if (ev.type == EventType.MouseDown && ev.button == 0 && sobre) { ev.Use(); Ativar(i); return; }
             if (ev.type != EventType.Repaint) continue;
-            bool marcado = sel == i, perigo = i == 2;
+            bool marcado = sel == i, perigo = i == 3;
             Color realce = perigo ? new Color(0.92f, 0.38f, 0.32f) : ouro;
             if (marcado)
             {
