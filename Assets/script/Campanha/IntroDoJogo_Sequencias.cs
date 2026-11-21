@@ -6,7 +6,7 @@ using UnityEngine;
 // para contar cenas especiais, como a morte do dragão. Uso: IntroDoJogo.TocarMorteDoDragao(() => { ... });
 public partial class IntroDoJogo
 {
-    static string seqPendente; static Action seqAoTerminar;
+    static string seqPendente; static Action seqAoTerminar; string seqId;
     bool sequencia; Action aoTerminarSeq; bool menuAntesSeq; string dicaTexto = "[Enter] avançar     [Esc] pular a abertura";
 
     // rotação aplicada pelo Poli (só o dragão caindo usa): gira em volta de gRotC
@@ -22,12 +22,44 @@ public partial class IntroDoJogo
     public static void TocarMorteDoDragao(Action aoTerminar)
     {
         if (Ativa) { if (aoTerminar != null) aoTerminar(); return; }
-        seqPendente = "morte"; seqAoTerminar = aoTerminar;
+        bool mundo = Terrain.activeTerrain != null && (PortalDoMundo.Atual != null || FindAnyObjectByType<NpcFalante>() != null);
+        seqPendente = mundo ? "morte3d" : "morte"; seqAoTerminar = aoTerminar;
         new GameObject("Cena ilustrada").AddComponent<IntroDoJogo>();
+    }
+
+    /// <summary>Toca o epílogo do final do jogo em 3D (4 cenas). Devolve false se o mundo 3D não existir (o FinalDoJogo usa o epílogo antigo).</summary>
+    public static bool TocarFinal(Action aoTerminar)
+    {
+        if (Ativa || Terrain.activeTerrain == null) return false;
+        bool achou = false; foreach (NpcFalante n in FindObjectsByType<NpcFalante>(FindObjectsSortMode.None)) if (n != null && n.nomeExibido == "Caio") { achou = true; break; }
+        if (!achou && PortalDoMundo.Atual == null) return false;
+        seqPendente = "final"; seqAoTerminar = aoTerminar;
+        new GameObject("Final em 3D").AddComponent<IntroDoJogo>();
+        return true;
     }
 
     List<Cena> MontarSequencia(string id)
     {
+        if (id == "final")
+        {
+            Action<float> reserva = k => { Ceu(C(0.35f, 0.5f, 0.8f), C(0.95f, 0.72f, 0.5f), C(1f, 0.85f, 0.6f), 860f); Brilho(new Vector2(960f, 640f), 900f, C(1f, 0.85f, 0.5f, 0.45f), 0.1f, 500f); Modo(false); };
+            return new List<Cena>
+            {
+                new Cena { dur = 12f, texto = "Drakthar caiu. O poder dos cristais, já sem dono, se desfez no vento para nunca mais voltar.", desenha = reserva },
+                new Cena { dur = 11f, texto = "Valverde acordou numa manhã sem cinzas, sem mortos e sem medo.", desenha = reserva },
+                new Cena { dur = 12f, texto = "E no centro da vila, uma placa nova brilhava: CABARÉ DOS AVENTUREIROS.", desenha = reserva },
+                new Cena { dur = 13f, texto = "Os heróis, enfim, tinham um tostão no bolso... e um balcão inteiro para gastá-lo.", desenha = reserva },
+            };
+        }
+        if (id == "morte3d")
+        {
+            Action<float> reserva = k => { Ceu(C(0.35f, 0.5f, 0.8f), C(0.95f, 0.72f, 0.5f), C(1f, 0.85f, 0.6f), 860f); Brilho(new Vector2(960f, 640f), 900f, C(1f, 0.85f, 0.5f, 0.45f), 0.1f, 500f); Modo(false); };
+            List<Cena> l = MontarSequencia("morte");
+            l.Add(new Cena { dur = 10f, texto = "Na vila, ninguém acreditava. Então todos correram em direção ao herói.", desenha = reserva });
+            l.Add(new Cena { dur = 6f, texto = "", desenha = reserva });
+            l.Add(new Cena { dur = 8f, texto = "", desenha = reserva });
+            return l;
+        }
         return new List<Cena>
         {
             new Cena { dur = 8f,  texto = "O gigante não resistiu. Sem forças, Drakthar despencou do céu.", desenha = SeqQueda, z0 = 1.05f, z1 = 1.2f, p0 = new Vector2(30, -10), p1 = new Vector2(-30, 20) },

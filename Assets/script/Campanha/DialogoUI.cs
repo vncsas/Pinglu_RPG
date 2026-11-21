@@ -14,7 +14,7 @@ public class DialogoUI : MonoBehaviour
     public Texture2D retratoCaio;          // quando existir a foto/arte do Caio, é só colocar aqui
 
     private IList<Fala> falas; private int indice; private float inicioDaFala, inicioDaFala0; private Action aoFim; private bool menuAntes;
-    private GUIStyle estTexto, estNome, estDica; private Texture2D pixel;
+    private GUIStyle estTexto, estNome, estDica, estMedida; private Texture2D pixel;
     const float VELOCIDADE = 48f;      // letras por segundo
 
     // quebra as falas longas em balões curtos (uma ou duas frases), mantendo quem fala e a emoção
@@ -63,6 +63,20 @@ public class DialogoUI : MonoBehaviour
         if (Instancia == null || lista == null || lista.Count == 0) { if (quandoAcabar != null) quandoAcabar(); return; }
         Instancia.abertoEm = Time.unscaledTime; Instancia.falas = Paginar(lista); Instancia.indice = 0; Instancia.inicioDaFala = Instancia.inicioDaFala0 = Time.unscaledTime; Instancia.ancoraDaFala = -1; Instancia.aoFim = quandoAcabar;
         Instancia.menuAntes = SessaoDeJogo.MenuAberto; SessaoDeJogo.MenuAberto = true;
+    }
+
+    // divide o texto em linhas que cabem em "largura" (troca o espaço por \n, então o tamanho do texto não muda)
+    private string Quebrar(string txt, float largura, out float maiorLinha, out int linhas)
+    {
+        var sb = new System.Text.StringBuilder(); string linha = ""; maiorLinha = 0f; linhas = 1;
+        foreach (string palavra in txt.Split(' '))
+        {
+            string teste = linha.Length == 0 ? palavra : linha + " " + palavra;
+            float w = estMedida.CalcSize(new GUIContent(teste)).x;
+            if (w > largura && linha.Length > 0) { sb.Append(linha).Append('\n'); linha = palavra; linhas++; maiorLinha = Mathf.Max(maiorLinha, estMedida.CalcSize(new GUIContent(linha)).x); }
+            else { linha = teste; maiorLinha = Mathf.Max(maiorLinha, w); }
+        }
+        sb.Append(linha); return sb.ToString();
     }
 
     private string TextoVisivel()
@@ -171,7 +185,7 @@ public class DialogoUI : MonoBehaviour
     private readonly Dictionary<Transform, Renderer[]> cacheRend = new Dictionary<Transform, Renderer[]>();
     private bool TelaDe(Transform t, out Vector2 cabeca, out Vector2 pe)
     {
-        cabeca = pe = Vector2.zero; Camera cam = Camera.main; if (t == null || cam == null || !t.gameObject.activeInHierarchy) return false;
+        cabeca = pe = Vector2.zero; Camera cam = FxCena.CamOverride != null ? FxCena.CamOverride : Camera.main; if (t == null || cam == null || !t.gameObject.activeInHierarchy) return false;
         Renderer[] rs; if (!cacheRend.TryGetValue(t, out rs)) { rs = System.Array.FindAll(t.GetComponentsInChildren<Renderer>(false), q => !(q is ParticleSystemRenderer) && !(q is TrailRenderer) && !(q is LineRenderer)); cacheRend[t] = rs; }
         Vector3 topo = t.position + Vector3.up * 2f, base0 = t.position;
         if (rs.Length > 0)
@@ -205,7 +219,7 @@ public class DialogoUI : MonoBehaviour
     private bool NaTela(out Vector2 cabeca, out Vector2 pe)
     {
         cabeca = pe = Vector2.zero;
-        Camera cam = Camera.main; if (ancora == null || cam == null) return false;
+        Camera cam = FxCena.CamOverride != null ? FxCena.CamOverride : Camera.main; if (ancora == null || cam == null) return false;
         Vector3 topo, base0;
         if (ancoraRend != null && ancoraRend.Length > 0)
         {
@@ -324,11 +338,16 @@ public class DialogoUI : MonoBehaviour
             estNome = new GUIStyle(GUI.skin.label) { fontStyle = FontStyle.Bold, font = fonteNome != null ? fonteNome : fonteTexto, alignment = TextAnchor.MiddleCenter };
         }
         estTexto.fontSize = Mathf.RoundToInt(29f * e); estNome.fontSize = Mathf.RoundToInt(26f * e);
-        string completo = f.texto, visivel = TextoVisivel();
+        // quebra de linha PRÓPRIA (palavra por palavra, medindo cada linha): o texto nunca passa da borda do balão
+        if (estMedida == null) estMedida = new GUIStyle(estTexto);
+        estMedida.font = estTexto.font; estMedida.fontSize = estTexto.fontSize; estMedida.wordWrap = false; estTexto.wordWrap = false;
+        Font fnt = estTexto.font != null ? estTexto.font : GUI.skin.font; if (fnt != null) fnt.RequestCharactersInTexture(f.texto, estTexto.fontSize, FontStyle.Normal);
         float maxW = Mathf.Min(W - 160f * e, 600f * e), padX = 32f * e, padY = 22f * e;
-        float natural = estTexto.CalcSize(new GUIContent(completo)).x;
-        float textoW = Mathf.Clamp(Mathf.Min(natural + 6f * e, maxW), 260f * e, maxW);
-        float textoH = estTexto.CalcHeight(new GUIContent(completo), textoW);
+        int linhas; float maiorLinha; string completo = Quebrar(f.texto, maxW * 0.94f, out maiorLinha, out linhas);
+        int nVis = TextoVisivel().Length; string visivel = completo.Substring(0, Mathf.Min(completo.Length, nVis));
+        float textoW = Mathf.Clamp(maiorLinha + 10f * e, 260f * e, maxW);
+        float linhaH = estMedida.CalcSize(new GUIContent("Ág")).y;
+        float textoH = linhaH * linhas;
         float bw = textoW + padX * 2f + 22f * e, bh = textoH + padY * 2f;
 
         // ---- onde fica: testa várias posições e escolhe a melhor (sem cobrir quem está na cena, sempre dentro da tela)

@@ -23,7 +23,7 @@ public partial class IntroDoJogo : MonoBehaviour
     }
 
     // ------------------------------------------------------------------ roteiro
-    class Cena { public Action<float> cam3, vivo; public Action entra, sai; public Amb amb; public float dur; public string texto; public Action<float> desenha; public float z0 = 1f, z1 = 1.12f; public Vector2 p0, p1; }
+    class Cena { public bool semBarras; public Action<float> cam3, vivo, hud; public Action entra, sai; public Amb amb; public float dur; public string texto; public Action<float> desenha; public float z0 = 1f, z1 = 1.12f; public Vector2 p0, p1; }
     List<Cena> cenas;
     int atual; float inicioCena, fimGeral = -1f; bool digitado;
     const float VEL = 26f;               // letras por segundo
@@ -33,7 +33,7 @@ public partial class IntroDoJogo : MonoBehaviour
     void Awake()
     {
         Ativa = true; inicioTudo = Time.unscaledTime;
-        if (seqPendente != null) { sequencia = true; aoTerminarSeq = seqAoTerminar; menuAntesSeq = SessaoDeJogo.MenuAberto; dicaTexto = "[Enter] avançar     [Esc] pular a cena"; }
+        if (seqPendente != null) { sequencia = true; seqId = seqPendente; aoTerminarSeq = seqAoTerminar; menuAntesSeq = SessaoDeJogo.MenuAberto; dicaTexto = "[Enter] avançar     [Esc] pular a cena"; }
         fCinzel = Resources.Load<Font>("Fontes/CinzelBold"); fFell = Resources.Load<Font>("Fontes/IMFellEnglish");
         if (sequencia) { cenas = MontarSequencia(seqPendente); seqPendente = null; seqAoTerminar = null; } else Montar();
         if (!sequencia && CinematicaDeVideo.Tocar("Abertura", () => { videoRodando = false; Terminar(); })) videoRodando = true;      // vídeo pronto (Resources/Videos/Abertura) no lugar das cenas em código
@@ -60,7 +60,7 @@ public partial class IntroDoJogo : MonoBehaviour
     }
 
     // ------------------------------------------------------------------ controle
-    void Start() { if (!sequencia && !videoRodando) { Preparar3D(); Aviso3D(); } }
+    void Start() { if (!videoRodando && (!sequencia || seqId == "final" || seqId == "morte3d")) { Preparar3D(); Aviso3D(); } }
 
     void Update()
     {
@@ -71,6 +71,7 @@ public partial class IntroDoJogo : MonoBehaviour
         if (Input.GetKeyDown(KeyCode.Escape)) { Terminar(); return; }
         float t = Time.unscaledTime - inicioCena; if (t < 0f) return;
         Cena c = cenas[atual];
+        if (DialogoUI.Aberto) return;                                          // diálogo em cena: quem avança é o diálogo
         digitado = t * VEL >= c.texto.Length + 6f;
         bool avanca = Input.GetKeyDown(KeyCode.Return) || Input.GetKeyDown(KeyCode.KeypadEnter) || Input.GetKeyDown(KeyCode.Space) || Input.GetMouseButtonDown(0) || Comandos.NavConfirmar();
         if (avanca && t > 0.8f)
@@ -664,7 +665,8 @@ public partial class IntroDoJogo : MonoBehaviour
 
     // ------------------------------------------------------------------ texto
     string tituloPend; float tituloY, tituloTam, tituloA;
-    void Titulo(string texto, float y, float tam, float a) { tituloPend = texto; tituloY = y; tituloTam = tam; tituloA = a; }
+    string subPend;
+    void Titulo(string texto, float y, float tam, float a, string sub = null) { tituloPend = texto; tituloY = y; tituloTam = tam; tituloA = a; subPend = sub; }
     void DesenharTitulo()
     {
         float escala = Screen.height / 1080f;
@@ -672,6 +674,13 @@ public partial class IntroDoJogo : MonoBehaviour
         Rect r = new Rect(0, tituloY * escala, Screen.width, tituloTam * 1.4f * escala);
         st.normal.textColor = new Color(0f, 0f, 0f, 0.7f * tituloA); GUI.Label(new Rect(r.x + 4f, r.y + 6f, r.width, r.height), tituloPend, st);
         st.normal.textColor = new Color(1f, 0.86f, 0.5f, tituloA); GUI.Label(r, tituloPend, st);
+        if (!string.IsNullOrEmpty(subPend))
+        {
+            GUIStyle ss = new GUIStyle { font = fFell, fontSize = Mathf.RoundToInt(tituloTam * 0.34f * escala), alignment = TextAnchor.MiddleCenter, fontStyle = FontStyle.Italic };
+            Rect r2 = new Rect(0, (tituloY + tituloTam * 1.35f) * escala, Screen.width, tituloTam * 0.6f * escala);
+            ss.normal.textColor = new Color(0f, 0f, 0f, 0.7f * tituloA); GUI.Label(new Rect(r2.x + 3f, r2.y + 4f, r2.width, r2.height), subPend, ss);
+            ss.normal.textColor = new Color(0.97f, 0.93f, 0.82f, tituloA); GUI.Label(r2, subPend, ss);
+        }
     }
 
     void OnGUI()
@@ -701,12 +710,13 @@ public partial class IntroDoJogo : MonoBehaviour
         gz = Mathf.Lerp(c.z0, c.z1, Suave(k)); gpan = Vector2.Lerp(c.p0, c.p1, k);
         float fade = Mathf.Min(Suave(t / 0.9f), Suave((c.dur - t) / 0.9f));
         if (t >= 0f && !tres) { gA = 1f; c.desenha(k); }
+        else if (t >= 0f && tres && c.hud != null) c.hud(k);
         gA = 1f;
         // barras de cinema e degradê para a legenda
         float barra = H * 0.1f;
-        QuadG(new Vector2(0, 0), new Vector2(W, 0), new Vector2(W, barra), new Vector2(0, barra), C(0, 0, 0), C(0, 0, 0), C(0, 0, 0), C(0, 0, 0));
-        QuadG(new Vector2(0, H - barra), new Vector2(W, H - barra), new Vector2(W, H), new Vector2(0, H), C(0, 0, 0), C(0, 0, 0), C(0, 0, 0), C(0, 0, 0));
-        QuadG(new Vector2(0, H - barra - H * 0.22f), new Vector2(W, H - barra - H * 0.22f), new Vector2(W, H - barra), new Vector2(0, H - barra), C(0, 0, 0, 0), C(0, 0, 0, 0), C(0, 0, 0, 0.78f), C(0, 0, 0, 0.78f));
+        if (!c.semBarras) QuadG(new Vector2(0, 0), new Vector2(W, 0), new Vector2(W, barra), new Vector2(0, barra), C(0, 0, 0), C(0, 0, 0), C(0, 0, 0), C(0, 0, 0));
+        if (!c.semBarras) QuadG(new Vector2(0, H - barra), new Vector2(W, H - barra), new Vector2(W, H), new Vector2(0, H), C(0, 0, 0), C(0, 0, 0), C(0, 0, 0), C(0, 0, 0));
+        if (!c.semBarras) QuadG(new Vector2(0, H - barra - H * 0.22f), new Vector2(W, H - barra - H * 0.22f), new Vector2(W, H - barra), new Vector2(0, H - barra), C(0, 0, 0, 0), C(0, 0, 0, 0), C(0, 0, 0, 0.78f), C(0, 0, 0, 0.78f));
         // fade de entrada/saída da cena (por cima de tudo, menos do texto)
         if (fade < 1f) QuadG(new Vector2(0, 0), new Vector2(W, 0), new Vector2(W, H), new Vector2(0, H), C(0, 0, 0, 1f - fade), C(0, 0, 0, 1f - fade), C(0, 0, 0, 1f - fade), C(0, 0, 0, 1f - fade));
         FimGL();
@@ -721,9 +731,9 @@ public partial class IntroDoJogo : MonoBehaviour
         ls.normal.textColor = new Color(0.97f, 0.93f, 0.82f, aT); GUI.Label(lr, c.texto.Substring(0, n), ls);
         GUIStyle dica = new GUIStyle { font = fFell, fontSize = Mathf.RoundToInt(22f * e), alignment = TextAnchor.MiddleRight };
         dica.normal.textColor = new Color(0.8f, 0.77f, 0.7f, 0.65f);
-        GUI.Label(new Rect(W - 640f * e, H - barra * 0.85f, 600f * e, 40f * e), dicaTexto, dica);
+        if (!c.semBarras) GUI.Label(new Rect(W - 640f * e, H - barra * 0.85f, 600f * e, 40f * e), dicaTexto, dica);
         // indicador de cenas
-        for (int i = 0; i < cenas.Count; i++) { Color pc = i == atual ? new Color(1f, 0.85f, 0.5f, 0.95f) : new Color(1f, 1f, 1f, i < atual ? 0.45f : 0.18f); GUI.color = pc; GUI.DrawTexture(new Rect(40f * e + i * 24f * e, H - barra * 0.55f, 14f * e, 4f * e), Texture2D.whiteTexture); }
+        if (!c.semBarras) for (int i = 0; i < cenas.Count; i++) { Color pc = i == atual ? new Color(1f, 0.85f, 0.5f, 0.95f) : new Color(1f, 1f, 1f, i < atual ? 0.45f : 0.18f); GUI.color = pc; GUI.DrawTexture(new Rect(40f * e + i * 24f * e, H - barra * 0.55f, 14f * e, 4f * e), Texture2D.whiteTexture); }
         GUI.color = Color.white;
     }
 }

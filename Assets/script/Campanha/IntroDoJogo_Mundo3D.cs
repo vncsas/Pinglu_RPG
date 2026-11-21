@@ -86,7 +86,7 @@ public partial class IntroDoJogo
             if (sol3 != null) { oSolC = sol3.color; oSolI = sol3.intensity; oSolR = sol3.transform.rotation; }
             ambSalvo = true;
             Shader sh = Shader.Find("Skybox/Procedural"); if (sh != null) ceu3 = new Material(sh) { hideFlags = HideFlags.HideAndDontSave };
-            AtribuirCenas3D();
+            if (seqId == "final") AtribuirCenasFinal3D(); else if (seqId == "morte3d") AtribuirCenasMorte3D(); else AtribuirCenas3D();
             menuEscondido = menu; if (menuEscondido != null) menuEscondido.enabled = false;      // a seleção de personagens não aparece durante a abertura
             modo3D = true; Entra3D();
             Debug.Log("[Abertura 3D] ligada. vila=" + vila.ToString("F0") + " cemitério=" + cemiterio.ToString("F0") + " castelo=" + castelo.ToString("F0") + " pântano=" + pantano.ToString("F0") + " montanha=" + montanha.ToString("F0") + " dragão=" + (dragaoOrigem != null && dragaoOrigem.modelo != null) + " heróis=" + fichas3.Count);
@@ -110,6 +110,9 @@ public partial class IntroDoJogo
     void Limpar3D()
     {
         Sai3D(); modo3D = false;
+        foreach (GameObject o in povoObj) if (o != null) Destroy(o);
+        povoObj.Clear();
+        if (realCaio != null) { DialogoUI.Registrar("Caio", realCaio); realCaio = null; }          // o Caio de verdade volta a ser o dono das falas
         if (menuEscondido != null) { menuEscondido.enabled = true; menuEscondido = null; }
         if (cam3 != null) Destroy(cam3.gameObject); cam3 = null; FxCena.CamOverride = null;
         if (ambSalvo)
@@ -182,6 +185,7 @@ public partial class IntroDoJogo
     {
         if (cam3 == null) return;
         pos = Livre3(pos);
+        pos.y = Mathf.Max(pos.y, Chao3(pos) + 1.2f);                 // a câmera nunca passa para dentro do terreno
         cam3.transform.position = pos; Vector3 d = alvo - pos; if (d.sqrMagnitude > 0.001f) cam3.transform.rotation = Quaternion.LookRotation(d, Vector3.up);
         cam3.fieldOfView = fov;
     }

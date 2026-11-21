@@ -63,7 +63,7 @@ public partial class EncontroDoDragao : MonoBehaviour
         // estas teclas vêm antes de tudo: funcionam em qualquer etapa da história
         if (Input.GetKeyDown(KeyCode.F7)) { if (Input.GetKey(KeyCode.LeftShift) || Input.GetKey(KeyCode.RightShift)) IrDiretoFuga(); else IrDireto(); }   // F7: Ladrão no portal / Shift+F7: a fuga e o rastro negro
         if (Input.GetKeyDown(KeyCode.F8)) IrDiretoFase2();                      // F8: 2ª fase do dragão
-        if (Input.GetKeyDown(KeyCode.F9)) { if (Input.GetKey(KeyCode.LeftShift) || Input.GetKey(KeyCode.RightShift)) IrDiretoMorteDoDragao(); else IntroDoJogo.TocarMorteDoDragao(null); }   // F9: morte do dragão ilustrada em código (fraca) / Shift+F9: a versão 3D
+        if (Input.GetKeyDown(KeyCode.F9)) { if (Input.GetKey(KeyCode.LeftShift) || Input.GetKey(KeyCode.RightShift)) IrDiretoMorteDoDragao(); else IntroDoJogo.TocarMorteDoDragao(() => FinalDoJogo.Tocar(true)); }   // F9: morte do dragão ilustrada em código (fraca) / Shift+F9: a versão 3D
 #endif
         if (fase == Fase.Cena) return;
         if (Campanha.Atual < Etapa.Dragao) { if (cinematicaFeita || montanhaQuebrada) LimparTudo(); desdeDragao = -1f; return; }
@@ -165,7 +165,7 @@ public partial class EncontroDoDragao : MonoBehaviour
 
     // ------------------------------------------------------------ a morte do dragão (a câmera segue o roteiro do tempo de ChefeDragao.Queda)
     // true: a morte do dragão toca em cenas ilustradas (estilo da abertura). false: câmera 3D (Timeline/código)
-    public static bool MorteIlustrada = false;
+    public static bool MorteIlustrada = true;
 
     IEnumerator AposODragao(ChefeDragao c)
     {
@@ -173,24 +173,28 @@ public partial class EncontroDoDragao : MonoBehaviour
         fase = Fase.Fim;
         bool menu0 = SessaoDeJogo.MenuAberto;
         SessaoDeJogo.MenuAberto = true; TituloDeChefe.Barras(true); CameraDeCena.Ligar(); Proteger(true); FxCena.GarantirTela();
-        CenaTimeline tl = null;
+        CenaTimeline tl = null; bool finalEmCena = false;
         try
         {
             if (MorteIlustrada)                                      // versão em cenas desenhadas (estilo da abertura) por cima do jogo
             {
                 bool fimCena = false; float espera = 0f; bool limpo = false;
-                IntroDoJogo.TocarMorteDoDragao(() => fimCena = true);
+                TituloDeChefe.Barras(false);
+                // a cena começa já: o dragão da luta some e o dragão da cena cai de onde ele estava
+                Vector3 chaoMorte = c != null ? c.PontoDaQueda : centroArena, iniMorte = c != null ? c.transform.position : chaoMorte + Vector3.up * 60f;
+                if (c != null) { c.gameObject.SetActive(false); Destroy(c.gameObject, 60f); }
+                IntroDoJogo.MorteChao = chaoMorte; IntroDoJogo.MorteInicio = iniMorte;
+                // quando a tela fica toda preta (fim da cena), os créditos já começam (no mesmo instante, sem mostrar o jogo de novo)
+                IntroDoJogo.TocarMorteDoDragao(() => { fimCena = true; FinalDoJogo.Tocar(true); });
                 while (!fimCena && espera < 120f)
                 {
                     espera += Time.unscaledDeltaTime;
-                    if (!limpo && espera > 25f) { limpo = true; if (ceu != null) { ceu.alvo = 0f; ceu.vel = 0.15f; } if (tempestade != null) StartCoroutine(DissiparTempestade()); }
+                    if (!limpo && espera > 30f) { limpo = true; if (ceu != null) { ceu.alvo = 0f; ceu.vel = 0.15f; } if (tempestade != null) StartCoroutine(DissiparTempestade()); }
                     yield return null;
                 }
                 if (ceu != null && !limpo) { ceu.alvo = 0f; ceu.vel = 0.15f; }
                 if (tempestade != null && !limpo) StartCoroutine(DissiparTempestade());
-                yield return new WaitForSeconds(1.2f);
-                DialogoUI.Abrir(Roteiro.DragaoDerrotado, null);
-                while (DialogoUI.Aberto) yield return null;
+                IntroDoJogo.MorteChao = null; IntroDoJogo.MorteInicio = null; finalEmCena = true;
                 goto fimDaMorte;
             }
             Vector3 p0 = CameraDeCena.Posicao; Quaternion r0 = CameraDeCena.Rotacao;
@@ -225,7 +229,7 @@ public partial class EncontroDoDragao : MonoBehaviour
             fimDaMorte: ;
         }
         finally { if (tl != null) tl.Encerrar(); FxCena.Branco = 0f; TituloDeChefe.Barras(false); CameraDeCena.Soltar(); SessaoDeJogo.MenuAberto = menu0; Proteger(false); }
-        Campanha.Ir(Etapa.Recompensa);
+        if (finalEmCena) Campanha.Ir(Etapa.Fim); else Campanha.Ir(Etapa.Recompensa);          // (os créditos já estão rodando; o Ir(Fim) não toca nada de novo)
     }
 
     // ------------------------------------------------------------ atalho F6 (só para testar)

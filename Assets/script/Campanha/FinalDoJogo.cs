@@ -20,9 +20,12 @@ public class FinalDoJogo : MonoBehaviour
     }
     static void AoMudarEtapa(Etapa e) { if (e == Etapa.Fim) Tocar(); }
 
-    public static void Tocar()
+    static bool soCreditos;
+    // soCreditos: o final em cena (dragão, comemoração e título) já aconteceu, então vai direto aos créditos
+    public static void Tocar(bool soCreditos = false)
     {
         if (Ativo) return;
+        FinalDoJogo.soCreditos = soCreditos;
         new GameObject("Final do jogo").AddComponent<FinalDoJogo>();
     }
 
@@ -58,8 +61,11 @@ public class FinalDoJogo : MonoBehaviour
         Ativo = true; inicioTudo = inicioEtapa = inicioCena = Time.unscaledTime;
         menuAntes = SessaoDeJogo.MenuAberto;
         fCinzel = Resources.Load<Font>("Fontes/CinzelBold"); fFell = Resources.Load<Font>("Fontes/IMFellEnglish");
+        if (soCreditos) { etapa = Etapas.Creditos; soCreditos = false; return; }
         // vídeo pronto (Resources/Videos/Final) no lugar do epílogo em código; depois dele vêm o título e os créditos
         if (CinematicaDeVideo.Tocar("Final", () => { videoRodando = false; Ir(Etapas.Titulo); })) videoRodando = true;
+        // epílogo em 3D no mundo real (a câmera voa pela montanha, pela vila e pela placa do cabaré); sem mundo, fica o epílogo 2D
+        else if (IntroDoJogo.TocarFinal(() => { videoRodando = false; Ir(Etapas.Titulo); })) videoRodando = true;
     }
     bool videoRodando;
 
@@ -69,7 +75,7 @@ public class FinalDoJogo : MonoBehaviour
         if (videoRodando) return;
         if (saindo) { if (Time.unscaledTime - fimSaida > 0.8f) { SessaoDeJogo.MenuAberto = menuAntes; Ativo = false; Destroy(gameObject); } return; }
         bool ok = Input.GetKeyDown(KeyCode.Return) || Input.GetKeyDown(KeyCode.KeypadEnter) || Input.GetKeyDown(KeyCode.Space) || Input.GetMouseButtonDown(0) || Comandos.NavConfirmar();
-        if (Input.GetKeyDown(KeyCode.Escape) && etapa != Etapas.Fim) { Ir(Etapas.Fim); return; }
+        if (Input.GetKeyDown(KeyCode.Escape) && etapa != Etapas.Fim) { if (etapa == Etapas.Creditos) VoltarParaSelecao(); else Ir(Etapas.Creditos); return; }
         float t = Time.unscaledTime - inicioCena;
         switch (etapa)
         {
@@ -81,10 +87,22 @@ public class FinalDoJogo : MonoBehaviour
                 break;
             }
             case Etapas.Titulo: if (Time.unscaledTime - inicioEtapa > 5.5f || (ok && Time.unscaledTime - inicioEtapa > 1.5f)) Ir(Etapas.Creditos); break;
-            case Etapas.Creditos: if (Time.unscaledTime - inicioEtapa > TempoCreditos()) Ir(Etapas.Fim); break;
+            case Etapas.Creditos: if (Time.unscaledTime - inicioEtapa > TempoCreditos()) VoltarParaSelecao(); break;
             case Etapas.Fim: if (ok && Time.unscaledTime - inicioEtapa > 1.5f) { saindo = true; fimSaida = Time.unscaledTime; } break;
         }
     }
+    // acabaram os créditos: volta para a tela de seleção de personagens (a história recomeça do zero quando alguém for escolhido)
+    void VoltarParaSelecao()
+    {
+        if (voltando) return; voltando = true;
+        Ativo = false; Time.timeScale = 1f; AudioListener.pause = false;
+        Campanha.Reiniciar(); GerenciadorDeOndas.ReiniciarTudo(); Renascimento.Reiniciar(); GrupoDeAventureiros.Desfazer();
+        SessaoDeJogo.MenuAberto = true;                                   // igual ao Sair do menu de pausa: a seleção de personagens assume
+        if (SessaoDeJogo.SairParaSelecao != null) SessaoDeJogo.SairParaSelecao();
+        else UnityEngine.SceneManagement.SceneManager.LoadScene(UnityEngine.SceneManagement.SceneManager.GetActiveScene().name);
+    }
+    bool voltando;
+
     void ProximaCena() { cena++; inicioCena = Time.unscaledTime; if (cena >= narracao.Length) Ir(Etapas.Titulo); }
     void Ir(Etapas e) { etapa = e; inicioEtapa = Time.unscaledTime; }
     float TempoCreditos() { return (creditos.Length * 0.075f * 1080f + 1080f) / (1080f * 0.055f) ; }

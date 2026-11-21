@@ -249,6 +249,16 @@ public static class Roteiro
         new Fala(Roteiro.VOCE, "Foi para isso que o herói selou o seu poder. Hoje a gente termina o que ele começou!", "Foi para isso que o herói selou o seu poder. Hoje eu termino o que ele começou!"),
     };
 
+    // o agradecimento do Caio no campo, depois que o dragão cai (final do jogo)
+    public static readonly Fala[] CaioAgradeceNoCampo =
+    {
+        new Fala("Caio", "Vocês conseguiram! " + NOME_DA_VILA + " está salva, e a vila inteira agradece.", null, Emocao.Alegre),
+        new Fala("Caio", "Vimos o dragão cair lá de longe... Eu jamais vou esquecer o que fizeram por nós. Obrigado, de coração!"),
+        new Fala("Caio", "A recompensa prometida: a escritura do novo cabaré de " + NOME_DA_VILA + ". Agora ele é de vocês!"),
+        new Fala(Roteiro.VOCE, "Um cabaré?! ...Aceitamos.", null, Emocao.Alegre),
+        new Fala("Caio", "Gastem com responsabilidade. Bem-vindos à família de " + NOME_DA_VILA + "!", null, Emocao.Alegre),
+    };
+
     // o dragão cai
     public static readonly Fala[] DragaoDerrotado =
     {
