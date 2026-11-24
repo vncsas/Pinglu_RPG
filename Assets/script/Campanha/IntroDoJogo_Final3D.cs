@@ -100,7 +100,7 @@ public partial class IntroDoJogo
             {
                 GameObject cr = cristais3[i]; if (cr == null) continue;
                 float p = Suave((k - 0.1f) / 0.8f);
-                cr.transform.localScale = Vector3.one * Mathf.Max(0.001f, 1f - p) * (1f + 0.05f * Mathf.Sin(Time.unscaledTime * 22f + i));
+                cr.transform.localScale = Vector3.one * Mathf.Max(0.001f, 1f - p) * (1f + 0.05f * Mathf.Sin(TU * 22f + i));
                 Light l = cr.GetComponentInChildren<Light>(); if (l != null) l.intensity = Mathf.Lerp(3f, 0f, p);
                 foreach (ParticleSystem ps in cr.GetComponentsInChildren<ParticleSystem>()) { var em = ps.emission; em.rateOverTime = 70f * Mathf.Sin(Mathf.Clamp01(p) * Mathf.PI); }
             }

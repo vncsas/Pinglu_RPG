@@ -37,6 +37,7 @@ public class CampanhaJogo : MonoBehaviour
 
     private void Update()
     {
+        if (TrailerModo.Ativo) return;                         // gravando o trailer: sem abertura nem objetivos
         // só começa depois que o menu inicial fechou e o jogador existe
         if (fase == Fase.Esperando)
         {
@@ -66,7 +67,7 @@ public class CampanhaJogo : MonoBehaviour
 
     private void OnGUI()
     {
-        if (TelaDeMorte.Ativa) return;
+        if (TrailerModo.Ativo || TelaDeMorte.Ativa) return;
         float e = Screen.height / 1080f;
         GUI.matrix = Matrix4x4.TRS(Vector3.zero, Quaternion.identity, new Vector3(e, e, 1f));
         float W = Screen.width / e;

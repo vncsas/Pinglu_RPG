@@ -31,6 +31,8 @@ public class EncontroDoCastelo : MonoBehaviour
         return p;
     }
 
+    public Vector3 PontoLocal(float x, float z) { return Ponto(x, z); }      // usado pelo trailer: um lugar do castelo, com a altura do piso
+
     private Transform JogadorLocal()
     {
         foreach (PlayerLocomotion p in FindObjectsByType<PlayerLocomotion>(FindObjectsSortMode.None)) if (p.enabled && !p.Companheiro && p.gameObject.activeInHierarchy) return p.transform;

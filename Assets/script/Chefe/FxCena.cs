@@ -10,6 +10,10 @@ public static class FxCena
     [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
     static void Zerar() { matSprite = null; texNuvem = texPoeira = texBrilho = null; quad = null; Branco = 0f; }
 
+    // relógio das cenas: na gravação do trailer (quadros fixos) acompanha o tempo do VÍDEO; no jogo é o tempo real de sempre
+    public static float Dt { get { return Time.captureDeltaTime > 0f ? Time.captureDeltaTime : Time.unscaledDeltaTime; } }
+    static float tcT; static int tcQ = -1;
+    public static float Tc { get { if (Time.frameCount != tcQ) { tcQ = Time.frameCount; tcT += Dt; } return tcT; } }
     public static Material Sprite() { if (matSprite == null) { Shader s = Shader.Find("Sprites/Default"); if (s != null) matSprite = new Material(s); } return matSprite; }
     public static Mesh Quad()
     {
@@ -74,7 +78,7 @@ public static class FxCena
     {
         public float escuro, alvo, vel = 0.25f, relampago, limiteNeblina = -1f;
         float rel;
-        void Update() { escuro = Mathf.MoveTowards(escuro, alvo, vel * Time.unscaledDeltaTime); rel = Mathf.MoveTowards(rel, 0f, Time.unscaledDeltaTime * 4f); }
+        void Update() { escuro = Mathf.MoveTowards(escuro, alvo, vel * FxCena.Dt); rel = Mathf.MoveTowards(rel, 0f, FxCena.Dt * 4f); }
         public void Relampago(float forca = 1f) { rel = Mathf.Max(rel, forca); }
         void LateUpdate()
         {
@@ -105,9 +109,9 @@ public static class FxCena
         {
             for (int i = 0; i < quadros.Count; i++)
             {
-                ang[i] += vel[i] * Time.unscaledDeltaTime * (0.6f + intensidade);
+                ang[i] += vel[i] * FxCena.Dt * (0.6f + intensidade);
                 float rr = rad[i] * (1f - 0.12f * intensidade);
-                Vector3 p = centro + new Vector3(Mathf.Cos(ang[i] * Mathf.Deg2Rad), 0f, Mathf.Sin(ang[i] * Mathf.Deg2Rad)) * rr; p.y = centro.y + altura * 0.0f + Mathf.Sin(fase[i] + Time.unscaledTime * 0.3f) * 10f - (rr / raio) * 18f;
+                Vector3 p = centro + new Vector3(Mathf.Cos(ang[i] * Mathf.Deg2Rad), 0f, Mathf.Sin(ang[i] * Mathf.Deg2Rad)) * rr; p.y = centro.y + altura * 0.0f + Mathf.Sin(fase[i] + FxCena.Tc * 0.3f) * 10f - (rr / raio) * 18f;
                 quadros[i].position = p;
                 float a = Mathf.Clamp01(intensidade) * Mathf.Lerp(0.8f, 0.45f, rad[i] / raio);
                 Color cor = Color.Lerp(new Color(0.09f, 0.07f, 0.12f), new Color(0.2f, 0.1f, 0.28f), Mathf.PingPong(fase[i], 1f) * 0.6f); cor.a = a; Pintar(quadros[i].gameObject, cor);
@@ -148,7 +152,7 @@ public static class FxCena
         GameObject lg = new GameObject("Luz"); lg.transform.SetParent(g.transform, false); Light l = lg.AddComponent<Light>(); l.type = LightType.Point; l.color = cor; l.range = tam * 40f; l.intensity = 3f; l.shadows = LightShadows.None;
         g.AddComponent<GiroDoCristal>(); return g;
     }
-    public class GiroDoCristal : MonoBehaviour { void Update() { if (transform.childCount > 0) transform.GetChild(0).Rotate(0f, 90f * Time.unscaledDeltaTime, 0f, Space.Self); } }
+    public class GiroDoCristal : MonoBehaviour { void Update() { if (transform.childCount > 0) transform.GetChild(0).Rotate(0f, 90f * FxCena.Dt, 0f, Space.Self); } }
     public static void Luz(GameObject cristal, float intensidade, float alcance) { Light l = cristal.GetComponentInChildren<Light>(); if (l != null) { l.intensity = intensidade; l.range = alcance; } }
     public static void Escala(GameObject cristal, float k) { cristal.transform.localScale = Vector3.one * k; }
 
@@ -159,7 +163,7 @@ public static class FxCena
         void Update()
         {
             if (pousou) return;
-            transform.position += v * Time.unscaledDeltaTime; transform.Rotate(giro * Time.unscaledDeltaTime, Space.Self);
+            transform.position += v * FxCena.Dt; transform.Rotate(giro * FxCena.Dt, Space.Self);
             if (transform.position.y <= chao) { pousou = true; Vector3 p = transform.position; p.y = chao + 0.05f; transform.position = p; if (aoPousar != null) aoPousar(p); enabled = false; }
         }
     }

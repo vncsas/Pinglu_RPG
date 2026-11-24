@@ -97,7 +97,7 @@ public partial class IntroDoJogo
     }
 
     // ------------------------------------------------------------------ o povo e o jogador
-    class Figurante { public GameObject go; public Animator an; public Vector3 ini, alvo; public float fase, atraso, vel; public bool caio, chegou; public string estado; }
+    class Figurante { public CaioReal caioReal; public GameObject go; public Animator an; public Vector3 ini, alvo; public float fase, atraso, vel; public bool caio, chegou; public string estado; }
     readonly List<Figurante> povo = new List<Figurante>(); readonly List<GameObject> povoObj = new List<GameObject>(); Transform realCaio; Transform jogador3;
 
     static Transform JogadorLocal3()
@@ -108,6 +108,7 @@ public partial class IntroDoJogo
 
     void TocarEstado3(Figurante f, string est, float vel)
     {
+        if (f.caioReal != null) { f.caioReal.Forcar(est == "Falar" ? "Parado" : est, vel); return; }      // o Caio real tem animação própria
         if (f.an == null || f.estado == est) return;
         f.estado = est; f.an.speed = vel; string alt = est;
         if (!f.an.HasState(0, Animator.StringToHash(est))) alt = "Parado";
@@ -141,6 +142,7 @@ public partial class IntroDoJogo
             else { float ang = Random.Range(105f, 255f) * Mathf.Deg2Rad, raio = Random.Range(4.5f, 9f); fg.alvo = jp + Quaternion.LookRotation(f) * new Vector3(Mathf.Sin(ang) * raio, 0f, Mathf.Cos(ang) * raio); }
             fg.ini = fg.alvo + dv * (caio ? 34f : Random.Range(36f, 52f)) + R * (caio ? 0f : Random.Range(-9f, 9f));
             fg.alvo = G3(fg.alvo); fg.ini = G3(fg.ini); g.transform.position = fg.ini; g.transform.rotation = Quaternion.LookRotation(fg.alvo - fg.ini);
+            if (caio) { fg.caioReal = g.GetComponentInChildren<CaioReal>(true); if (fg.caioReal != null) { CaioReal.EsconderCorpoAntigo(g); } }
             povo.Add(fg);
         }
     }
@@ -214,7 +216,7 @@ public partial class IntroDoJogo
             Vector3 alvo = raiz[0] != null ? raiz[0].transform.position + Vector3.up * 3f : ac;
             Vector3 base0 = caiDoAr ? p0 : ac;
             Vector3 cp = Sv(base0 + lado * 78f + dm * 40f + Vector3.up * 8f, ac + lado * 52f + dm * 34f + Vector3.up * 8f, k);
-            if (k > 0.7f) cp += new Vector3(Mathf.Sin(Time.unscaledTime * 55f), Mathf.Cos(Time.unscaledTime * 47f), Mathf.Sin(Time.unscaledTime * 61f)) * 1.1f * (1f - Mathf.Clamp01((k - 0.7f) / 0.3f));
+            if (k > 0.7f) cp += new Vector3(Mathf.Sin(TU * 55f), Mathf.Cos(TU * 47f), Mathf.Sin(TU * 61f)) * 1.1f * (1f - Mathf.Clamp01((k - 0.7f) / 0.3f));
             Cam(cp, alvo, Mathf.Lerp(52f, 46f, k));
         };
 
@@ -230,12 +232,12 @@ public partial class IntroDoJogo
         {
             if (raiz[0] == null) return;
             raiz[0].transform.position = ac + Random.insideUnitSphere * (0.12f + 0.5f * k);
-            float pulso = 0.7f + 0.3f * Mathf.Sin(Time.unscaledTime * 28f);
+            float pulso = 0.7f + 0.3f * Mathf.Sin(TU * 28f);
             if (luz[0] != null) luz[0].intensity = Mathf.Lerp(3f, 60f, k) * pulso;
             CorDoDragao(mats, Color.Lerp(new Color(0.14f, 0.1f, 0.12f), new Color(0.3f, 0.26f, 0.34f), k), new Color(0.65f, 0.4f, 1f) * (k * 2f * pulso));
             if (k > 0.5f) arranca(0);
             aplicaRasgos();
-            if (Time.unscaledTime >= proxArco[0]) { proxArco[0] = Time.unscaledTime + Mathf.Lerp(0.3f, 0.1f, k); Vector3 d = Random.onUnitSphere; d.y = Mathf.Abs(d.y) * 0.6f; FxCena.Raio(peito, peito + d * Random.Range(12f, 26f), 0.7f, 0.12f, new Color(0.85f, 0.6f, 1f, 1f)); }
+            if (TU >= proxArco[0]) { proxArco[0] = TU + Mathf.Lerp(0.3f, 0.1f, k); Vector3 d = Random.onUnitSphere; d.y = Mathf.Abs(d.y) * 0.6f; FxCena.Raio(peito, peito + d * Random.Range(12f, 26f), 0.7f, 0.12f, new Color(0.85f, 0.6f, 1f, 1f)); }
         };
         cenas[1].cam3 = k => { float a = Mathf.Lerp(20f, 80f, Suave(k)) * Mathf.Deg2Rad, r = Mathf.Lerp(52f, 32f, Suave(k)); Cam(ac + new Vector3(Mathf.Sin(a) * r, Mathf.Lerp(14f, 9f, k), Mathf.Cos(a) * r), peito, Mathf.Lerp(50f, 42f, k)); };
 
@@ -253,11 +255,11 @@ public partial class IntroDoJogo
         };
         cenas[2].vivo = k =>
         {
-            if (luz[0] != null) luz[0].intensity = Mathf.Lerp(50f, 25f, k) * (0.8f + 0.2f * Mathf.Sin(Time.unscaledTime * 21f));
+            if (luz[0] != null) luz[0].intensity = Mathf.Lerp(50f, 25f, k) * (0.8f + 0.2f * Mathf.Sin(TU * 21f));
             if (k > 0.2f) arranca(1); if (k > 0.58f) arranca(2);
             aplicaRasgos();
             Relampago(ac, 60f);
-            if (Time.unscaledTime >= proxOnda[0]) { proxOnda[0] = Time.unscaledTime + 1.1f; Anel3(ac); }
+            if (TU >= proxOnda[0]) { proxOnda[0] = TU + 1.1f; Anel3(ac); }
             if (!clarao[0] && k > 0.5f) { clarao[0] = true; flash3 = 1f; }
         };
         cenas[2].cam3 = k => Cam(ac + dm * Mathf.Lerp(60f, 70f, k) + Vector3.up * Mathf.Lerp(3f, 2f, k) + lado * 8f, Vector3.Lerp(ac + Vector3.up * 10f, ac + Vector3.up * 110f, Suave(k)), Mathf.Lerp(64f, 74f, k));
@@ -282,7 +284,7 @@ public partial class IntroDoJogo
             raiz[0].transform.position = ac + Random.insideUnitSphere * 0.1f * (1f - e);
             aplicaRasgos();
             CorDoDragao(mats, Color.Lerp(new Color(0.3f, 0.26f, 0.34f), new Color(0.2f, 0.18f, 0.18f), e), new Color(1f, 0.38f, 0.07f) * (2.4f * Mathf.Sin(Mathf.Clamp01(k * 1.15f) * Mathf.PI) + 0.1f));
-            if (Time.unscaledTime >= proxMigalha[0] && k < 0.85f) { proxMigalha[0] = Time.unscaledTime + 0.7f; Pedacos3(ac + Vector3.up * 4f * (1f - e) + Random.insideUnitSphere * 3f * (1f - e), Vector3.up, 3, 1f * (1f - 0.6f * e)); }
+            if (TU >= proxMigalha[0] && k < 0.85f) { proxMigalha[0] = TU + 0.7f; Pedacos3(ac + Vector3.up * 4f * (1f - e) + Random.insideUnitSphere * 3f * (1f - e), Vector3.up, 3, 1f * (1f - 0.6f * e)); }
             cinza.solInt = Mathf.Lerp(0.8f, 1.3f, e); cinza.exposicao = Mathf.Lerp(0.55f, 0.8f, e);
         };
         cenas[3].cam3 = k => { float a = Mathf.Lerp(20f, 80f, Suave(k)) * Mathf.Deg2Rad, r = Mathf.Lerp(46f, 30f, Suave(k)); Cam(ac + new Vector3(Mathf.Sin(a) * r, Mathf.Lerp(8f, 13f, k), Mathf.Cos(a) * r), ac + Vector3.up * 6f, 50f); };
@@ -323,7 +325,7 @@ public partial class IntroDoJogo
         };
         cenas[5].vivo = k =>
         {
-            float t = Time.unscaledTime - inicioCena;
+            float t = TU - inicioCena;
             foreach (Figurante f in povo)
             {
                 if (f.go == null) continue;
@@ -346,7 +348,7 @@ public partial class IntroDoJogo
         };
         cenas[6].vivo = k =>
         {
-            float t = Time.unscaledTime - inicioCena;
+            float t = TU - inicioCena;
             foreach (Figurante f in povo)
             {
                 if (f.go == null) continue;
@@ -354,7 +356,7 @@ public partial class IntroDoJogo
                 Vector3 pos = f.alvo; if (f.caio) pos = Vector3.Lerp(f.alvo, jp - ffrente * 1.2f + Rj * 1.1f, Suave((t - 0.8f) / 1.6f));
                 pos.y = Chao3(pos) + pulo; f.go.transform.position = pos;
                 Vector3 pj = jogador3 != null ? jogador3.position - pos : -ffrente; pj.y = 0f; if (pj.sqrMagnitude > 0.1f) f.go.transform.rotation = Quaternion.Slerp(f.go.transform.rotation, Quaternion.LookRotation(pj), 0.15f);
-                TocarEstado3(f, "Falar", f.caio ? 1f : 1.7f);
+                if (f.caio && f.caioReal != null) f.caioReal.Forcar(falou[0] ? "Parado" : "Comemorar"); else TocarEstado3(f, "Falar", f.caio ? 1f : 1.7f);
             }
             if (jogador3 != null && povo.Count > 0 && povo[0].go != null)                       // o personagem olha para o Caio enquanto ele fala
             { Vector3 dc = povo[0].go.transform.position - jogador3.position; dc.y = 0f; if (dc.sqrMagnitude > 0.05f) jogador3.rotation = Quaternion.Slerp(jogador3.rotation, Quaternion.LookRotation(dc), 1f - Mathf.Exp(-6f * Time.unscaledDeltaTime)); }
@@ -362,7 +364,7 @@ public partial class IntroDoJogo
         };
         cenas[6].cam3 = k =>
         {
-            float t = Time.unscaledTime - inicioCena, a = (20f + Mathf.Min(t, 20f) * 5f) * Mathf.Deg2Rad, r = Mathf.Lerp(11f, 8.5f, Suave(t / 6f));
+            float t = TU - inicioCena, a = (20f + Mathf.Min(t, 20f) * 5f) * Mathf.Deg2Rad, r = Mathf.Lerp(11f, 8.5f, Suave(t / 6f));
             Vector3 centro = jp - ffrente * 1.2f + Vector3.up * 1.6f; Vector3 q = centro + Quaternion.LookRotation(ffrente) * new Vector3(Mathf.Sin(a) * r, 0.8f, Mathf.Cos(a) * r);
             Cam(q, centro, 48f);
         };
@@ -371,8 +373,8 @@ public partial class IntroDoJogo
         cenas[7].amb = dia; cenas[7].texto = ""; cenas[7].dur = 12f;
         cenas[7].vivo = k =>
         {
-            float t = Time.unscaledTime - inicioCena;
-            foreach (Figurante f in povo) { if (f.go == null) continue; float pulo = f.caio ? 0f : Mathf.Abs(Mathf.Sin(t * 4.2f + f.fase)) * 0.45f; Vector3 pos = f.go.transform.position; pos.y = Chao3(pos) + pulo; f.go.transform.position = pos; }
+            float t = TU - inicioCena;
+            foreach (Figurante f in povo) { if (f.go == null) continue; if (f.caio && f.caioReal != null) f.caioReal.Forcar("Comemorar"); float pulo = f.caio ? 0f : Mathf.Abs(Mathf.Sin(t * 4.2f + f.fase)) * 0.45f; Vector3 pos = f.go.transform.position; pos.y = Chao3(pos) + pulo; f.go.transform.position = pos; }
         };
         cenas[7].cam3 = k =>
         {

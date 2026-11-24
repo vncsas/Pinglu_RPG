@@ -43,10 +43,12 @@ public class DesempenhoAdaptativo : MonoBehaviour
         urp = GraphicsSettings.currentRenderPipeline as UniversalRenderPipelineAsset;
         if (urp != null) { escalaOriginal = urp.renderScale; sombraOriginal = urp.shadowDistance; escala = Mathf.Min(escalaMaxima, escalaOriginal); }
         proximaAvaliacao = Time.unscaledTime + 6f;
+        if (TrailerModo.Ativo && urp != null) urp.renderScale = 1f;                // gravando o trailer: qualidade máxima, sem ajuste automático
     }
 
     private void Update()
     {
+        if (TrailerModo.Ativo) return;
         if (Input.GetKeyDown(teclaModoLeve)) { modoLeve = !modoLeve; Aplicar(); }
 
         // distância máxima de desenho em todas as câmeras do jogo (a neblina esconde o corte)

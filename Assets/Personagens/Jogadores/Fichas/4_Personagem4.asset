@@ -12,7 +12,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 45772ae0587a59f2abfe47e73b6fe1b9, type: 3}
   m_Name: 4_Personagem4
   m_EditorClassIdentifier: Assembly-CSharp::FichaPersonagem
-  nome: Curandeiro
+  nome: Ossian
   descricao: "Serafim de ossos com aur\xE9ola e asas rasgadas. Lan\xE7a uma luz que cura a ele e a todos os aliados por perto, se concentra para resistir aos golpes e voa sobre o campo de batalha para socorrer o grupo."
   habilidades:
   - "Cura em \xE1rea: aliados e ele mesmo (clique esquerdo)"

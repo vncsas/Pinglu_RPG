@@ -18,12 +18,13 @@ public partial class IntroDoJogo : MonoBehaviour
     [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.AfterSceneLoad)]
     static void Criar()
     {
+        if (TrailerModo.Ativo) return;                                        // gravando o trailer: a abertura automática não toca (o trailer chama o prólogo dele)
         if (FindFirstObjectByType<MenuRede>() == null) return;                 // só nas cenas que têm a seleção de personagens
         GameObject g = new GameObject("Abertura do jogo"); g.AddComponent<IntroDoJogo>();
     }
 
     // ------------------------------------------------------------------ roteiro
-    class Cena { public bool semBarras; public Action<float> cam3, vivo, hud; public Action entra, sai; public Amb amb; public float dur; public string texto; public Action<float> desenha; public float z0 = 1f, z1 = 1.12f; public Vector2 p0, p1; }
+    class Cena { public float fadeDur; public bool semBarras; public Action<float> cam3, vivo, hud; public Action entra, sai; public Amb amb; public float dur; public string texto; public Action<float> desenha; public float z0 = 1f, z1 = 1.12f; public Vector2 p0, p1; }
     List<Cena> cenas;
     int atual; float inicioCena, fimGeral = -1f; bool digitado;
     const float VEL = 26f;               // letras por segundo
@@ -32,12 +33,12 @@ public partial class IntroDoJogo : MonoBehaviour
 
     void Awake()
     {
-        Ativa = true; inicioTudo = Time.unscaledTime;
+        Ativa = true; inicioTudo = TU;
         if (seqPendente != null) { sequencia = true; seqId = seqPendente; aoTerminarSeq = seqAoTerminar; menuAntesSeq = SessaoDeJogo.MenuAberto; dicaTexto = "[Enter] avançar     [Esc] pular a cena"; }
         fCinzel = Resources.Load<Font>("Fontes/CinzelBold"); fFell = Resources.Load<Font>("Fontes/IMFellEnglish");
         if (sequencia) { cenas = MontarSequencia(seqPendente); seqPendente = null; seqAoTerminar = null; } else Montar();
         if (!sequencia && CinematicaDeVideo.Tocar("Abertura", () => { videoRodando = false; Terminar(); })) videoRodando = true;      // vídeo pronto (Resources/Videos/Abertura) no lugar das cenas em código
-        atual = 0; inicioCena = Time.unscaledTime + 0.4f;
+        atual = 0; inicioCena = TU + 0.4f;
     }
 
     void Montar()
@@ -53,30 +54,30 @@ public partial class IntroDoJogo : MonoBehaviour
             new Cena { texto = "E o último, no templo do pântano, sob as águas escuras.", desenha = CenaPantano, z0 = 1f, z1 = 1.15f, p0 = new Vector2(40, 10), p1 = new Vector2(-30, -10) },
             new Cena { texto = "Séculos se passaram... até que uma magia maligna começou a corromper os cristais.", desenha = CenaCorrupcao, z0 = 1f, z1 = 1.2f, p0 = Vector2.zero, p1 = new Vector2(0, 10) },
             new Cena { texto = "Os mortos acordaram, e a vila de Valverde prometeu uma grande recompensa a quem trouxesse a paz de volta.", desenha = CenaMortos, z0 = 1f, z1 = 1.1f, p0 = new Vector2(70, 0), p1 = new Vector2(-70, 0) },
-            new Cena { texto = "E é aí que chegam alguns aventureiros... sem um tostão no bolso.", desenha = CenaAventureiros, z0 = 1f, z1 = 1.12f, p0 = new Vector2(0, 20), p1 = new Vector2(0, -10) },
+            new Cena { texto = "E é então que chegam alguns aventureiros... sem ouro, sem fama, mas com muito a provar.", desenha = CenaAventureiros, z0 = 1f, z1 = 1.12f, p0 = new Vector2(0, 20), p1 = new Vector2(0, -10) },
         };
         foreach (Cena c in cenas) c.dur = Mathf.Max(7f, c.texto.Length / VEL + 5f);
         cenas[0].dur += 3f; cenas[cenas.Count - 1].dur += 3f;
     }
 
     // ------------------------------------------------------------------ controle
-    void Start() { if (!videoRodando && (!sequencia || seqId == "final" || seqId == "morte3d")) { Preparar3D(); Aviso3D(); } }
+    void Start() { if (!videoRodando && (!sequencia || seqId == "final" || seqId == "morte3d" || seqId == "prologo")) { Preparar3D(); Aviso3D(); } }
 
     void Update()
     {
-        if (fimGeral >= 0f) { if (Time.unscaledTime - fimGeral > 1.1f) Destroy(gameObject); return; }
+        if (fimGeral >= 0f) { if (TU - fimGeral > 1.1f) Destroy(gameObject); return; }
         if (!Ativa) return;
         SessaoDeJogo.MenuAberto = true;
         if (videoRodando) return;
-        if (Input.GetKeyDown(KeyCode.Escape)) { Terminar(); return; }
-        float t = Time.unscaledTime - inicioCena; if (t < 0f) return;
+        if (!TrailerModo.Ativo && Input.GetKeyDown(KeyCode.Escape)) { Terminar(); return; }
+        float t = TU - inicioCena; if (t < 0f) return;
         Cena c = cenas[atual];
         if (DialogoUI.Aberto) return;                                          // diálogo em cena: quem avança é o diálogo
         digitado = t * VEL >= c.texto.Length + 6f;
-        bool avanca = Input.GetKeyDown(KeyCode.Return) || Input.GetKeyDown(KeyCode.KeypadEnter) || Input.GetKeyDown(KeyCode.Space) || Input.GetMouseButtonDown(0) || Comandos.NavConfirmar();
+        bool avanca = !TrailerModo.Ativo && (Input.GetKeyDown(KeyCode.Return) || Input.GetKeyDown(KeyCode.KeypadEnter) || Input.GetKeyDown(KeyCode.Space) || Input.GetMouseButtonDown(0) || Comandos.NavConfirmar());
         if (avanca && t > 0.8f)
         {
-            if (!digitado) inicioCena = Time.unscaledTime - (c.texto.Length + 6f) / VEL - 0.01f;      // mostra a fala inteira
+            if (!digitado) inicioCena = TU - (c.texto.Length + 6f) / VEL - 0.01f;      // mostra a fala inteira
             else Proxima();
             return;
         }
@@ -86,7 +87,7 @@ public partial class IntroDoJogo : MonoBehaviour
     void Proxima()
     {
         Sai3D();
-        atual++; inicioCena = Time.unscaledTime;
+        atual++; inicioCena = TU;
         if (atual >= cenas.Count) Terminar(); else Entra3D();
     }
 
@@ -94,7 +95,7 @@ public partial class IntroDoJogo : MonoBehaviour
     {
         if (fimGeral >= 0f) return;
         Limpar3D();
-        fimGeral = Time.unscaledTime; if (!sequencia) JaViu = true; Ativa = false;                // a seleção de personagens já pode receber o teclado
+        fimGeral = TU; if (!sequencia) JaViu = true; Ativa = false;                // a seleção de personagens já pode receber o teclado
         encerrando = true;
         if (sequencia) { SessaoDeJogo.MenuAberto = menuAntesSeq; if (aoTerminarSeq != null) { Action a = aoTerminarSeq; aoTerminarSeq = null; a(); } }
     }
@@ -694,21 +695,22 @@ public partial class IntroDoJogo : MonoBehaviour
         }
         if (ev.type != EventType.Repaint) return;
         if (videoRodando) return;
-        float W = Screen.width, H = Screen.height; sc = Mathf.Max(W / 1920f, H / 1080f); tempo = Time.unscaledTime - inicioTudo;
+        float W = Screen.width, H = Screen.height; sc = Mathf.Max(W / 1920f, H / 1080f); tempo = TU - inicioTudo;
         if (encerrando && !Ativa)
         {
-            float f = Mathf.Clamp01(1f - (Time.unscaledTime - fimGeral) / 1.0f);
+            float f = Mathf.Clamp01(1f - (TU - fimGeral) / 1.0f);
             PrepararGL(); gA = f; Grad(-800f, -600f, 2720f, 1500f, C(0f, 0f, 0f), C(0f, 0f, 0f)); FimGL(); return;
         }
         if (atual >= cenas.Count) return;
-        Cena c = cenas[atual]; float t = Time.unscaledTime - inicioCena;
-        PrepararGL(); tituloPend = null;
+        Cena c = cenas[atual]; float t = TU - inicioCena;
+        PrepararGL(); tituloPend = null; cartaoPend = null;
         gA = 1f;
         bool tres = modo3D && c.cam3 != null;                           // cena em 3D: o mundo aparece por trás, sem fundo preto
         if (!tres) Grad(-800f, -600f, 2720f, 1500f, C(0f, 0f, 0f), C(0f, 0f, 0f));
         float k = Mathf.Clamp01(Mathf.Max(0f, t) / c.dur);
         gz = Mathf.Lerp(c.z0, c.z1, Suave(k)); gpan = Vector2.Lerp(c.p0, c.p1, k);
-        float fade = Mathf.Min(Suave(t / 0.9f), Suave((c.dur - t) / 0.9f));
+        float fd = c.fadeDur > 0f ? c.fadeDur : 0.9f;
+        float fade = Mathf.Min(Suave(t / fd), Suave((c.dur - t) / fd));
         if (t >= 0f && !tres) { gA = 1f; c.desenha(k); }
         else if (t >= 0f && tres && c.hud != null) c.hud(k);
         gA = 1f;
@@ -721,6 +723,7 @@ public partial class IntroDoJogo : MonoBehaviour
         if (fade < 1f) QuadG(new Vector2(0, 0), new Vector2(W, 0), new Vector2(W, H), new Vector2(0, H), C(0, 0, 0, 1f - fade), C(0, 0, 0, 1f - fade), C(0, 0, 0, 1f - fade), C(0, 0, 0, 1f - fade));
         FimGL();
         if (tituloPend != null) DesenharTitulo();
+        if (!string.IsNullOrEmpty(cartaoPend)) DesenharCartaoTrailer();
         // legenda (letra por letra)
         float e = H / 1080f;
         GUIStyle ls = new GUIStyle { font = fFell, fontSize = Mathf.RoundToInt(44f * e), alignment = TextAnchor.UpperCenter, wordWrap = true };

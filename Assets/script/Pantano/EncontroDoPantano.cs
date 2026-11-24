@@ -79,6 +79,10 @@ public class EncontroDoPantano : MonoBehaviour
     }
 
     // onde ele sobe: do lado do jogador, onde a água dá na cintura dele (1 a 2 m de fundo)
+    public Vector3 CentroLago { get { return centro; } }
+    public float NivelAgua { get { return nivel; } }
+    public Vector3 PontoDaMargem(Vector3 de) { return PontoDeSubida(de); }      // usado pelo trailer
+
     Vector3 PontoDeSubida(Vector3 jogador)
     {
         Vector3 dir = jogador - centro; dir.y = 0f; if (dir.sqrMagnitude < 1f) dir = Vector3.right; dir.Normalize();

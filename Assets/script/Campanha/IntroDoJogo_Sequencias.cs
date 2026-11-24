@@ -40,6 +40,7 @@ public partial class IntroDoJogo
 
     List<Cena> MontarSequencia(string id)
     {
+        if (id == "prologo") { Montar(); return cenas; }          // as 10 cenas da abertura; o trailer escolhe e intercala com cartões de texto
         if (id == "final")
         {
             Action<float> reserva = k => { Ceu(C(0.35f, 0.5f, 0.8f), C(0.95f, 0.72f, 0.5f), C(1f, 0.85f, 0.6f), 860f); Brilho(new Vector2(960f, 640f), 900f, C(1f, 0.85f, 0.5f, 0.45f), 0.1f, 500f); Modo(false); };

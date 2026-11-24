@@ -174,7 +174,7 @@ public class AplicadorDeConfiguracoes : MonoBehaviour
             Color c = Configuracoes.Brilho > 0f ? new Color(1f, 1f, 1f, Configuracoes.Brilho * 0.45f) : new Color(0f, 0f, 0f, -Configuracoes.Brilho * 1.1f);
             Color a = GUI.color; GUI.color = c; GUI.DrawTexture(new Rect(0, 0, Screen.width, Screen.height), Texture2D.whiteTexture); GUI.color = a;
         }
-        if (Configuracoes.MostrarFps)
+        if (Configuracoes.MostrarFps && !TrailerModo.Ativo)
         {
             GUI.depth = -2501;
             GUIStyle st = new GUIStyle { fontSize = Mathf.RoundToInt(20f * Screen.height / 1080f), fontStyle = FontStyle.Bold, alignment = TextAnchor.UpperRight };

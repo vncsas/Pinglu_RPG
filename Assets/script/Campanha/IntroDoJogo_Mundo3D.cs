@@ -14,7 +14,7 @@ public partial class IntroDoJogo
     // clima de uma cena: sol, céu, neblina e luz ambiente
     class Amb { public Color sol, fog, amb, ceu; public float solInt, fogDen, exposicao = 1f, atmosfera = 1f; public Vector3 solRot; }
 
-    bool modo3D; Camera cam3; Light sol3;
+    bool modo3D, trailerCurto; Camera cam3; Light sol3;
     Vector3 vila, cemiterio, castelo, pantano, montanha;
     DragaoDistante dragaoOrigem, dragao3; GameObject dragaoObj;
     readonly List<GameObject> lixo3 = new List<GameObject>();      // tudo da cena atual (apagado ao sair dela)
@@ -86,7 +86,7 @@ public partial class IntroDoJogo
             if (sol3 != null) { oSolC = sol3.color; oSolI = sol3.intensity; oSolR = sol3.transform.rotation; }
             ambSalvo = true;
             Shader sh = Shader.Find("Skybox/Procedural"); if (sh != null) ceu3 = new Material(sh) { hideFlags = HideFlags.HideAndDontSave };
-            if (seqId == "final") AtribuirCenasFinal3D(); else if (seqId == "morte3d") AtribuirCenasMorte3D(); else AtribuirCenas3D();
+            if (seqId == "final") AtribuirCenasFinal3D(); else if (seqId == "morte3d") AtribuirCenasMorte3D(); else if (seqId == "prologo") { trailerCurto = true; AtribuirCenas3D(); cenas = MontarPrologoFinal(cenas); } else AtribuirCenas3D();
             menuEscondido = menu; if (menuEscondido != null) menuEscondido.enabled = false;      // a seleção de personagens não aparece durante a abertura
             modo3D = true; Entra3D();
             Debug.Log("[Abertura 3D] ligada. vila=" + vila.ToString("F0") + " cemitério=" + cemiterio.ToString("F0") + " castelo=" + castelo.ToString("F0") + " pântano=" + pantano.ToString("F0") + " montanha=" + montanha.ToString("F0") + " dragão=" + (dragaoOrigem != null && dragaoOrigem.modelo != null) + " heróis=" + fichas3.Count);
@@ -130,11 +130,12 @@ public partial class IntroDoJogo
     void LateUpdate()
     {
         if (!modo3D || cam3 == null || atual >= cenas.Count) return;
-        Cena c = cenas[atual]; float t = Time.unscaledTime - inicioCena; float k = Mathf.Clamp01(Mathf.Max(0f, t) / Mathf.Max(0.1f, c.dur));
+        Cena c = cenas[atual]; float t = TU - inicioCena; float k = Mathf.Clamp01(Mathf.Max(0f, t) / Mathf.Max(0.1f, c.dur));
+        foreach (PlayableGraph pg in grafos3) if (pg.IsValid()) pg.Evaluate(Time.captureDeltaTime > 0f ? Time.captureDeltaTime : Time.unscaledDeltaTime);
         if (c.amb != null) AplicarAmb(c.amb);
         if (c.vivo != null) c.vivo(k);
         if (c.cam3 != null) c.cam3(k);
-        if (flash3 > 0f) { flash3 = Mathf.Max(0f, flash3 - Time.unscaledDeltaTime * 4f); if (sol3 != null) sol3.intensity += flash3 * 4f; RenderSettings.ambientLight += Color.white * flash3 * 0.6f; }
+        if (flash3 > 0f) { flash3 = Mathf.Max(0f, flash3 - FxCena.Dt * 4f); if (sol3 != null) sol3.intensity += flash3 * 4f; RenderSettings.ambientLight += Color.white * flash3 * 0.6f; }
     }
 
     void AplicarAmb(Amb a)
@@ -195,12 +196,12 @@ public partial class IntroDoJogo
     {
         public float baseI = 4f, fase;
         Light l; void Awake() { l = GetComponent<Light>(); fase = UnityEngine.Random.value * 10f; }
-        void Update() { if (l != null) l.intensity = baseI * (0.75f + 0.25f * Mathf.Sin(Time.unscaledTime * 17f + fase) + 0.12f * Mathf.Sin(Time.unscaledTime * 31f + fase * 2f)); }
+        void Update() { if (l != null) l.intensity = baseI * (0.75f + 0.25f * Mathf.Sin(TU * 17f + fase) + 0.12f * Mathf.Sin(TU * 31f + fase * 2f)); }
     }
     class Flutua : MonoBehaviour
     {
         public Vector3 baseP; public float amp = 0.4f, vel = 1.2f, fase; void Start() { baseP = transform.position; fase = UnityEngine.Random.value * 6f; }
-        void Update() { transform.position = baseP + Vector3.up * Mathf.Sin(Time.unscaledTime * vel + fase) * amp; }
+        void Update() { transform.position = baseP + Vector3.up * Mathf.Sin(TU * vel + fase) * amp; }
     }
 
     ParticleSystem NovoPS(Transform pai, string nome, Texture2D tex, Color cor, float vida, float vel, float tam, float taxa, float grav, bool cresce, float raio)
@@ -230,6 +231,23 @@ public partial class IntroDoJogo
         GameObject lg = new GameObject("Luz"); lg.transform.SetParent(g.transform, false); lg.transform.localPosition = Vector3.up * 2.5f * esc;
         Light l = lg.AddComponent<Light>(); l.type = LightType.Point; l.color = new Color(1f, 0.55f, 0.2f); l.range = 26f * esc; l.intensity = 4f; l.shadows = LightShadows.None;
         lg.AddComponent<Tremeluz>().baseI = 5f; return g;
+    }
+
+    // o cristal do cemitério flutua ao lado do monumento central, do lado da câmera (antes ficava dentro da lápide); a câmera o enxerga inteiro
+    Vector3 cristCem; bool cristCemOk;
+    Vector3 CristalCem()
+    {
+        if (cristCemOk) return cristCem;
+        Vector3 pad = cemiterio + Vector3.up * 2.4f; float topo = -1e9f; Vector3 c = cemiterio;
+        foreach (Collider col in Physics.OverlapSphere(cemiterio, 4f))
+        {
+            if (col is TerrainCollider || col.isTrigger) continue; Bounds b = col.bounds;
+            if (b.size.y < 1.5f || b.size.x > 14f || b.size.z > 14f) continue;
+            if (b.max.y > topo) { topo = b.max.y; c = b.center; }
+        }
+        float ang = 230f * Mathf.Deg2Rad; cristCem = topo > -1e8f ? new Vector3(c.x + Mathf.Sin(ang) * 3.3f, topo + 2.0f, c.z + Mathf.Cos(ang) * 3.3f) : pad;   // ao lado do obelisco, do lado da câmera cristCemOk = true;
+        Debug.Log("[Abertura 3D] cristal do cemitério em " + cristCem.ToString("F1") + " (monumento até y=" + topo.ToString("F1") + ")");
+        return cristCem;
     }
 
     GameObject Cristal3(Vector3 pos, Color cor, float tam)
@@ -266,7 +284,7 @@ public partial class IntroDoJogo
         if (clip != null)
         {
             Animator an = h.GetComponent<Animator>(); if (an == null) an = h.AddComponent<Animator>();
-            PlayableGraph pg = PlayableGraph.Create("abertura heroi"); pg.SetTimeUpdateMode(DirectorUpdateMode.UnscaledGameTime);
+            PlayableGraph pg = PlayableGraph.Create("abertura heroi"); pg.SetTimeUpdateMode(DirectorUpdateMode.Manual);        // avançado em LateUpdate com o relógio do vídeo
             AnimationPlayableOutput o = AnimationPlayableOutput.Create(pg, "a", an); o.SetSourcePlayable(AnimationClipPlayable.Create(pg, clip)); pg.Play(); grafos3.Add(pg);
         }
         return h;
@@ -274,8 +292,8 @@ public partial class IntroDoJogo
 
     void Relampago(Vector3 centro, float raio)
     {
-        if (Time.unscaledTime < proxRaio3) return;
-        proxRaio3 = Time.unscaledTime + UnityEngine.Random.Range(1.2f, 3.5f);
+        if (TU < proxRaio3) return;
+        proxRaio3 = TU + UnityEngine.Random.Range(1.2f, 3.5f);
         Vector2 o = UnityEngine.Random.insideUnitCircle * raio; Vector3 p = G3(centro + new Vector3(o.x, 0f, o.y));
         FxCena.Raio(p + Vector3.up * 220f, p, 3f, 0.3f, new Color(0.85f, 0.9f, 1f, 1f)); flash3 = 1f;
     }
@@ -318,8 +336,8 @@ public partial class IntroDoJogo
         cenas[3].cam3 = k => Cam(Sv(cc + new Vector3(0f, 0.4f, -12f), cc + new Vector3(3f, 1.8f, -6.5f), k), cc, Mathf.Lerp(50f, 42f, k));
         // 4) o cemitério (cristal azul)
         cenas[4].amb = new Amb { sol = new Color(0.5f, 0.6f, 0.95f), solInt = 0.3f, solRot = new Vector3(35f, 200f, 0f), fog = new Color(0.1f, 0.14f, 0.19f), fogDen = 0.012f, amb = new Color(0.14f, 0.17f, 0.26f), ceu = new Color(0.25f, 0.3f, 0.5f), exposicao = 0.3f, atmosfera = 1.1f };
-        cenas[4].entra = () => Cristal3(cemiterio + Vector3.up * 2.4f, new Color(0.35f, 0.65f, 1f), 0.8f);
-        cenas[4].cam3 = k => { float a = Mathf.Lerp(200f, 265f, Suave(k)) * Mathf.Deg2Rad, r = Mathf.Lerp(24f, 16f, k); Cam(G3(cemiterio + new Vector3(Mathf.Sin(a) * r, 0f, Mathf.Cos(a) * r), Mathf.Lerp(6f, 3f, k)), cemiterio + Vector3.up * 2f, 52f); };
+        cenas[4].entra = () => Cristal3(CristalCem(), new Color(0.35f, 0.65f, 1f), 0.8f);
+        cenas[4].cam3 = k => { float a = Mathf.Lerp(200f, 265f, Suave(k)) * Mathf.Deg2Rad, r = Mathf.Lerp(24f, 16f, k); Cam(G3(cemiterio + new Vector3(Mathf.Sin(a) * r, 0f, Mathf.Cos(a) * r), Mathf.Lerp(6f, 3f, k)), CristalCem(), 52f); };
         // 5) o castelo (cristal verde)
         cenas[5].amb = new Amb { sol = new Color(1f, 0.6f, 0.35f), solInt = 1.2f, solRot = new Vector3(8f, -120f, 0f), fog = new Color(0.3f, 0.22f, 0.2f), fogDen = 0.0048f, amb = new Color(0.35f, 0.28f, 0.28f), ceu = new Color(0.8f, 0.45f, 0.3f), exposicao = 0.9f, atmosfera = 2.2f };
         cenas[5].entra = () => Cristal3(castelo + Vector3.up * 9f, new Color(0.3f, 1f, 0.6f), 0.9f);
@@ -331,7 +349,7 @@ public partial class IntroDoJogo
         // 7) a corrupção: cada cristal no SEU lugar (cemitério, castelo e pântano), um de cada vez, ficando com a aura estranha
         cenas[7].dur = 13.5f;
         cenas[7].amb = new Amb { sol = new Color(0.9f, 0.2f, 0.25f), solInt = 0.6f, solRot = new Vector3(30f, 60f, 0f), fog = new Color(0.14f, 0.04f, 0.07f), fogDen = 0.0085f, amb = new Color(0.22f, 0.08f, 0.13f), ceu = new Color(0.5f, 0.1f, 0.18f), exposicao = 0.35f, atmosfera = 2.8f };
-        Vector3[] pCrist = { cemiterio + Vector3.up * 2.4f, castelo + Vector3.up * 9f, pantano + Vector3.up * 0.4f };
+        Vector3[] pCrist = { CristalCem(), castelo + Vector3.up * 9f, pantano + Vector3.up * 0.4f };
         Color[] corCrist = { new Color(0.35f, 0.65f, 1f), new Color(0.3f, 1f, 0.6f), new Color(0.8f, 0.45f, 1f) };
         int[] fumacaDe = { 0, 0, 0 }; ParticleSystem[] fumacas = new ParticleSystem[3]; ParticleSystem[] fagulhas = new ParticleSystem[3];
         cenas[7].entra = () =>
@@ -352,13 +370,13 @@ public partial class IntroDoJogo
                 GameObject cr = cristais3[i]; if (cr == null) continue;
                 float p = i < sh ? 1f : (i == sh ? Suave(kk) : 0f);                          // quanto esse cristal já está corrompido
                 Color cor = Color.Lerp(corCrist[i], new Color(0.9f, 0.05f, 0.12f), p * 0.92f);
-                Light l = cr.GetComponentInChildren<Light>(); if (l != null) { l.color = cor; l.intensity = 3f + 6f * p * (0.8f + 0.2f * Mathf.Sin(Time.unscaledTime * 18f + i)); }
+                Light l = cr.GetComponentInChildren<Light>(); if (l != null) { l.color = cor; l.intensity = 3f + 6f * p * (0.8f + 0.2f * Mathf.Sin(TU * 18f + i)); }
                 MeshRenderer mr = cr.GetComponentInChildren<MeshRenderer>(); if (mr != null && mr.material.HasProperty("_BaseColor")) mr.material.SetColor("_BaseColor", cor);
-                cr.transform.localScale = Vector3.one * (1f + 0.06f * p * Mathf.Sin(Time.unscaledTime * 25f + i));       // treme quando corrompe
+                cr.transform.localScale = Vector3.one * (1f + 0.06f * p * Mathf.Sin(TU * 25f + i));       // treme quando corrompe
                 if (fumacas[i] != null) { var em = fumacas[i].emission; em.rateOverTime = 26f * p; }
                 if (fagulhas[i] != null) { var em = fagulhas[i].emission; em.rateOverTime = 40f * p; }
             }
-            if (sh < 3 && Time.unscaledTime >= proxRaio3 && kk > 0.35f) { proxRaio3 = Time.unscaledTime + 0.7f; Vector3 a = pCrist[sh] + UnityEngine.Random.onUnitSphere * 7f; FxCena.Raio(a + Vector3.up * 40f, pCrist[sh], 1.4f, 0.2f, new Color(0.95f, 0.2f, 0.3f, 1f)); }
+            if (sh < 3 && TU >= proxRaio3 && kk > 0.35f) { proxRaio3 = TU + 0.7f; Vector3 a = pCrist[sh] + UnityEngine.Random.onUnitSphere * 7f; FxCena.Raio(a + Vector3.up * 40f, pCrist[sh], 1.4f, 0.2f, new Color(0.95f, 0.2f, 0.3f, 1f)); }
         };
         cenas[7].cam3 = k =>
         {
@@ -375,14 +393,14 @@ public partial class IntroDoJogo
                 Vector2 o = UnityEngine.Random.insideUnitCircle * 26f; GameObject w = FxCena.Nuvem(G3(cemiterio + new Vector3(o.x, 0f, o.y), UnityEngine.Random.Range(0.8f, 3.2f)), 1.6f, new Color(0.6f, 1f, 0.8f, 0.8f), FxCena.TexBrilho(), 8);
                 lixo3.Add(w); Light l = w.AddComponent<Light>(); l.type = LightType.Point; l.color = new Color(0.5f, 1f, 0.75f); l.range = 7f; l.intensity = 1.6f; l.shadows = LightShadows.None; w.AddComponent<Flutua>().amp = 0.6f;
             }
-            Cristal3(cemiterio + Vector3.up * 2.4f, new Color(0.9f, 0.2f, 0.3f), 0.6f);
+            Cristal3(CristalCem(), new Color(0.9f, 0.2f, 0.3f), 0.6f);
         };
-        cenas[8].cam3 = k => Cam(Sv(G3(cemiterio + new Vector3(30f, 0f, 26f), 1.5f), G3(cemiterio + new Vector3(9f, 0f, 10f), 1.5f), k), cemiterio + Vector3.up * 2f, 62f);
+        cenas[8].cam3 = k => Cam(Sv(G3(cemiterio + new Vector3(30f, 0f, 26f), 1.5f), G3(cemiterio + new Vector3(9f, 0f, 10f), 1.5f), k), CristalCem(), 62f);
         // 9) os aventureiros chegam ao vilarejo pela estrada, passam pela placa de boas-vindas; a câmera vai se afastando pelas costas deles
         cenas[9].dur = 17f;
         cenas[9].amb = new Amb { sol = new Color(1f, 0.72f, 0.42f), solInt = 1.4f, solRot = new Vector3(6f, -85f, 0f), fog = new Color(0.5f, 0.36f, 0.28f), fogDen = 0.0028f, amb = new Color(0.45f, 0.36f, 0.32f), ceu = new Color(0.85f, 0.55f, 0.4f), exposicao = 1f, atmosfera = 2f };
         MontarCaminho3();
-        float sA = Mathf.Max(0f, sPlaca3 - 26f), sB = Mathf.Min(CompCaminho3(), sPlaca3 + 14f);
+        float sA = Mathf.Max(0f, sPlaca3 - (trailerCurto ? 15f : 26f)), sB = Mathf.Min(CompCaminho3(), sPlaca3 + (trailerCurto ? 8f : 14f));
         cenas[9].entra = () =>
         {
             for (int i = 0; i < 4; i++) Heroi3(i, PosHeroi3(i, sA), Quaternion.LookRotation(TgCaminho3(sA)), true);

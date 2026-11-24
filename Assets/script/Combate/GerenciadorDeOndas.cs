@@ -42,6 +42,7 @@ public class GerenciadorDeOndas : MonoBehaviour
     [SerializeField] private int ondasAntesDoChefe = 5;
     [Tooltip("Molde do Guardião das Lápides (o menu Pinglu > 64 preenche)")]
     [SerializeField] private GameObject prefabChefe;
+    public GameObject PrefabChefe { get { return prefabChefe; } }          // o Guardião das Lápides (usado pelo trailer)
     [Tooltip("Centro da arena, de onde o chefe sai do chão (o menu Pinglu > 64 preenche)")]
     [SerializeField] private Transform centroDaArena;
 

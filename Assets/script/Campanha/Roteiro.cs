@@ -56,13 +56,13 @@ public static class Roteiro
         "Ao redor da vila de " + NOME_DA_VILA + ", três lugares antigos foram esquecidos pelo tempo: um cemitério, um castelo em ruínas e um templo afundado no pântano.",
         "Mas, de uma hora para a outra, os mortos acordaram. Esqueletos e corpos mumificados deixaram suas tumbas e atacam todos que encontram pela frente.",
         "Sem ter a quem recorrer, a vila se uniu e prometeu uma grande recompensa a quem destruir a ameaça e trazer a paz de volta.",
-        "E é aí que chegam alguns aventureiros... sem um tostão no bolso."
+        "E é então que chegam alguns aventureiros... sem ouro, sem fama, mas com muito a provar."
     };
 
     static readonly string[] AberturaSolo =
     {
         AberturaGrupo[0], AberturaGrupo[1], AberturaGrupo[2],
-        "E é aí que chega um aventureiro... sem um tostão no bolso."
+        "E é então que chega um aventureiro... sem ouro, sem fama, mas com muito a provar."
     };
     public static string[] Abertura { get { return Solo ? AberturaSolo : AberturaGrupo; } }
 

@@ -11,7 +11,14 @@ public class NpcFalante : MonoBehaviour
 
     private Transform jogador; private float proximaBusca; private bool perto; private GUIStyle est;
 
-    private void OnEnable() { DialogoUI.Registrar(nomeExibido, transform); }
+    private void OnEnable() { DialogoUI.Registrar(nomeExibido, transform); EsconderEtiqueta(); }
+
+    // o nome flutuando sobre a cabeça foi retirado (ficava estranho); "[E] Falar com ..." continua aparecendo por perto
+    private void EsconderEtiqueta()
+    {
+        if (etiqueta != null) etiqueta.gameObject.SetActive(false);
+        Transform e = transform.Find("Etiqueta"); if (e != null) e.gameObject.SetActive(false);
+    }
 
     private void Update()
     {

@@ -165,7 +165,7 @@ public class NpcDaVila : MonoBehaviour
         Vector3 chao = transform.position + transform.forward * (0.85f + vai) + transform.right * 0.1f;
         Vector3 topo = mao - (chao - mao).normalized * 0.25f;                                       // o cabo passa um pouco da mão
         Vector3 v = chao - topo; float L = Mathf.Max(0.6f, v.magnitude);
-        vassoura.position = (topo + chao) * 0.5f; vassoura.rotation = Quaternion.FromToRotation(Vector3.up, v.normalized);
+        vassoura.position = (topo + chao) * 0.5f; vassoura.rotation = Quaternion.FromToRotation(Vector3.up, -v.normalized);        // o topo (cabo) na mão e as cerdas no chão
         Transform cabo = vassoura.GetChild(0);
         cabo.localScale = new Vector3(0.035f, (L - 0.3f) * 0.5f, 0.035f); cabo.localPosition = new Vector3(0f, 0.15f, 0f);
         cerdas.localPosition = new Vector3(0f, -(L * 0.5f - 0.15f), 0f);

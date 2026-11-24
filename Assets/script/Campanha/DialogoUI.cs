@@ -8,6 +8,9 @@ public class DialogoUI : MonoBehaviour
 {
     public static DialogoUI Instancia { get; private set; }
     public static bool Aberto { get { return Instancia != null && Instancia.falas != null; } }
+    // quem está falando agora e se o texto ainda está sendo "digitado" (o Caio real mexe a boca nesse momento)
+    public static string FalanteAtual { get { return Instancia != null && Instancia.falas != null && Instancia.indice >= 0 && Instancia.indice < Instancia.falas.Count ? Instancia.NomeDe(Instancia.falas[Instancia.indice]) : null; } }
+    public static bool Digitando { get { return Instancia != null && Instancia.falas != null && Instancia.indice >= 0 && Instancia.indice < Instancia.falas.Count && Time.unscaledTime - Instancia.inicioDaFala < Instancia.falas[Instancia.indice].texto.Length / VELOCIDADE; } }
     public static float UltimoFechamento = -99f;      // quem abre conversas ignora o apertar de tecla logo depois de fechar
 
     public Font fonteTexto, fonteNome;
@@ -120,8 +123,8 @@ public class DialogoUI : MonoBehaviour
             if (l == null || !l.enabled) continue;
             string n = h.gameObject.name.ToLowerInvariant();
             if (n.Contains("maga") || n.Contains("morgana")) return "Morgana";
-            if (n.Contains("tanque")) return "Tanque";
-            if (n.Contains("curandeiro")) return "Curandeiro";
+            if (n.Contains("tanque")) return "Auric";
+            if (n.Contains("curandeiro")) return "Ossian";
             if (n.Contains("cavaleiro")) return "Cavaleiro Sombrio";
         }
         return Roteiro.VOCE;
