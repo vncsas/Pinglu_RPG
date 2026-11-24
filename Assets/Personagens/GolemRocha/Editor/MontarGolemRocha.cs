@@ -46,7 +46,7 @@ public static class MontarGolemRocha
         var cor = Tex(pasta + "/Golem_cor.jpg"); var nrm = Tex(pasta + "/Golem_normal.png", true); var emi = Tex(pasta + "/Golem_emissivo.jpg");
         if (pedra.HasProperty("_BaseMap")) pedra.SetTexture("_BaseMap", cor); if (pedra.HasProperty("_MainTex")) pedra.SetTexture("_MainTex", cor);
         if (pedra.HasProperty("_BumpMap")) { pedra.SetTexture("_BumpMap", nrm); pedra.EnableKeyword("_NORMALMAP"); if (pedra.HasProperty("_BumpScale")) pedra.SetFloat("_BumpScale", 1.2f); }
-        if (pedra.HasProperty("_EmissionMap")) { pedra.SetTexture("_EmissionMap", emi); pedra.SetColor("_EmissionColor", Color.white * 2.2f); pedra.EnableKeyword("_EMISSION"); pedra.globalIlluminationFlags = MaterialGlobalIlluminationFlags.None; }
+        if (pedra.HasProperty("_EmissionMap")) { pedra.SetTexture("_EmissionMap", emi); pedra.SetColor("_EmissionColor", Color.white * 0.8f); pedra.EnableKeyword("_EMISSION"); pedra.globalIlluminationFlags = MaterialGlobalIlluminationFlags.None; }
         if (pedra.HasProperty("_Smoothness")) pedra.SetFloat("_Smoothness", 0.3f); if (pedra.HasProperty("_Metallic")) pedra.SetFloat("_Metallic", 0f);
         var olhos = Criar(pasta + "/Golem_Olhos.mat");
         var eEmi = Tex(pasta + "/Golem_olhos_emissivo.png"); var eNrm = Tex(pasta + "/Golem_olhos_normal.png", true);

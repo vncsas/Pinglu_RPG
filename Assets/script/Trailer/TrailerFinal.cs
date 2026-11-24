@@ -369,6 +369,9 @@ public class TrailerFinalDiretor : MonoBehaviour
         else if (tipo == "cavaleiro" && EncontroDoCastelo.Instancia != null) prefab = EncontroDoCastelo.Instancia.prefabCavaleiro;
         else if (tipo == "ladrao" && EncontroDoCastelo.Instancia != null) prefab = EncontroDoCastelo.Instancia.prefabLadrao;
         else if (tipo == "fera") { foreach (EncontroDoPantano ep in FindObjectsByType<EncontroDoPantano>(FindObjectsInactive.Include, FindObjectsSortMode.None)) if (ep != null && ep.prefabAngler != null) { prefab = ep.prefabAngler; break; } }
+#if UNITY_EDITOR
+        if (prefab == null && tipo == "fera") prefab = UnityEditor.AssetDatabase.LoadAssetAtPath<GameObject>("Assets/Personagens/Angler/Angler_Jogo.prefab");     // plano B: o encontro do pântano pode ainda não ter carregado
+#endif
         if (prefab == null) { Debug.LogWarning("[Trailer] sem prefab do chefe " + tipo); return null; }
         GameObject g = Instantiate(prefab, pos, rot); lixo.Add(g); g.SetActive(true);
         Debug.Log("[Trailer] chefe " + tipo + ": " + g.name + " em " + pos.ToString("F0") + " renderers=" + g.GetComponentsInChildren<Renderer>(true).Length + " escala=" + g.transform.localScale.ToString("F2"));
