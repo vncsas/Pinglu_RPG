@@ -1,0 +1,14 @@
+fileFormatVersion: 2
+guid: 953e5c805156c7445b9732ec8cfd4ec8
+PrefabImporter:
+  externalObjects: {}
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 393316
+  packageName: Furry Squirrel - FurBrush Showcase (URP + HDRP)
+  packageVersion: 1.0
+  assetPath: Assets/Furry Squirrel/Prefab/Squirrel_HDRP.prefab
+  uploadId: 953350

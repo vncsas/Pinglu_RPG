@@ -34,14 +34,32 @@ public class ThirdPersonCameraFollow : MonoBehaviour
     [Header("Cursor")]
     [SerializeField] private bool prenderCursor = true;
 
+    // tremor da câmera (golpes, dano)
+    private static float forcaTremor, fimTremor, duracaoTremor;
+    public static void Tremer(float forca, float duracao)
+    {
+        Comandos.Vibrar(Mathf.Clamp01(forca * 2.5f), duracao);        // o controle vibra junto
+        forca *= Configuracoes.Tremor;
+        if (forca <= 0.0001f) return;
+        if (Time.unscaledTime < fimTremor && forca < forcaTremor) return;
+        forcaTremor = forca; duracaoTremor = Mathf.Max(0.01f, duracao); fimTremor = Time.unscaledTime + duracao;
+    }
+
+    // MODO CHEFE: quando um chefe grande voa (o dragão), a câmera afasta, deixa olhar bem para cima e, se você não mexe nela, sobe sozinha devagar para enquadrar o bicho
+    public static Transform FocoDeChefe;
+    private float extraChefe, parado;
+
     private float yaw;
     private float pitch = 12f;
     private float distanciaAtual;
     private Vector3 pivoAtual;
     private Vector3 velocidadePivo;
 
+    private Camera cam; private float fovOriginal = 60f;
+
     private void Start()
     {
+        cam = GetComponent<Camera>(); if (cam != null) fovOriginal = cam.fieldOfView;
         if (target != null)
         {
             yaw = target.eulerAngles.y;
@@ -51,8 +69,34 @@ public class ThirdPersonCameraFollow : MonoBehaviour
         if (prenderCursor) PrenderCursor(true);
     }
 
+    // troca quem a câmera segue (usado pelo multiplayer)
+    public void DefinirAlvo(Transform novo)
+    {
+        target = novo;
+        if (target == null) return;
+        yaw = target.eulerAngles.y;
+        pivoAtual = target.position + Vector3.up * alturaDoPivo;
+        velocidadePivo = Vector3.zero;
+        distanciaAtual = distancia;
+    }
+
+    // proteção contra a câmera girar sozinha (defeito do mouse preso, comum no editor do Linux)
+    private static float ignorarMouseAte;
+    private bool menuAntes = true;
+    private int quadrosNoLimite;
+    private const float LIMITE_POR_QUADRO = 12f;
+
+    private void OnApplicationFocus(bool foco) { ignorarMouseAte = Time.unscaledTime + 0.3f; }
+
+    // vira a câmera para um ângulo (ex.: de frente para o portal na chegada)
+    public void DefinirYaw(float novoYaw) { yaw = novoYaw; }
+
     private void Update()
     {
+        // acabou de sair do menu: o clique que fechou o menu não conta como movimento
+        if (menuAntes && !SessaoDeJogo.MenuAberto) ignorarMouseAte = Time.unscaledTime + 0.3f;
+        menuAntes = SessaoDeJogo.MenuAberto;
+        if (SessaoDeJogo.MenuAberto) return;
         if (!prenderCursor) return;
         if (Input.GetKeyDown(KeyCode.Escape)) PrenderCursor(false);
         else if (Cursor.lockState != CursorLockMode.Locked && Input.GetMouseButtonDown(0)) PrenderCursor(true);
@@ -60,6 +104,7 @@ public class ThirdPersonCameraFollow : MonoBehaviour
 
     private static void PrenderCursor(bool prender)
     {
+        ignorarMouseAte = Time.unscaledTime + 0.25f; // o primeiro movimento depois de prender/soltar costuma vir errado
         Cursor.lockState = prender ? CursorLockMode.Locked : CursorLockMode.None;
         Cursor.visible = !prender;
     }
@@ -69,15 +114,60 @@ public class ThirdPersonCameraFollow : MonoBehaviour
         if (target == null) return;
 
         // --- Mouse gira a câmera ---
-        bool controlando = !prenderCursor || Cursor.lockState == CursorLockMode.Locked;
+        bool controlando = !SessaoDeJogo.MenuAberto && (!prenderCursor || Cursor.lockState == CursorLockMode.Locked);
         if (controlando)
         {
-            yaw += Input.GetAxis("Mouse X") * sensibilidadeX;
-            pitch -= Input.GetAxis("Mouse Y") * sensibilidadeY * (inverterY ? -1f : 1f);
+            float mx = 0f, my = 0f;
+            if (Application.isFocused && Time.unscaledTime >= ignorarMouseAte && Comandos.MouseAtivo)
+            {
+                mx = Mathf.Clamp(Input.GetAxis("Mouse X"), -LIMITE_POR_QUADRO, LIMITE_POR_QUADRO);
+                my = Mathf.Clamp(Input.GetAxis("Mouse Y"), -LIMITE_POR_QUADRO, LIMITE_POR_QUADRO);
+                // giro no máximo por muitos quadros seguidos não é a mão de ninguém: é o defeito do mouse
+                quadrosNoLimite = Mathf.Abs(mx) >= LIMITE_POR_QUADRO * 0.98f ? quadrosNoLimite + 1 : 0;
+                if (quadrosNoLimite > 40)
+                {
+                    quadrosNoLimite = 0;
+                    mx = my = 0f;
+                    if (prenderCursor)
+                    {
+                        PrenderCursor(false);
+                        HUDJogador.Mostrar("A câmera estava girando sozinha e foi destravada. Clique no jogo para continuar.", 4f);
+                    }
+                }
+            }
+            bool invY = inverterY != Configuracoes.InverterY;
+            yaw += mx * sensibilidadeX * Configuracoes.SensMouse * (Configuracoes.InverterX ? -1f : 1f);
+            pitch -= my * sensibilidadeY * Configuracoes.SensMouse * (invY ? -1f : 1f);
         }
-        pitch = Mathf.Clamp(pitch, anguloMinimo, anguloMaximo);
+        if (!SessaoDeJogo.MenuAberto)
+        {
+            // analógico direito do controle (funciona mesmo com o cursor solto)
+            Vector2 st = Comandos.OlharControle();
+            if (st.sqrMagnitude > 0f)
+            {
+                yaw += st.x * Time.unscaledDeltaTime * (Configuracoes.InverterX ? -1f : 1f);
+                pitch -= st.y * Time.unscaledDeltaTime * 0.75f * ((inverterY != Configuracoes.InverterY) ? -1f : 1f);
+            }
+        }
+        bool modoChefe = FocoDeChefe != null && !SessaoDeJogo.MenuAberto && !CameraDeCena.Ativa;
+        extraChefe = Mathf.MoveTowards(extraChefe, modoChefe ? 1f : 0f, Time.unscaledDeltaTime * 0.7f);
+        if (modoChefe)
+        {
+            // ajuda de enquadramento: parado por um instante, a câmera inclina para o chefe (só a altura; o giro continua seu)
+            Vector3 paraChefe = FocoDeChefe.position - target.position; float horiz = new Vector2(paraChefe.x, paraChefe.z).magnitude;
+            bool mexeu = Mathf.Abs(Input.GetAxis("Mouse Y")) > 0.02f || Comandos.OlharControle().sqrMagnitude > 0f;
+            parado = mexeu ? 0f : parado + Time.unscaledDeltaTime;
+            if (parado > 1.1f && horiz < 140f)
+            {
+                float alvoPitch = Mathf.Clamp(-Mathf.Atan2(paraChefe.y - 2f, Mathf.Max(8f, horiz)) * Mathf.Rad2Deg * 0.75f + 6f, -50f, 22f);
+                pitch = Mathf.MoveTowards(pitch, alvoPitch, 22f * Time.unscaledDeltaTime);
+            }
+        }
+        else parado = 0f;
+        pitch = Mathf.Clamp(pitch, anguloMinimo - 40f * extraChefe, anguloMaximo);
 
         distancia = Mathf.Clamp(distancia - Input.GetAxis("Mouse ScrollWheel") * 3f, distanciaMinima, distanciaMaxima);
+        float distEf = distancia + 4.5f * extraChefe;
 
         // --- Ponto que a câmera orbita (segue o personagem com suavidade) ---
         Vector3 pivoAlvo = target.position + Vector3.up * alturaDoPivo;
@@ -85,7 +175,7 @@ public class ThirdPersonCameraFollow : MonoBehaviour
 
         Quaternion rotacao = Quaternion.Euler(pitch, yaw, 0f);
         Vector3 ombro = rotacao * Vector3.right * deslocamentoOmbro;
-        Vector3 desejada = pivoAtual + ombro - rotacao * Vector3.forward * distancia;
+        Vector3 desejada = pivoAtual + Vector3.up * (0.7f * extraChefe) + ombro - rotacao * Vector3.forward * distEf;
 
         // --- Não deixa a câmera atravessar paredes/terreno ---
         Vector3 dir = desejada - pivoAtual;
@@ -106,5 +196,16 @@ public class ThirdPersonCameraFollow : MonoBehaviour
 
         transform.position = pivoAtual + dir * distanciaAtual;
         transform.rotation = rotacao;
+        if (cam != null && !CameraDeCena.Ativa)
+        {
+            float alvoFov = (Configuracoes.Fov > 0f ? Configuracoes.Fov : fovOriginal) + 9f * extraChefe;
+            if (Mathf.Abs(cam.fieldOfView - alvoFov) > 0.05f) cam.fieldOfView = Mathf.Lerp(cam.fieldOfView, alvoFov, 0.25f);
+        }
+
+        if (Time.unscaledTime < fimTremor)
+        {
+            float f = forcaTremor * ((fimTremor - Time.unscaledTime) / duracaoTremor);
+            transform.position += Random.insideUnitSphere * f;
+        }
     }
 }

@@ -8,7 +8,7 @@ using UnityEngine;
 //   Trigger "Roll"        -> state de esquiva/rolagem
 //   Trigger "AttackLight" -> state de ataque leve (usado só se não houver combo)
 //   Trigger "AttackHeavy" -> state de ataque pesado (usado só se não houver combo)
-//   Bool    "Block"       -> true enquanto o jogador segura Q (bloqueio)
+//   Bool    "Block"       -> true enquanto o jogador segura o botão direito (ou Q) para defender
 //   Bool    "Grounded"    -> true quando o personagem está tocando o chão
 //   Bool    "Rolling"     -> true enquanto a rolagem está em andamento
 //
@@ -37,6 +37,13 @@ public class PlayerLocomotion : MonoBehaviour
     [SerializeField] private float rollDuration = 0.5f;
     [SerializeField] private float rollCooldown = 0.8f;
 
+    [Header("Guardar/sacar a espada (só personagens com o parâmetro \"Armado\" no Animator)")]
+    [Tooltip("Segundos sem lutar até guardar a espada sozinho")]
+    [SerializeField] private float tempoParaGuardar = 60f;
+    [Tooltip("Segundos depois de começar a sacar até poder atacar/defender")]
+    [SerializeField] private float tempoParaSacar = 0.55f;
+    [SerializeField] private KeyCode teclaGuardarSacar = KeyCode.H;
+
     [Header("Combo de ataques")]
     [SerializeField] private string[] estadosCombo = { "attack", "attack_2", "attack_3" };
     [SerializeField] private string estadoAtaquePesado = "attack_heavy";
@@ -48,6 +55,28 @@ public class PlayerLocomotion : MonoBehaviour
 
     private CharacterController controller;
     private Animator animator;
+
+    // quem controla este corpo: EntradaHumana (teclado) ou, nos companheiros, EntradaCPU.
+    // Se ninguém colocou uma entrada antes, cria a humana na primeira vez que for usada.
+    private EntradaDoPersonagem entrada;
+    public EntradaDoPersonagem Entrada
+    {
+        get
+        {
+            if (entrada == null)
+            {
+                entrada = GetComponent<EntradaDoPersonagem>();
+                if (entrada == null) { EntradaHumana h = gameObject.AddComponent<EntradaHumana>(); entrada = h; }
+            }
+            return entrada;
+        }
+    }
+    public void TrocarEntrada(EntradaDoPersonagem nova)
+    {
+        EntradaHumana antiga = GetComponent<EntradaHumana>();
+        if (antiga != null && antiga != nova) Destroy(antiga);
+        entrada = nova;
+    }
 
     private float currentAnimSpeed;   // valor suavizado enviado pro Animator (0 a 1)
     private float verticalVelocity;
@@ -67,6 +96,42 @@ public class PlayerLocomotion : MonoBehaviour
     private bool proximoNaFila;
     private float tempoNoGolpe;
 
+    // ---- usado pelo sistema de combate ----
+    public bool Atacando => atacando;
+    public bool Bloqueando => isBlocking;
+    public bool Rolando => isRolling;
+    public int GolpeAtual => golpeAtual;            // 0, 1, 2 = combo ; -1 = pesado
+    public bool Controlavel { get; set; } = true;   // falso quando morto
+    // durante uma habilidade especial: não anda, não ataca e não se assusta com golpes (veja HabilidadesDoPersonagem)
+    public bool TravadoPorHabilidade { get; set; }
+    // buff de velocidade (Impulsionar): 1 = normal, 1.2 = 20% mais rápido
+    public float BonusDeVelocidade { get; set; } = 1f;
+    // se a espada está guardada, saca e devolve quantos segundos faltam para ela estar na mão
+    public float SacarSeGuardada() { if (usaBainha && !armado) { Sacar(); return tempoParaSacar; } return 0f; }
+    // água (AmbienteDaAgua): andando na água fica mais lento; fundo demais = nada na superfície, sem pular nem rolar
+    public bool Nadando { get; set; }
+    public float AlturaDeNado { get; set; }
+    public float FatorDeAgua { get; set; } = 1f;
+    public bool Companheiro { get; set; }           // true nos aventureiros controlados pela CPU (não são "o jogador local")
+    // voo (usado pelo Tanque): sem gravidade, sobe/desce na velocidade pedida e não ataca nem defende
+    public bool Voando { get; set; }
+    public float VelocidadeVerticalDeVoo { get; set; }
+    public float MultiplicadorDeVoo { get; set; } = 1f;
+    public event System.Action<int> AoIniciarGolpe;
+    // ações que o multiplayer repete nos outros PCs: 1 pulo, 2 rolagem, 3 levou golpe, 4 morreu
+    public event System.Action<int> AoAcao;
+    private Vector3 empurrao;                       // empurrão ao levar golpe
+    private float atordoadoAte;
+
+    // bainha
+    private bool usaBainha;
+    private bool armado = true;
+    private float ultimoCombate;
+    private float prontoEm;
+    private bool ataqueNaFila;
+    public bool Armado => armado;
+    public void MarcarCombate() { ultimoCombate = Time.time; }
+
     private void Awake()
     {
         controller = GetComponent<CharacterController>();
@@ -82,6 +147,15 @@ public class PlayerLocomotion : MonoBehaviour
                 golpesDisponiveis++;
             }
             temAtaquePesado = TemEstado(estadoAtaquePesado);
+            foreach (AnimatorControllerParameter par in animator.parameters)
+                if (par.name == "Armado") usaBainha = true;
+            if (usaBainha)
+            {
+                // começa fora de combate, com a espada nas costas
+                armado = false;
+                animator.SetBool("Armado", false);
+                animator.gameObject.SendMessage("GuardarEspada", SendMessageOptions.DontRequireReceiver);
+            }
         }
     }
 
@@ -90,15 +164,60 @@ public class PlayerLocomotion : MonoBehaviour
         return animator.HasState(0, Animator.StringToHash(nome)) || animator.HasState(0, Animator.StringToHash("Base Layer." + nome));
     }
 
+    // proteção: se o personagem atravessar o chão, volta para cima do terreno
+    private void ProtegerContraQueda()
+    {
+        Terrain t = Terrain.activeTerrain;
+        if (t == null) return;
+        float chao = t.SampleHeight(transform.position) + t.transform.position.y;
+        if (transform.position.y > chao - 6f) return;
+        controller.enabled = false;
+        transform.position = new Vector3(transform.position.x, chao + 0.5f, transform.position.z);
+        controller.enabled = true;
+        verticalVelocity = 0f;
+    }
+
+    // caminhada automática (saindo do portal ao chegar no mundo)
+    private float autoAte;
+    private Vector3 autoDir;
+    public void CaminharAutomatico(Vector3 direcao, float duracao)
+    {
+        direcao.y = 0f;
+        if (direcao.sqrMagnitude < 0.0001f) return;
+        autoDir = direcao.normalized;
+        autoAte = Time.time + duracao;
+    }
+
     private void Update()
     {
+        ProtegerContraQueda();
+        if (Time.time < autoAte)
+        {
+            if (controller.isGrounded && verticalVelocity < 0f) verticalVelocity = -0.5f; else verticalVelocity += gravity * Time.deltaTime;
+            transform.rotation = Quaternion.Slerp(transform.rotation, Quaternion.LookRotation(autoDir), Time.deltaTime * 8f);
+            controller.Move((autoDir * walkSpeed + Vector3.up * verticalVelocity) * Time.deltaTime);
+            if (animator != null) { animator.SetFloat("Speed", 0.5f); animator.SetBool("Block", false); }
+            return;
+        }
+        if (!Controlavel || SessaoDeJogo.MenuAberto || Time.time < atordoadoAte || TravadoPorHabilidade)
+        {
+            // morto ou atordoado: só gravidade e empurrão
+            if (controller.isGrounded && verticalVelocity < 0f) verticalVelocity = -0.5f; else verticalVelocity += gravity * Time.deltaTime;
+            empurrao = Vector3.Lerp(empurrao, Vector3.zero, Time.deltaTime * 8f);
+            controller.Move((empurrao + Vector3.up * verticalVelocity) * Time.deltaTime);
+            if (animator != null) { animator.SetFloat("Speed", 0f); animator.SetBool("Block", false); }
+            return;
+        }
+
         // --- Input de movimento ---
-        float h = Input.GetAxis("Horizontal"); // A/D ou setas
-        float v = Input.GetAxis("Vertical");   // W/S ou setas
+        EntradaDoPersonagem ent = Entrada;
+        Vector2 mover = ent.Mover;
+        float h = mover.x; // A/D ou setas
+        float v = mover.y; // W/S ou setas
         Vector3 inputDir = new Vector3(h, 0f, v);
         float inputMagnitude = Mathf.Clamp01(inputDir.magnitude);
 
-        bool isRunning = Input.GetKey(KeyCode.LeftShift);
+        bool isRunning = ent.Correr;
 
         // Direção de movimento relativa à câmera principal (se houver)
         Vector3 moveDir;
@@ -115,12 +234,21 @@ public class PlayerLocomotion : MonoBehaviour
         {
             moveDir = transform.forward * v + transform.right * h;
         }
+        // companheiros CPU andam direto em direções do mundo, sem câmera
+        if (ent.TemDirecaoDeMundo)
+        {
+            Vector3 dm = ent.DirecaoDeMundo; dm.y = 0f;
+            inputMagnitude = Mathf.Clamp01(dm.magnitude);
+            moveDir = dm;
+            if (ent.TemFrenteDeMira) { Vector3 fm = ent.FrenteDeMira; fm.y = 0f; if (fm.sqrMagnitude > 0.001f) frenteCamera = fm.normalized; }
+            else if (dm.sqrMagnitude > 0.001f) frenteCamera = dm.normalized;
+        }
         if (moveDir.sqrMagnitude > 0.001f) moveDir.Normalize();
 
         // --- Rolagem (Esquiva) --- (cancela o combo)
         if (rollCooldownTimer > 0f) rollCooldownTimer -= Time.deltaTime;
 
-        if (Input.GetKeyDown(KeyCode.LeftControl) && !isRolling && rollCooldownTimer <= 0f)
+        if (ent.RolarApertou && !isRolling && rollCooldownTimer <= 0f && !Voando && !Nadando)
         {
             // Rola na direção que o jogador está segurando (WASD); se não estiver segurando nada, rola pra frente
             rollDirection = moveDir.sqrMagnitude > 0.001f ? moveDir : transform.forward;
@@ -129,18 +257,35 @@ public class PlayerLocomotion : MonoBehaviour
         }
 
         // --- Pulo ---
-        if (Input.GetKeyDown(KeyCode.Space) && controller.isGrounded && !isRolling && !atacando)
+        if (ent.PularApertou && controller.isGrounded && !isRolling && !atacando && !Voando && !Nadando)
         {
             verticalVelocity = Mathf.Sqrt(jumpHeight * -2f * gravity);
             if (animator != null) animator.SetTrigger("Jump");
+            AoAcao?.Invoke(1);
         }
 
-        // --- Bloqueio (Q segurando) ---
-        isBlocking = Input.GetKey(KeyCode.Q) && !isRolling && !atacando;
+        // --- Guardar/sacar a espada ---
+        if (usaBainha)
+        {
+            if (ent.GuardarSacarApertou && !atacando && !isRolling) { if (armado) Guardar(); else Sacar(); }
+            else if (armado && !atacando && !isBlocking && Time.time - ultimoCombate > tempoParaGuardar) Guardar();
+        }
+
+        // --- Defesa com escudo (botão direito ou Q, segurando) ---
+        bool querDefender = ent.DefenderSegurando && !Voando;
+        if (querDefender && usaBainha) { MarcarCombate(); if (!armado) Sacar(); }
+        bool espadaPronta = !usaBainha || (armado && Time.time >= prontoEm);
+        if (querDefender && atacando && !isRolling)
+        {
+            // cancela o golpe para defender na hora
+            TerminarCombo();
+            if (animator != null && TemEstado("Blend Tree")) animator.CrossFadeInFixedTime("Blend Tree", 0.08f, 0, 0f);
+        }
+        isBlocking = querDefender && !isRolling && !atacando && espadaPronta;
         if (animator != null) animator.SetBool("Block", isBlocking);
 
         // --- Ataques ---
-        AtualizarAtaques(moveDir, frenteCamera);
+        if (!Voando) AtualizarAtaques(moveDir, frenteCamera);
 
         // --- Velocidade enviada pro Animator (Blend Tree) ---
         bool correndo = isRunning && !atacando && !isBlocking;
@@ -160,7 +305,15 @@ public class PlayerLocomotion : MonoBehaviour
         }
 
         // --- Gravidade ---
-        if (controller.isGrounded && verticalVelocity < 0f)
+        if (Voando)
+        {
+            verticalVelocity = VelocidadeVerticalDeVoo;
+        }
+        else if (Nadando)
+        {
+            verticalVelocity = Mathf.Clamp((AlturaDeNado - transform.position.y) * 6f, -4f, 4f);   // boia na superfície
+        }
+        else if (controller.isGrounded && verticalVelocity < 0f)
         {
             verticalVelocity = -0.5f; // pequena força pra manter no chão
         }
@@ -170,17 +323,20 @@ public class PlayerLocomotion : MonoBehaviour
         }
 
         // --- Movimento final ---
-        float targetMoveSpeed = inputMagnitude * (correndo ? runSpeed : walkSpeed);
+        float targetMoveSpeed = inputMagnitude * (correndo ? runSpeed : walkSpeed) * BonusDeVelocidade * FatorDeAgua;
+        if (Voando) targetMoveSpeed *= MultiplicadorDeVoo;
         if (atacando) targetMoveSpeed = inputMagnitude * walkSpeed * movimentoDuranteGolpe;
         else if (isBlocking) targetMoveSpeed = inputMagnitude * walkSpeed * 0.5f;
         Vector3 finalMove = isRolling ? rollDirection * rollSpeed : moveDir * targetMoveSpeed;
+        empurrao = Vector3.Lerp(empurrao, Vector3.zero, Time.deltaTime * 8f);
+        finalMove += empurrao;
         finalMove.y = verticalVelocity;
 
         controller.Move(finalMove * Time.deltaTime);
 
         // --- Avisa o Animator se o personagem está no chão, DEPOIS do Move() ---
         // (precisa ser depois do Move, senão ele ainda reflete o chão do frame anterior)
-        if (animator != null) animator.SetBool("Grounded", controller.isGrounded);
+        if (animator != null) animator.SetBool("Grounded", controller.isGrounded || Nadando);
     }
 
     // ------------------------------------------------------------------
@@ -193,11 +349,7 @@ public class PlayerLocomotion : MonoBehaviour
         // Sem os states de combo no Animator: comportamento antigo (um golpe por clique)
         if (golpesDisponiveis == 0)
         {
-            if (!isRolling && !isBlocking)
-            {
-                if (Input.GetMouseButtonDown(0)) animator.SetTrigger("AttackLight");
-                else if (Input.GetMouseButtonDown(1)) animator.SetTrigger("AttackHeavy");
-            }
+            if (!isRolling && !isBlocking && Entrada.AtaqueApertou) animator.SetTrigger("AttackLight");
             return;
         }
 
@@ -215,15 +367,29 @@ public class PlayerLocomotion : MonoBehaviour
         bool podeAtacar = !isRolling && !isBlocking && controller.isGrounded;
         Vector3 direcaoGolpe = moveDir.sqrMagnitude > 0.001f ? moveDir : frenteCamera;
 
-        if (podeAtacar && Input.GetMouseButtonDown(0))
+        // espada guardada: o clique saca e o golpe sai assim que a espada chega na mão
+        if (usaBainha)
         {
+            if (podeAtacar && Entrada.AtaqueApertou && (!armado || Time.time < prontoEm))
+            {
+                MarcarCombate();
+                Sacar();
+                ataqueNaFila = true;
+                return;
+            }
+            if (ataqueNaFila && armado && Time.time >= prontoEm && !atacando)
+            {
+                ataqueNaFila = false;
+                if (podeAtacar) Golpe(0, direcaoGolpe);
+                return;
+            }
+        }
+
+        if (podeAtacar && Entrada.AtaqueApertou)
+        {
+            MarcarCombate();
             if (!atacando) Golpe(0, direcaoGolpe);
             else if (golpeAtual >= 0 && golpeAtual < golpesDisponiveis - 1) proximoNaFila = true;
-        }
-        if (podeAtacar && !atacando && Input.GetMouseButtonDown(1))
-        {
-            if (temAtaquePesado) Golpe(-1, direcaoGolpe);
-            else animator.SetTrigger("AttackHeavy");
         }
 
         // encadeia o próximo golpe quando o atual passa do ponto certo
@@ -241,6 +407,90 @@ public class PlayerLocomotion : MonoBehaviour
         tempoNoGolpe = 0f;
         if (direcao.sqrMagnitude > 0.001f) transform.rotation = Quaternion.LookRotation(direcao, Vector3.up);
         animator.CrossFadeInFixedTime(estadoAtual, transicaoEntreGolpes, 0, 0f);
+        AoIniciarGolpe?.Invoke(indice);
+    }
+
+    private void Sacar()
+    {
+        if (!usaBainha || armado) return;
+        armado = true;
+        prontoEm = Time.time + tempoParaSacar;
+        MarcarCombate();
+        animator.SetBool("Armado", true);
+    }
+
+    private void Guardar()
+    {
+        if (!usaBainha || !armado) return;
+        armado = false;
+        ataqueNaFila = false;
+        animator.SetBool("Armado", false);
+    }
+
+    // chamado pelo combate quando o jogador leva um golpe
+    public void ReagirAoDano(Vector3 origem, bool bloqueado)
+    {
+        MarcarCombate();
+        if (usaBainha && !armado) Sacar();
+        Vector3 dir = transform.position - origem; dir.y = 0f;
+        if (dir.sqrMagnitude > 0.001f) empurrao = dir.normalized * (bloqueado ? 2.5f : 4f);
+        if (TravadoPorHabilidade) return;   // conjurando: não interrompe a habilidade
+        if (bloqueado)
+        {
+            EscudoAnimacao escudo = GetComponent<EscudoAnimacao>();
+            if (escudo != null) escudo.Impacto();
+            return;
+        }
+        if (animator == null) return;
+        TerminarCombo();
+        if (TemEstado("hit")) { animator.CrossFadeInFixedTime("hit", 0.08f, 0, 0f); atordoadoAte = Time.time + 0.35f; }
+        AoAcao?.Invoke(3);
+    }
+
+    public void Morrer()
+    {
+        Controlavel = false;
+        TerminarCombo();
+        if (animator != null && TemEstado("death")) animator.CrossFadeInFixedTime("death", 0.15f, 0, 0f);
+        AoAcao?.Invoke(4);
+    }
+
+    // ------------------------------------------------------------------
+    //  multiplayer: repete no personagem de outro jogador o que ele fez no PC dele
+    // ------------------------------------------------------------------
+    public void Reviver()
+    {
+        Controlavel = true;
+        TerminarCombo();
+        atordoadoAte = 0f;
+        if (animator == null) return;
+        if (usaBainha) { armado = true; animator.SetBool("Armado", true); }
+        if (TemEstado("Blend Tree")) animator.CrossFadeInFixedTime("Blend Tree", 0.2f, 0, 0f);
+    }
+
+    public void TocarGolpeRemoto(int indice)
+    {
+        if (animator == null) return;
+        string estado = indice < 0 ? estadoAtaquePesado : estadosCombo[Mathf.Clamp(indice, 0, estadosCombo.Length - 1)];
+        if (!TemEstado(estado)) return;
+        animator.CrossFadeInFixedTime(estado, transicaoEntreGolpes, 0, 0f);
+        AoIniciarGolpe?.Invoke(indice);
+    }
+
+    public void TocarAcaoRemota(int codigo)
+    {
+        if (animator == null) return;
+        if (codigo == 1) animator.SetTrigger("Jump");
+        else if (codigo == 2) animator.SetTrigger("Roll");
+        else if (codigo == 3 && TemEstado("hit")) animator.CrossFadeInFixedTime("hit", 0.08f, 0, 0f);
+        else if (codigo == 4 && TemEstado("death")) animator.CrossFadeInFixedTime("death", 0.15f, 0, 0f);
+    }
+
+    // solta o personagem de qualquer estado preso (golpe, rolagem, defesa, atordoamento)
+    public void ResetarEstado()
+    {
+        TerminarCombo(); isRolling = false; isBlocking = false; atordoadoAte = 0f; empurrao = Vector3.zero;
+        if (animator != null) { animator.SetBool("Rolling", false); animator.SetBool("Block", false); }
     }
 
     private void TerminarCombo()
@@ -262,6 +512,7 @@ public class PlayerLocomotion : MonoBehaviour
         transform.rotation = Quaternion.LookRotation(rollDirection, Vector3.up);
 
         if (animator != null) animator.SetTrigger("Roll");
+        AoAcao?.Invoke(2);
 
         yield return new WaitForSeconds(rollDuration);
 

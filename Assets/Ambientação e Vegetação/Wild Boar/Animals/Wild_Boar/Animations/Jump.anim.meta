@@ -1,0 +1,17 @@
+fileFormatVersion: 2
+guid: ad103ca287ad5545a1999057d1d77c56
+labels:
+- Authored
+NativeFormatImporter:
+  externalObjects: {}
+  mainObjectFileID: 7400000
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 415578
+  packageName: WIld Boar - Free sample Ultrarealistic Forest Animals
+  packageVersion: 1.1
+  assetPath: Assets/Wild Boar/Animals/Wild_Boar/Animations/Jump.anim
+  uploadId: 1040004

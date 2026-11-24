@@ -1,0 +1,18 @@
+fileFormatVersion: 2
+guid: 6bee5254ac395578ad663fd36790c537
+MonoImporter:
+  externalObjects: {}
+  serializedVersion: 2
+  defaultReferences: []
+  executionOrder: 0
+  icon: {instanceID: 0}
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 415578
+  packageName: WIld Boar - Free sample Ultrarealistic Forest Animals
+  packageVersion: 1.1
+  assetPath: Assets/Wild Boar/Demo/Runtime/WildBoarShowcase.cs
+  uploadId: 1040004

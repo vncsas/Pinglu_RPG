@@ -1,0 +1,18 @@
+OVELHA (Ovelha.fbx) - esqueleto + animacoes + colisao
+=====================================================
+Fonte: "realistic-woolly-sheep-thick-curled-fleece" (Tripo). Malha reduzida de 1,9 mi para 50 mil triangulos, textura 2048 (cor + normal).
+Tamanho: ~0,8 m de altura (cabeca), ~1,0 m de comprimento. Frente = +Z no Unity. O scan veio girado ~54 graus; foi alinhado no Blender.
+
+ESQUELETO (39 ossos, Generic): mesmo conjunto dos cavalos (Root > Pelvis > Spine1/2 > Chest > Neck1-3 > Head/Jaw/Ear, Tail1-5, 4 patas).
+CLIPES (no lugar): Idle, Walk, Trot, Gallop, Comer, Comer_Entrar, Comer_Sair.
+COLISAO: prefab com 3 colisores (corpo, pescoco, pernas) + Rigidbody kinematico. Teste com CharacterController: 6 de 6 trajetos bloqueados.
+
+COMO USAR NO UNITY
+  1) Copie a pasta para Assets/Personagens/Ovelha (fbx, jpg, Editor, Scripts).
+  2) Menu  Ovelha > Montar tudo  (material, prefab, colisor; liga o AnimalAmbiente do jogo se existir: Idle/Walk/Comer).
+  3) Menu  Ovelha > Cena de teste, Play, teclas 1-7 trocam a animacao.
+
+LIMITES
+  - Comer: o pescoco e curto e a la e grossa, entao a cabeca desce so ate o peito (nao toca o chao).
+  - Trote/galope procedurais (nao mocap); as patas sao as do scan (finas e curtas, a la cobre o resto).
+  - Nao conferi a ovelha se movendo ao vivo, so poses.

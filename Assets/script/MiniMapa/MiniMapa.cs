@@ -1,0 +1,461 @@
+using System.Collections.Generic;
+using UnityEngine;
+
+// Mini-mapa de explorador: pergaminho desenhado a partir do terreno, que gira
+// com a câmera e vai sendo revelado conforme o jogador explora.
+//   M      -> abre/fecha o mapa completo
+//   + / -  -> aproxima/afasta o mini-mapa
+public class MiniMapa : MonoBehaviour
+{
+    public enum Tipo { Vila, Ruinas, Acampamento, Cemiterio }
+
+    [System.Serializable]
+    public class Marcador { public string nome; public Tipo tipo; public Vector3 posicao; }
+
+    [Header("Mapa (o menu Pinglu > 22 preenche)")]
+    public Texture2D mapa;
+    public Material material;
+    public Vector2 origem;          // canto do terreno (x, z)
+    public Vector2 tamanho = new Vector2(1000f, 1000f);
+    public List<Marcador> marcadores = new List<Marcador>();
+
+    [Header("Imagens")]
+    public Texture2D moldura;
+    public Texture2D iconeNorte, iconeJogador, iconeAliado, iconeInimigo;
+    public Texture2D iconeVila, iconeRuinas, iconeAcampamento, iconeCemiterio;
+
+    [Header("Tela")]
+    [Tooltip("Tamanho do mini-mapa numa tela 1080p")]
+    public float tamanhoNaTela = 290f;
+    [Tooltip("Quantos metros do mundo cabem no mini-mapa")]
+    public float metrosVisiveis = 160f;
+    public float metrosMinimo = 70f, metrosMaximo = 450f;
+    public bool girarComACamera = true;
+    public float distanciaParaVerInimigos = 70f;
+
+    [Header("Exploração")]
+    [Tooltip("Mostra o mapa inteiro, sem nuvens/névoa (lugares e biomas sempre visíveis)")]
+    public bool revelarMapaTodo = true;
+    public bool usarNevoa = true;
+    public float raioRevelado = 50f;
+
+    [Header("Teclas")]
+    [Tooltip("Desligado quando existe o Mapa do Mundo (ele usa a tecla M)")]
+    public bool abrirComTecla = true;
+    public KeyCode teclaMapaCompleto = KeyCode.M;
+    public KeyCode teclaAproximar = KeyCode.Equals;
+    public KeyCode teclaAfastar = KeyCode.Minus;
+
+    private RenderTexture rtMini, rtGrande;
+    private Texture2D nevoa;
+    private Color32[] pixelsNevoa;
+    private const int RES_NEVOA = 256;
+    private bool nevoaMudou;
+    private float proximaNevoa, proximaBusca;
+    private Transform jogador;
+    private readonly List<Transform> aliados = new List<Transform>();
+    private readonly List<Transform> inimigos = new List<Transform>();
+    private bool mapaAberto;
+    private string regiaoAtual = "";
+    private readonly HashSet<string> descobertos = new HashSet<string>();
+    private ClimaDosBiomas biomas;
+    private GUIStyle estiloRegiao, estiloNome, estiloLegenda, estiloNome2;
+    private readonly List<Vector2> bufferLinha = new List<Vector2>();
+    private static readonly Color COR_ESTRADA = new Color(0.40f, 0.27f, 0.12f, 0.6f);
+    private static readonly Color COR_GPS = new Color(1f, 0.80f, 0.22f, 1f);
+
+    private void Awake() { if (revelarMapaTodo) usarNevoa = false; }
+
+    // com o mapa todo revelado, todo lugar e bioma é "conhecido"
+    public bool Conhecido(string nome) { return !usarNevoa || descobertos.Contains(nome); }
+
+    // usado pelo Mapa do Mundo
+    public bool PergaminhoAberto { get { return mapaAberto; } set { mapaAberto = value; } }
+    public HashSet<string> Descobertos { get { return descobertos; } }
+    public Color32[] PixelsNevoa { get { return pixelsNevoa; } }
+    public int ResolucaoNevoa { get { return RES_NEVOA; } }
+    public string RegiaoAtual { get { return regiaoAtual; } }
+    public float FracaoExplorada()
+    {
+        if (pixelsNevoa == null) return 0f;
+        int n = 0;
+        for (int i = 0; i < pixelsNevoa.Length; i++) if (pixelsNevoa[i].r > 100) n++;
+        return n / (float)pixelsNevoa.Length;
+    }
+
+    private void Start()
+    {
+        rtMini = new RenderTexture(512, 512, 0, RenderTextureFormat.ARGB32);
+        rtGrande = new RenderTexture(1024, 1024, 0, RenderTextureFormat.ARGB32);
+        nevoa = new Texture2D(RES_NEVOA, RES_NEVOA, TextureFormat.RGBA32, false) { wrapMode = TextureWrapMode.Clamp, filterMode = FilterMode.Bilinear };
+        pixelsNevoa = new Color32[RES_NEVOA * RES_NEVOA];
+        byte inicial = usarNevoa ? (byte)0 : (byte)255;
+        for (int i = 0; i < pixelsNevoa.Length; i++) pixelsNevoa[i] = new Color32(inicial, inicial, inicial, 255);
+        nevoa.SetPixels32(pixelsNevoa); nevoa.Apply();
+        biomas = FindFirstObjectByType<ClimaDosBiomas>();
+    }
+
+    private void OnDestroy()
+    {
+        if (rtMini != null) rtMini.Release();
+        if (rtGrande != null) rtGrande.Release();
+    }
+
+    // ------------------------------------------------------------------
+    private void Update()
+    {
+        if (Time.time >= proximaBusca) { proximaBusca = Time.time + 0.4f; Procurar(); }
+        if (SessaoDeJogo.MenuAberto || jogador == null) return;
+
+        if (abrirComTecla && Campanha.TemMapa && Comandos.Apertou(Acao.Mapa)) mapaAberto = !mapaAberto;
+        if (Comandos.Segurando(Acao.ZoomMais)) metrosVisiveis = Mathf.Max(metrosMinimo, metrosVisiveis - 120f * Time.deltaTime);
+        if (Comandos.Segurando(Acao.ZoomMenos)) metrosVisiveis = Mathf.Min(metrosMaximo, metrosVisiveis + 120f * Time.deltaTime);
+
+        if (usarNevoa && Time.time >= proximaNevoa) { proximaNevoa = Time.time + 0.25f; Revelar(jogador.position); }
+        AtualizarRegiao();
+    }
+
+    // o jogador local é o que tem o Player Locomotion LIGADO (no multiplayer, os outros ficam desligados)
+    private void Procurar()
+    {
+        aliados.Clear(); inimigos.Clear();
+        Transform local = null;
+        foreach (PlayerLocomotion p in Resources.FindObjectsOfTypeAll<PlayerLocomotion>())
+        {
+            if (p == null || !p.gameObject.scene.IsValid() || !p.gameObject.activeInHierarchy) continue;
+            if (p.enabled && !p.Companheiro && local == null) local = p.transform; else aliados.Add(p.transform);
+        }
+        jogador = local;
+        foreach (InimigoEsqueleto e in Resources.FindObjectsOfTypeAll<InimigoEsqueleto>())
+        {
+            if (e == null || !e.gameObject.scene.IsValid() || !e.gameObject.activeInHierarchy) continue;
+            Vida v = e.GetComponent<Vida>();
+            if (v == null || !v.Morto) inimigos.Add(e.transform);
+        }
+    }
+
+    private Vector2 ParaUV(Vector3 p) { return new Vector2((p.x - origem.x) / tamanho.x, (p.z - origem.y) / tamanho.y); }
+
+    private void Revelar(Vector3 p)
+    {
+        Vector2 uv = ParaUV(p);
+        int cx = Mathf.RoundToInt(uv.x * RES_NEVOA), cy = Mathf.RoundToInt(uv.y * RES_NEVOA);
+        float r = raioRevelado / tamanho.x * RES_NEVOA;
+        int ri = Mathf.CeilToInt(r);
+        for (int y = cy - ri; y <= cy + ri; y++)
+            for (int x = cx - ri; x <= cx + ri; x++)
+            {
+                if (x < 0 || y < 0 || x >= RES_NEVOA || y >= RES_NEVOA) continue;
+                float d = Mathf.Sqrt((x - cx) * (x - cx) + (y - cy) * (y - cy)) / r;
+                if (d > 1f) continue;
+                byte v = (byte)(255 * Mathf.Clamp01((1f - d) * 2.5f));
+                int i = y * RES_NEVOA + x;
+                if (v > pixelsNevoa[i].r) { pixelsNevoa[i] = new Color32(v, v, v, 255); nevoaMudou = true; }
+            }
+        if (nevoaMudou) { nevoa.SetPixels32(pixelsNevoa); nevoa.Apply(false); nevoaMudou = false; }
+    }
+
+    public bool Explorado(Vector3 p)
+    {
+        if (!usarNevoa) return true;
+        Vector2 uv = ParaUV(p);
+        int x = Mathf.Clamp(Mathf.RoundToInt(uv.x * RES_NEVOA), 0, RES_NEVOA - 1), y = Mathf.Clamp(Mathf.RoundToInt(uv.y * RES_NEVOA), 0, RES_NEVOA - 1);
+        return pixelsNevoa[y * RES_NEVOA + x].r > 100;
+    }
+
+    // nome do lugar onde o jogador está + aviso ao descobrir um bioma
+    private void AtualizarRegiao()
+    {
+        Vector3 p = jogador.position;
+        string nome = "Campos";
+        foreach (Marcador m in marcadores)
+            if (PlanoDist(p, m.posicao) < (m.tipo == Tipo.Vila ? 55f : 30f)) { nome = m.nome; break; }
+        if (nome == "Campos" && biomas != null)
+        {
+            float melhor = 0.5f;
+            foreach (ClimaDosBiomas.Bioma b in biomas.biomas)
+            {
+                float w = 1f - Mathf.InverseLerp(b.raio * 0.8f, b.raio + 20f, PlanoDist(p, b.centro));
+                if (w > melhor) { melhor = w; nome = b.nome; }
+            }
+            if (nome != "Campos") descobertos.Add(nome);      // conta para o "Biomas descobertos" do mapa (sem aviso na tela)
+        }
+        regiaoAtual = NomesDoMapa.Exibir(nome);
+    }
+
+    private static float PlanoDist(Vector3 a, Vector3 b) { return new Vector2(a.x - b.x, a.z - b.z).magnitude; }
+
+    // ------------------------------------------------------------------
+    //  Desenho
+    // ------------------------------------------------------------------
+    private void Estilos(float e)
+    {
+        estiloRegiao = new GUIStyle(GUI.skin.label) { fontSize = Mathf.RoundToInt(21 * e), fontStyle = FontStyle.Bold, alignment = TextAnchor.MiddleCenter };
+        estiloRegiao.normal.textColor = new Color(0.93f, 0.80f, 0.55f);
+        estiloNome = new GUIStyle(estiloRegiao) { fontSize = Mathf.RoundToInt(17 * e) };
+        estiloNome.normal.textColor = new Color(0.20f, 0.14f, 0.08f);
+        estiloNome2 = new GUIStyle(estiloRegiao) { fontSize = Mathf.RoundToInt(16 * e) };
+        estiloNome2.normal.textColor = COR_GPS;
+        estiloLegenda = new GUIStyle(GUI.skin.label) { fontSize = Mathf.RoundToInt(17 * e) };
+        estiloLegenda.normal.textColor = new Color(0.93f, 0.85f, 0.7f);
+    }
+
+    private void OnGUI()
+    {
+        if (TelaDeMorte.Ativa) return;
+        if (!Campanha.TemMiniMapa && !mapaAberto) return;          // só depois do tutorial do Caio
+        if (!Configuracoes.MostrarMinimapa && !mapaAberto) return;
+        if ((SessaoDeJogo.MenuAberto && !mapaAberto) || jogador == null || mapa == null || material == null) return;
+        float e = Screen.height / 1080f;
+        if (estiloRegiao == null || Event.current.type == EventType.Layout) Estilos(e);
+        Camera cam = Camera.main;
+        float yaw = girarComACamera && cam != null ? cam.transform.eulerAngles.y : 0f;
+
+
+        if (SessaoDeJogo.MenuAberto) { if (mapaAberto) MapaCompleto(e); return; } // aberto como aba do Mapa do Mundo
+
+        // ---- mini-mapa (canto inferior esquerdo)
+        float lado = tamanhoNaTela * e;
+        Rect r = new Rect(24f * e, Screen.height - lado - 60f * e, lado, lado);
+        GUI.DrawTexture(r, rtMini);
+        Vector2 centro = r.center;
+        float raio = lado * 0.47f;
+        float rad = yaw * Mathf.Deg2Rad;
+        Vector2 dir = new Vector2(Mathf.Cos(rad), -Mathf.Sin(rad)), frente = new Vector2(Mathf.Sin(rad), Mathf.Cos(rad));
+        System.Func<Vector3, Vector2> NaTela = w =>
+        {
+            Vector2 d = new Vector2(w.x - jogador.position.x, w.z - jogador.position.z);
+            return new Vector2(Vector2.Dot(d, dir), -Vector2.Dot(d, frente)) / metrosVisiveis * lado;
+        };
+
+        RotasNoMiniMapa(NaTela, centro, raio * 0.97f, e);
+
+        foreach (Marcador m in marcadores)
+        {
+            if (!Explorado(m.posicao)) continue;
+            Vector2 p = NaTela(m.posicao);
+            bool longe = p.magnitude > raio * 0.88f;
+            if (longe) p = p.normalized * raio * 0.88f; // preso na borda, apontando a direção
+            Icone(IconeDo(m.tipo), centro + p, (longe ? 20f : 28f) * e, 0f, longe ? 0.7f : 1f);
+        }
+        foreach (Transform t in inimigos)
+        {
+            if (PlanoDist(t.position, jogador.position) > distanciaParaVerInimigos) continue;
+            Vector2 p = NaTela(t.position);
+            if (p.magnitude < raio * 0.95f) Icone(iconeInimigo, centro + p, 18f * e, 0f, 1f);
+        }
+        foreach (Transform t in aliados)
+        {
+            Vector2 p = NaTela(t.position);
+            if (p.magnitude > raio * 0.9f) p = p.normalized * raio * 0.9f;
+            Icone(iconeAliado, centro + p, 22f * e, t.eulerAngles.y - yaw, 1f);
+        }
+        Icone(iconeJogador, centro, 30f * e, jogador.eulerAngles.y - yaw, 1f);
+
+        if (moldura != null) GUI.DrawTexture(new Rect(r.x - lado * 0.06f, r.y - lado * 0.06f, lado * 1.12f, lado * 1.12f), moldura);
+        Vector2 norte = NaTela(jogador.position + Vector3.forward * 1000f).normalized * lado * 0.53f;
+        Icone(iconeNorte, centro + norte, 30f * e, 0f, 1f);
+
+        GUI.Label(new Rect(r.x - 20f * e, r.yMax + 12f * e, lado + 40f * e, 30f * e), regiaoAtual, estiloRegiao);
+        GPSDoMapa gpsInfo = GPSDoMapa.Instancia;
+        if (gpsInfo != null && gpsInfo.Ativo)
+            GUI.Label(new Rect(r.x - 20f * e, r.yMax + 38f * e, lado + 40f * e, 28f * e), "GPS: " + gpsInfo.NomeDoDestino + "  •  " + Mathf.RoundToInt(gpsInfo.DistanciaRestante) + " m", estiloNome2);
+
+        if (mapaAberto) MapaCompleto(e);
+    }
+
+    private void LateUpdate()
+    {
+        if ((SessaoDeJogo.MenuAberto && !mapaAberto) || jogador == null || mapa == null || material == null) return;
+        Camera cam = Camera.main;
+        float yaw = girarComACamera && cam != null ? cam.transform.eulerAngles.y : 0f;
+        Desenhar(rtMini, ParaUV(jogador.position), metrosVisiveis / tamanho.x, yaw * Mathf.Deg2Rad, true);
+        if (mapaAberto) Desenhar(rtGrande, new Vector2(0.5f, 0.5f), 1f, 0f, false);
+    }
+
+    private void Desenhar(RenderTexture alvo, Vector2 centroUV, float zoom, float rot, bool circulo)
+    {
+        material.SetTexture("_Nevoa", nevoa);
+        material.SetVector("_Centro", new Vector4(centroUV.x, centroUV.y, 0f, 0f));
+        material.SetFloat("_Zoom", zoom);
+        material.SetFloat("_Rot", rot);
+        material.SetFloat("_Circulo", circulo ? 1f : 0f);
+        RenderTexture antes = RenderTexture.active;
+        Graphics.Blit(mapa, alvo, material);
+        RenderTexture.active = antes;
+    }
+
+    private void MapaCompleto(float e)
+    {
+        float lado = Screen.height * 0.82f;
+        Rect r = new Rect((Screen.width - lado) * 0.5f, (Screen.height - lado) * 0.5f, lado, lado);
+        Retangulo(new Rect(0, 0, Screen.width, Screen.height), new Color(0f, 0f, 0f, 0.55f));
+        Retangulo(new Rect(r.x - 10f * e, r.y - 10f * e, r.width + 20f * e, r.height + 20f * e), new Color(0.45f, 0.30f, 0.12f));
+        GUI.DrawTexture(r, rtGrande);
+        System.Func<Vector3, Vector2> NoMapa = w => { Vector2 uv = ParaUV(w); return new Vector2(r.x + uv.x * r.width, r.yMax - uv.y * r.height); };
+
+        HashSet<string> jaDesenhado = new HashSet<string>();
+        if (biomas != null)
+            foreach (ClimaDosBiomas.Bioma b in biomas.biomas)
+                if (jaDesenhado.Add(b.nome))
+                {
+                    Vector2 pn = NoMapa(NomesDoMapa.Ancora(biomas, marcadores, b.nome, b.centro));          // um lugar próprio para cada nome
+                    GUI.Label(new Rect(pn.x - 120f * e, pn.y - 15f * e, 240f * e, 30f * e), Conhecido(b.nome) ? NomesDoMapa.Exibir(b.nome) : "???", estiloNome);
+                }
+        RotasNoPergaminho(NoMapa, e);
+        foreach (Marcador m in marcadores)
+            if (Explorado(m.posicao)) Icone(IconeDo(m.tipo), NoMapa(m.posicao), 30f * e, 0f, 1f);
+        CliquesDoPergaminho(r, NoMapa, e);
+        foreach (Transform t in aliados) Icone(iconeAliado, NoMapa(t.position), 24f * e, t.eulerAngles.y, 1f);
+        Icone(iconeJogador, NoMapa(jogador.position), 32f * e, jogador.eulerAngles.y, 1f);
+
+        // legenda
+        float x = r.xMax + 24f * e, y = r.y + 10f * e;
+        if (x + 220f * e > Screen.width) return;
+        GUI.Label(new Rect(x, y, 260f * e, 30f * e), "LEGENDA", estiloLegenda); y += 40f * e;
+        Texture2D[] ic = { iconeJogador, iconeAliado, iconeInimigo, iconeVila, iconeRuinas, iconeAcampamento, iconeCemiterio };
+        string[] nomes = { "Você", "Outro jogador", "Inimigo", "Vila", "Ruínas", "Acampamento", "Cemitério" };
+        for (int i = 0; i < ic.Length; i++)
+        {
+            Icone(ic[i], new Vector2(x + 14f * e, y + 14f * e), 26f * e, 0f, 1f);
+            GUI.Label(new Rect(x + 36f * e, y, 220f * e, 30f * e), nomes[i], estiloLegenda);
+            y += 34f * e;
+        }
+    }
+
+    // ------------------------------------------------------------------
+    //  estradas e GPS
+    // ------------------------------------------------------------------
+    // área murada dos lugares grandes (cemitério): preenchimento suave + contorno
+    private readonly List<Vector2> doisPontos = new List<Vector2> { Vector2.zero, Vector2.zero };
+    private void DesenharAreas(System.Func<Vector3, Vector2> aTela, bool recortar, Vector2 centro, float raio, float e)
+    {
+        RedeDeEstradas rede = RedeDeEstradas.Instancia;
+        if (rede == null) return;
+        foreach (RedeDeEstradas.Destino d in rede.destinos)
+        {
+            if (!d.temArea) continue;
+            Quaternion q = Quaternion.Euler(0f, d.areaYaw, 0f);
+            float hx = d.areaTamanho.x * 0.5f, hz = d.areaTamanho.y * 0.5f;
+            Vector2[] c = new Vector2[4];
+            c[0] = aTela(d.posicao + q * new Vector3(-hx, 0f, -hz)); c[1] = aTela(d.posicao + q * new Vector3(hx, 0f, -hz));
+            c[2] = aTela(d.posicao + q * new Vector3(hx, 0f, hz));   c[3] = aTela(d.posicao + q * new Vector3(-hx, 0f, hz));
+            int n = 56;
+            float larg = Mathf.Max(2f, (c[1] - c[0]).magnitude / n * 1.04f);
+            Color fundo = new Color(0.55f, 0.28f, 0.25f, 0.26f), borda = new Color(0.32f, 0.17f, 0.14f, 0.95f);
+            for (int k = 0; k < n; k++)
+            {
+                float t = (k + 0.5f) / n;
+                doisPontos[0] = Vector2.Lerp(c[0], c[3], t); doisPontos[1] = Vector2.Lerp(c[1], c[2], t);
+                if (recortar) DesenhoMapa.LinhaNoCirculo(doisPontos, larg, fundo, centro, raio); else DesenhoMapa.Linha(doisPontos, larg, fundo);
+            }
+            bufferLinha.Clear();
+            bufferLinha.Add(c[0]); bufferLinha.Add(c[1]); bufferLinha.Add(c[2]); bufferLinha.Add(c[3]); bufferLinha.Add(c[0]);
+            if (recortar) DesenhoMapa.LinhaNoCirculo(bufferLinha, 5f * e, borda, centro, raio); else DesenhoMapa.Linha(bufferLinha, 4f * e, borda);
+        }
+    }
+
+    private void RotasNoMiniMapa(System.Func<Vector3, Vector2> naTela, Vector2 centro, float raio, float e)
+    {
+        DesenharAreas(w => centro + naTela(w), true, centro, raio, e);
+        RedeDeEstradas rede = RedeDeEstradas.Instancia;
+        if (rede != null)
+            foreach (RedeDeEstradas.Estrada est in rede.estradas)
+            {
+                if (est.pontos == null || est.pontos.Length < 2) continue;
+                bufferLinha.Clear();
+                foreach (Vector3 p in est.pontos) bufferLinha.Add(centro + naTela(p));
+                DesenhoMapa.LinhaNoCirculo(bufferLinha, 5f * e, COR_ESTRADA, centro, raio);
+            }
+        GPSDoMapa gps = GPSDoMapa.Instancia;
+        if (gps == null || !gps.Ativo || gps.Rota.Count < 2) return;
+        bufferLinha.Clear();
+        foreach (Vector3 p in gps.Rota) bufferLinha.Add(centro + naTela(p));
+        DesenhoMapa.LinhaNoCirculo(bufferLinha, 10f * e, new Color(0f, 0f, 0f, 0.8f), centro, raio);
+        DesenhoMapa.LinhaNoCirculo(bufferLinha, 6f * e, COR_GPS, centro, raio);
+        Vector2 d = naTela(gps.Destino);
+        bool fora = d.magnitude > raio * 0.93f;
+        if (fora) d = d.normalized * raio * 0.93f;
+        DesenhoMapa.Marca(centro + d, (fora ? 9f : 13f) * e, COR_GPS);
+    }
+
+    private void RotasNoPergaminho(System.Func<Vector3, Vector2> noMapa, float e)
+    {
+        DesenharAreas(noMapa, false, Vector2.zero, 0f, e);
+        RedeDeEstradas rede = RedeDeEstradas.Instancia;
+        if (rede != null)
+            foreach (RedeDeEstradas.Estrada est in rede.estradas)
+            {
+                if (est.pontos == null || est.pontos.Length < 2) continue;
+                bufferLinha.Clear();
+                foreach (Vector3 p in est.pontos) bufferLinha.Add(noMapa(p));
+                DesenhoMapa.Linha(bufferLinha, 3.5f * e, COR_ESTRADA);
+            }
+        GPSDoMapa gps = GPSDoMapa.Instancia;
+        if (gps == null || !gps.Ativo || gps.Rota.Count < 2) return;
+        bufferLinha.Clear();
+        foreach (Vector3 p in gps.Rota) bufferLinha.Add(noMapa(p));
+        DesenhoMapa.Linha(bufferLinha, 8f * e, new Color(0f, 0f, 0f, 0.8f));
+        DesenhoMapa.Linha(bufferLinha, 4.5f * e, COR_GPS);
+        DesenhoMapa.Marca(noMapa(gps.Destino), 12f * e, COR_GPS);
+    }
+
+    // clique num ícone = traçar caminho até ele; botão direito no mapa = marcar um ponto livre
+    private void CliquesDoPergaminho(Rect r, System.Func<Vector3, Vector2> noMapa, float e)
+    {
+        GPSDoMapa gps = GPSDoMapa.Instancia;
+        Event ev = Event.current;
+        if (gps != null && ev.type == EventType.MouseDown && r.Contains(ev.mousePosition) && (ev.button == 0 || ev.button == 1))
+        {
+            bool tratou = false;
+            foreach (Marcador m in marcadores)
+                if ((noMapa(m.posicao) - ev.mousePosition).magnitude < 24f * e) { gps.AlternarPorMarcador(m); tratou = true; break; }
+            if (!tratou)
+            {
+                // clicar perto do ponto já marcado desmarca; em qualquer outro lugar marca um ponto novo
+                if (gps.Ativo && (noMapa(gps.Destino) - ev.mousePosition).magnitude < 26f * e) gps.Cancelar();
+                else
+                {
+                    Vector2 uv = new Vector2((ev.mousePosition.x - r.x) / r.width, (r.yMax - ev.mousePosition.y) / r.height);
+                    Vector3 w = new Vector3(origem.x + uv.x * tamanho.x, 0f, origem.y + uv.y * tamanho.y);
+                    Terrain t = Terrain.activeTerrain;
+                    if (t != null) w.y = t.SampleHeight(w) + t.transform.position.y;
+                    gps.Definir(w, "Ponto marcado", false, Vector3.zero);
+                }
+            }
+            ev.Use();
+        }
+        string dica = "Clique no mapa: marcar o GPS   •   Clique de novo no ponto: desmarcar   •   X: cancelar";
+        GUI.Label(new Rect(r.x - 100f * e, r.y - 38f * e, r.width + 200f * e, 28f * e), dica, estiloNome2 ?? estiloLegenda);
+    }
+
+    private Texture2D IconeDo(Tipo t)
+    {
+        switch (t)
+        {
+            case Tipo.Vila: return iconeVila;
+            case Tipo.Ruinas: return iconeRuinas;
+            case Tipo.Acampamento: return iconeAcampamento;
+            default: return iconeCemiterio;
+        }
+    }
+
+    private static void Icone(Texture2D t, Vector2 centro, float tam, float angulo, float alfa)
+    {
+        if (t == null) return;
+        Matrix4x4 antes = GUI.matrix;
+        Color corAntes = GUI.color;
+        if (angulo != 0f) GUIUtility.RotateAroundPivot(angulo, centro);
+        GUI.color = new Color(1f, 1f, 1f, alfa);
+        GUI.DrawTexture(new Rect(centro.x - tam * 0.5f, centro.y - tam * 0.5f, tam, tam), t);
+        GUI.color = corAntes;
+        GUI.matrix = antes;
+    }
+
+    private static void Retangulo(Rect r, Color c)
+    {
+        Color a = GUI.color; GUI.color = c;
+        GUI.DrawTexture(r, Texture2D.whiteTexture);
+        GUI.color = a;
+    }
+}

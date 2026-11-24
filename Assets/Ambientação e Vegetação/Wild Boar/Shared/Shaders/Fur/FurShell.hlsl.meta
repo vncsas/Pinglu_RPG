@@ -1,0 +1,14 @@
+fileFormatVersion: 2
+guid: 900095cabcbd5865bb63f45da6b09338
+ShaderIncludeImporter:
+  externalObjects: {}
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 415578
+  packageName: WIld Boar - Free sample Ultrarealistic Forest Animals
+  packageVersion: 1.1
+  assetPath: Assets/Wild Boar/Shared/Shaders/Fur/FurShell.hlsl
+  uploadId: 1040004

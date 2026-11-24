@@ -1,0 +1,16 @@
+fileFormatVersion: 2
+guid: 7e16f352c432f214abe8ca569f65499a
+ShaderImporter:
+  externalObjects: {}
+  defaultTextures: []
+  nonModifiableTextures: []
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 393316
+  packageName: Furry Squirrel - FurBrush Showcase (URP + HDRP)
+  packageVersion: 1.0
+  assetPath: Assets/Furry Squirrel/Fur/Shaders/SquirrelFurCard_HDRP.shader
+  uploadId: 953350

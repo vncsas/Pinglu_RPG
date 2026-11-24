@@ -1,0 +1,14 @@
+MONSTRO DO PANTANO - esqueleto + animacoes
+==========================================
+Arquivos: Monstro.fbx (malha + 35 ossos, rig Generic, 5 clipes), Monstro_cor.jpg, Monstro_normal.jpg,
+          Editor/MontarMonstro.cs, Scripts/MonstroDemo.cs, scripts/ (pipeline Blender).
+
+Como usar na Unity:
+ 1. Copie a pasta para Assets/Personagens/Monstro (a Unity gera os .meta).
+ 2. Menu  Monstro > Montar tudo   (configura o FBX, cria o material e o prefab com COLISOR).
+ 3. Menu  Monstro > Cena de teste, Play, teclas 1-5.
+
+Clipes: Idle, Walk, Run (loop), Attack, Death (sem loop). Todos "no lugar" - o movimento e feito pelo jogo.
+Altura ~2,3 m, frente = +Z. Colisor: capsula no corpo + capsula na cabeca; Rigidbody kinematic.
+Ossos: Root, Hips, Spine1, Spine2, Chest, Neck, Head, L/R Clavicle, Arm, Forearm, Hand, Fingers, Thigh, Shin, Foot, Toe.
+Limitacoes: a malha do scan tem 10k triangulos e as maos/dedos sao uma peca so (Fingers = 1 osso); a pose original (curvada, passo largo) foi endireitada no Blender (04_empe.py).

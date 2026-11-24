@@ -1,0 +1,16 @@
+fileFormatVersion: 2
+guid: 49415e8fb36e500a91e72311d21be495
+ShaderImporter:
+  externalObjects: {}
+  defaultTextures: []
+  nonModifiableTextures: []
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 415578
+  packageName: WIld Boar - Free sample Ultrarealistic Forest Animals
+  packageVersion: 1.1
+  assetPath: Assets/Wild Boar/Shared/Shaders/Fur/FurCards_Built-in.shader
+  uploadId: 1040004

@@ -1,0 +1,319 @@
+CAVALEIRO SOMBRIO - PACOTE PARA ANIMACAO
+========================================
+
+ARQUIVOS  (para usar no Unity, siga a secao IMPORTAR NO UNITY logo abaixo)
+- cavaleiro_sombrio_rigged.fbx -> modelo + esqueleto + pesos (Unity, Maya, 3ds Max, Blender...)
+- cavaleiro_sombrio_rig.blend  -> mesma coisa no Blender 5.2, COM controles de animacao (IK) e
+                                  materiais prontos - use este se for animar no Blender
+- texturas_unity/              -> texturas 2048 (3 materiais: tecido, metal, espada)
+- animacoes/                   -> 15 animacoes prontas (andar, correr, guardar/sacar espada, lutar),
+                                  um .fbx por animacao + animacoes.blend + previas/
+- exemplo/                     -> ciclo de caminhada de teste (feito so com os controles)
+- renders/                     -> imagens das poses de teste
+- scripts/                     -> ferramentas do Blender (validacao, teste de animacao, refazer o rig)
+- unity/                       -> scripts do Unity: GuardaEspada.cs (troca a espada mao/costas),
+                                  DemoCavaleiro.cs (tela de teste com botoes) e Editor/MontarCavaleiroSombrio.cs
+                                  (menu que configura tudo sozinho - veja logo abaixo)
+
+ESPECIFICACOES
+- Altura: 1,84 m, escala 1:1 (metros). Pes no chao. Olha para +Z no Unity.
+- Pose de repouso: T-POSE (bracos na horizontal), com joelhos e cotovelos levemente dobrados (~7 graus)
+  de proposito: isso deixa o IK estavel. O Unity aceita normalmente.
+- Malha: ~44 mil triangulos (Body 41,6k + Sword 2,4k). Materiais: Tecido e Metal no corpo, Espada na espada.
+- Pesos: no maximo 4 ossos por vertice (padrao Unity). As pecas rigidas da armadura (placas,
+  argolas, coroa, mascara, placas dos dedos) seguem um osso so, sem entortar.
+- COM ossos de dedos nas duas maos (3 por dedo, padrao Humanoid).
+  A mao direita foi modelada FECHADA no cabo da espada; a esquerda, aberta e relaxada. As animacoes
+  abrem a mao direita (relaxada) quando a espada esta nas costas.
+
+IMPORTAR NO UNITY - JEITO RAPIDO
+  Com a pasta em Assets/Personagens/CavaleiroSombrio, use o menu do Unity
+     Cavaleiro Sombrio > Montar tudo
+  Ele faz sozinho os passos 1, 2 e 4 abaixo (Humanoid, texturas e materiais, as 16 animacoes com
+  loop e eventos da espada), cria o Animator Controller CavaleiroSombrio.controller e a cena
+  Teste_CavaleiroSombrio.unity (botoes para cada animacao; de Play). Depois: Cavaleiro Sombrio >
+  Abrir cena de teste. O passo 0 (.meta) continua valendo. O passo a passo manual fica abaixo para
+  quem quiser entender ou fazer na mao.
+
+IMPORTAR NO UNITY - PASSO A PASSO (faca nesta ordem)
+  Antes: tenha o Git LFS instalado (veja o README do projeto) e abra o projeto no Unity 6000.6.1f1.
+  Os arquivos .fbx e .png vem pelo LFS; sem ele o boneco aparece quebrado.
+
+  0. Arquivos .meta (so UMA pessoa faz, uma vez)
+     A pasta subiu sem os arquivos .meta. O Unity cria eles sozinho ao abrir o projeto.
+     Combine para que so uma pessoa abra primeiro e de commit dos .meta gerados
+     (git add Assets/Personagens/CavaleiroSombrio + commit + push). Os outros so dao git pull depois.
+     Se duas pessoas gerarem ao mesmo tempo, os IDs ficam diferentes e da conflito.
+
+  1. Esqueleto (Humanoid)
+     - No painel Project, clique UMA vez em Personagens/CavaleiroSombrio/cavaleiro_sombrio_rigged.
+     - Inspector (direita) > aba Rig > Animation Type: Humanoid
+       > Avatar Definition: Create From This Model > Apply.
+     - Clique em Configure...: todos os ossos devem aparecer VERDES.
+       Os ossos extras (*_Twist, RightHandWeapon, SwordBack) ficam fora do mapeamento; isso e o certo.
+     - Confira as abas Left Hand e Right Hand (embaixo, no Inspector): os 15 ossos de dedo de cada
+       mao devem estar preenchidos (LeftThumbProximal, LeftIndexProximal...).
+     - Deixe os dedos das DUAS maos mapeados: as animacoes da pasta animacoes/ ja trazem a mao
+       direita fechada no cabo quando ela segura a espada e aberta quando a espada vai para as costas.
+       (Animacoes de outras fontes que abrem a mao enquanto segura a espada: use uma Avatar Mask
+       sem "Right Fingers" na camada do Animator.)
+     - Se aparecer algo vermelho: Pose > Enforce T-Pose. Depois Apply > Done.
+
+  2. Texturas e materiais (senao o boneco fica todo BRANCO)
+     a) Na pasta texturas_unity, clique em cada *_Normal (sao 3) > Texture Type: "Normal map" > Apply.
+     b) Clique em cada *_MetallicSmoothness e cada *_Occlusion (3 + 3) > desmarque
+        "sRGB (Color Texture)" > Apply.  (Da para selecionar varias de uma vez com Ctrl+clique.)
+     c) Clique no cavaleiro_sombrio_rigged > aba Materials > "Extract Materials..." > escolha a
+        pasta CavaleiroSombrio. Aparecem 3 materiais (bolinhas):
+           CavaleiroSombrio_Tecido, CavaleiroSombrio_Metal, CavaleiroSombrio_Espada
+     d) Clique em cada material e, no Inspector, arraste as imagens para o quadradinho na ponta
+        esquerda de cada linha (ou clique na bolinha (o) da linha e escolha na lista).
+        Exemplo para o Metal (os outros dois sao iguais, trocando "metal" por "tecido" ou "espada"):
+           cavaleiro_sombrio_metal_BaseColor          -> Base Map  (deixe a cor ao lado em branco)
+           cavaleiro_sombrio_metal_MetallicSmoothness -> Metallic Map  (Source: Metallic Alpha)
+           cavaleiro_sombrio_metal_Normal             -> Normal Map  (se pedir, clique em "Fix Now")
+           cavaleiro_sombrio_metal_Occlusion          -> Occlusion Map
+        Se o Smoothness aparecer como um controle deslizante depois de por o Metallic Map,
+        deixe em 1 (ele multiplica a lisura que vem da textura).
+     (MetallicSmoothness = metal no RGB + lisura no alfa, gerada do Roughness original invertido,
+     que e o formato que o URP espera.)
+
+  3. Colocar na cena
+     - Arraste o cavaleiro_sombrio_rigged do Project para a Scene (ou para a Hierarchy).
+     - Confira: ~1,84 m de altura, capuz escuro com coroa, armadura metalica, montante (espada
+       grande, 1,7 m) na mao direita. Na Hierarchy a espada fica dentro do osso:
+       ... > RightHand > RightHandWeapon > Sword
+     - O cavaleiro olha para o eixo +Z. Com a camera padrao (Z = -10) ele aparece de costas.
+
+  4. Testar uma animacao (sem precisar do Mixamo)
+     a) Clique em exemplo/teste_caminhada > aba Rig > Animation Type: Humanoid
+        > Avatar Definition: Copy From Other Avatar > Source: cavaleiro_sombrio_riggedAvatar > Apply.
+     b) Aba Animation > marque Loop Time > Apply.
+     c) Project > botao direito > Create > Animator Controller. De dois cliques nele e arraste
+        para a area quadriculada o clipe da caminhada (o triangulo dentro do teste_caminhada;
+        o nome dele e "Scene"). Ele vira um quadrado laranja ligado ao Entry.
+     d) Selecione o cavaleiro na cena > componente Animator > campo Controller: arraste o
+        Animator Controller. De Play: ele anda no lugar.
+     Obs.: as animacoes de Humanoid do primeiro cavaleiro (pasta Cavaleiro) tambem servem neste:
+     os nomes dos ossos sao os mesmos.
+
+  5. Guardar/sacar a espada (script)
+     O script ja vem pronto em unity/GuardaEspada.cs (codigo abaixo); adicione no cavaleiro. No Play, marque
+     "Guardada" no Inspector: a espada vai para as costas (na diagonal). As animacoes
+     Guardar_Espada e Sacar_Espada chamam GuardarEspada()/SacarEspada() sozinhas por Animation
+     Event (veja ANIMACOES PRONTAS > "Eventos").
+
+       using UnityEngine;
+       public class GuardaEspada : MonoBehaviour
+       {
+           public bool guardada;
+           public Transform sword, rightHandWeapon, swordBack;
+           bool aplicado;
+           void Reset()
+           {
+               sword = Achar("Sword"); rightHandWeapon = Achar("RightHandWeapon"); swordBack = Achar("SwordBack");
+           }
+           Transform Achar(string nome)
+           {
+               foreach (var t in GetComponentsInChildren<Transform>(true)) if (t.name == nome) return t;
+               return null;
+           }
+           public void GuardarEspada() { guardada = true; }    // chamado pelo evento da animacao
+           public void SacarEspada() { guardada = false; }     // chamado pelo evento da animacao
+           void Update()
+           {
+               if (guardada == aplicado) return;
+               sword.SetParent(guardada ? swordBack : rightHandWeapon, false);
+               aplicado = guardada;
+           }
+       }
+
+  6. Animacoes prontas: veja a secao ANIMACOES PRONTAS logo abaixo.
+
+  Avisos
+  - Os arquivos .blend desta pasta (cavaleiro_sombrio_rig.blend e exemplo/teste_caminhada.blend)
+    sao para quem anima no Blender. O Unity tenta importar .blend usando o Blender: quem nao tem
+    Blender instalado ve um aviso de importacao desses dois arquivos. Pode ignorar; o Unity usa o .fbx.
+  - Os scripts .py e o fingers.json da pasta scripts/ sao ferramentas do Blender, nao do Unity.
+
+ANIMACOES PRONTAS (pasta animacoes/)
+  Todas a 30 quadros/s, NO LUGAR (sem root motion: quem move o personagem e o script de controle).
+  Velocidade de deslocamento em que os pes nao escorregam (use no script de movimento):
+    Andar / Andar_Sem_Espada 0,73 m/s   Correr 3,19 m/s   Correr_Com_Espada 3,0 m/s
+  Cada arquivo e cavaleiro_sombrio@<Nome>.fbx e o clipe dentro dele tem o mesmo <Nome>.
+  As previas estao em animacoes/previas/.
+
+  Feitas a mao (no rig deste cavaleiro):
+    Parado              loop   parado com a espada na mao, respirando
+    Parado_Sem_Espada   loop   parado, espada nas costas
+    Andar               loop   andar com a espada na mao (braco esquerdo e ombros balancando)
+    Andar_Sem_Espada    loop   andar com a espada nas costas, os dois bracos balancando
+    Correr              loop   correr com a espada nas costas, bracos e ombros bombeando,
+                               tronco inclinado e girando ao contrario do quadril
+    Correr_Com_Espada   loop   correr segurando a espada baixa na mao direita, lamina arrastando
+                               para tras, braco esquerdo bombeando
+    Guardar_Espada      1 vez  ergue a espada na frente, passa por cima do ombro direito e encaixa
+                               nas costas (troca de encaixe no quadro 32); a mao solta, abre e desce
+    Sacar_Espada        1 vez  o inverso (a espada volta para a mao no quadro 15)
+  Da biblioteca Universal Animation Library 2 (Quaternius, licenca CC0 - uso livre, sem credito
+  obrigatorio), transferidas para este esqueleto:
+    Ataque_A, Ataque_B, Ataque_C   golpes sozinhos           Ataque_Combo    sequencia de golpes
+    Ataque_Pesado                  combo pesado com giro      Defender        bloqueio
+    Investida                      avanco com golpe           Levar_Golpe     e arremessado e cai
+  Ajustes feitos nelas: os golpes foram feitos para espada curta; onde o montante (1,7 m) entraria
+  no chao ou atravessaria o proprio corpo, o pulso gira so o necessario naqueles quadros (suavizado
+  nos vizinhos), e o quadril sobe onde pes/armadura afundariam. Sobram toques de 1-2 quadros em
+  Ataque_C, Ataque_Combo e Ataque_Pesado, e a barra da tunica raspa o chao nos avancos bem baixos.
+  Checagem: scripts/check_anim.py (chao, corpo e espada x corpo, quadro a quadro).
+
+  No Unity, para CADA fbx da pasta animacoes:
+    a) Rig > Animation Type: Humanoid > Avatar Definition: Copy From Other Avatar >
+       Source: cavaleiro_sombrio_riggedAvatar > Apply.
+    b) Aba Animation: nas de loop (Parado*, Andar*, Correr*) marque Loop Time e Loop Pose > Apply.
+    (Da para selecionar varios fbx juntos com Ctrl+clique e mudar tudo de uma vez.)
+
+  Eventos (para a espada trocar de lugar no momento certo):
+    Clique em cavaleiro_sombrio@Guardar_Espada > aba Animation > desca ate "Events" > arraste a
+    barrinha do tempo ate 0.689 (quadro 32) > botao "Add Event" > Function: GuardarEspada > Apply.
+    Em cavaleiro_sombrio@Sacar_Espada: tempo 0.311 (quadro 15) > Function: SacarEspada > Apply.
+    O cavaleiro precisa ter o script GuardaEspada (passo 5) para os eventos funcionarem.
+
+  Montagem sugerida no Animator Controller (botao direito > Create > Animator Controller):
+    - Parametros: Velocidade (Float), Armado (Bool), Atacar (Trigger), Defender (Bool), Golpe (Trigger)
+    - Parado -> Andar quando Velocidade > 0.1;  Andar -> Correr quando Velocidade > 3
+      (e o contrario com < ), usando Parado/Andar se Armado = true e
+      Parado_Sem_Espada/Andar_Sem_Espada se Armado = false.
+    - Correr usa a espada nas costas e Correr_Com_Espada com ela na mao: escolha pelo Armado.
+      Guardar_Espada/Sacar_Espada fazem a troca (Armado vira false/true).
+    - Ataque_*, Defender, Investida, Levar_Golpe saindo de "Any State" pelos triggers.
+    Dica: comece so com Parado/Andar/Correr para testar e va adicionando.
+
+  No Blender: animacoes/animacoes.blend tem todas as acoes acima (Dope Sheet > Action Editor).
+    A propriedade "espada_nas_costas" (no CTRL_Root, 0 = mao, 1 = costas) troca a espada de
+    lugar e ja esta chaveada em cada acao. As texturas sao procuradas em ../texturas_unity.
+  Para checar chao/espada de qualquer animacao:
+    blender -b animacoes/animacoes.blend -P scripts/check_anim.py -- [NomeDaAcao ...]
+
+ESQUELETO (nomes no padrao Humanoid do Unity - NAO renomear)
+  Hips
+   +- Spine > Chest > UpperChest > Neck > Head
+   |                  UpperChest > SwordBack                        (encaixe: espada nas costas)
+   |                  UpperChest > LeftShoulder  > LeftUpperArm  > LeftLowerArm  > LeftHand  > dedos
+   |                                                               LeftLowerArm  > LeftLowerArm_Twist  (torcao)
+   |                  UpperChest > RightShoulder > RightUpperArm > RightLowerArm > RightHand > dedos
+   |                                                                                 RightHand > RightHandWeapon (encaixe: espada na mao)
+   |                                                               RightLowerArm > RightLowerArm_Twist (torcao)
+   +- LeftUpperLeg  > LeftLowerLeg  > LeftFoot  > LeftToes
+   +- RightUpperLeg > RightLowerLeg > RightFoot > RightToes
+  Dedos (cada mao, Left... e Right...):
+     Thumb / Index / Middle / Ring / Little  x  Proximal > Intermediate > Distal
+     ex.: LeftIndexProximal > LeftIndexIntermediate > LeftIndexDistal
+
+ESPADA (PROP)
+- Sword e um objeto rigido (MeshRenderer), filho do osso RightHandWeapon.
+- O encaixe das costas (SwordBack) tem a mesma orientacao relativa, entao no Unity basta:
+    sword.transform.SetParent(swordBack, false);        // espada nas costas
+    sword.transform.SetParent(rightHandWeapon, false);  // de volta na mao
+  Com "false" a posicao local fica zerada e a espada encaixa certinho.
+- Para esconder a espada: desative o GameObject Sword.
+- Empunhadura: a mao direita segura o CABO logo abaixo da guarda, com a lamina saindo pelo lado do
+  polegar (empunhadura normal). O modelo original vinha com a espada invertida (lamina saindo pelo
+  lado do dedinho, mao acima da guarda); ela foi virada no rig para os golpes ficarem certos.
+  A mao ESQUERDA entra no resto do cabo, perto do pomo, para golpes a duas maos.
+
+OSSOS EXTRAS (nao fazem parte do Humanoid - deixe "None" no mapeamento se o Unity tentar usar)
+- *_Twist: dividem a torcao do pulso pelo antebraco. No Blender ja giram sozinhos (metade da mao).
+  No Unity, para funcionar com animacoes Humanoid, adicione em cada um um "Rotation Constraint"
+  com fonte = osso Hand do mesmo lado, peso 0.5 (eixo Y). Sem isso eles so acompanham o antebraco.
+
+COMO ANIMAR
+Opcao A - Animacoes prontas (Mixamo / Asset Store) no Unity:
+  1. Baixe as animacoes do Mixamo em "FBX for Unity", Skin: "Without Skin".
+  2. No Unity, em cada FBX de animacao: Rig > Animation Type: Humanoid > Apply.
+  3. No cavaleiro, clique em Configure... e confira o mapeamento (ossos verdes).
+  4. Use as animacoes num Animator Controller aplicado ao cavaleiro.
+  Obs.: NAO subir o cavaleiro no auto-rigger do Mixamo (ele refaz o esqueleto e perde a espada presa).
+  Animacoes de espada de uma mao funcionam, mas a espada dele e enorme: prefira animacoes de
+  "great sword" / "two handed sword" para nao atravessar o chao ou o corpo.
+
+Opcao B - Animar no Blender (cavaleiro_sombrio_rig.blend):
+  Controles (colecao de ossos "Controles", com formas de arame):
+   - CTRL_Root (circulo grande no chao): move o personagem inteiro.
+   - IK_Foot_Left/Right (caixas nos pes): movem/giram o pe; a perna segue (IK).
+       RF_Ball_*  -> gire em X positivo para levantar o calcanhar (pivo na base dos dedos)
+       RF_Toe_*   -> gire em X positivo para ficar na ponta do pe (pivo na ponta)
+   - POLE_Knee_* (esferas na frente dos joelhos): direcao do joelho.
+   - IK_Hand_Left/Right (caixas nas maos) + POLE_Elbow_* (esferas atras dos cotovelos).
+   - Hips: mover o quadril (abaixar/agachar) com os pes presos no chao.
+  Chaves IK/FK: selecione CTRL_Root > painel N (Item) ou aba Bone > Custom Properties:
+       ik_perna_Left / ik_perna_Right  (padrao 1 = IK)
+       ik_braco_Left / ik_braco_Right  (padrao 0 = FK: gire os ossos do braco direto)
+  DEDOS (colecao "Dedos"): gire cada osso no eixo X local.
+       X POSITIVO FECHA o dedo, X negativo abre. (Vale para os 5 dedos das duas maos.)
+       Dica: selecione os 3 ossos de um dedo e gire juntos (R, X, X digitando o angulo).
+       A mao direita parte fechada no cabo; ela abre ate uns 40-50 graus sem deformar feio
+       (a luva foi modelada fechada; abrir totalmente estica o tecido entre o polegar e o indicador).
+  Colecoes de ossos: Deform, Dedos, Controles, Encaixes, Mecanismo (oculta - nao mexer).
+
+  Golpe com as duas maos: deixe o braco direito em IK (ik_braco_Right = 1), posicione a espada
+  com IK_Hand_Right e coloque IK_Hand_Left (ik_braco_Left = 1) no cabo, abaixo da guarda.
+  Depois feche os dedos da mao esquerda (X positivo) em volta do cabo.
+
+  Passo a passo para criar uma animacao nova:
+    1. Abra cavaleiro_sombrio_rig.blend e salve uma copia com o nome da animacao (ex.: anim_ataque.blend).
+       Salve a copia NESTA MESMA PASTA (as texturas sao procuradas em texturas_unity/ ao lado).
+    2. Selecione Armature > Pose Mode (Ctrl+Tab). Mexa nos controles e insira chaves (tecla I).
+    3. De um nome para a Action (Dope Sheet > Action Editor), ex.: "Ataque_01".
+    4. Exporte (File > Export > FBX), selecionando Armature + Body + Sword:
+       - Limit to: Selected Objects
+       - Object Types: Armature e Mesh  (RECOMENDADO incluir a malha: o arquivo leva a pose de
+         repouso exata do personagem; so com o esqueleto tambem funciona)
+       - Transform > Apply Scalings: "FBX All"
+       - Armature: "Only Deform Bones" LIGADO, "Add Leaf Bones" DESLIGADO
+       - Bake Animation LIGADO, "NLA Strips" e "All Actions" DESLIGADOS, Sampling Rate 1
+    Os controles NAO vao para o FBX (nao deformam); o movimento deles e "assado" nos ossos.
+    Obs.: se reimportar o FBX no Blender, o clipe aparece comecando no quadro 2 em vez do 1.
+    E so o importador do Blender; no Unity o clipe comeca no primeiro quadro normalmente.
+
+  Exemplo pronto: exemplo/teste_caminhada.blend (ciclo de caminhada feito so com os controles)
+  e exemplo/teste_caminhada.fbx (exportado com as configuracoes acima). Use como referencia.
+
+  No Unity, para clipes feitos no Blender: selecione o FBX da animacao > Rig > Humanoid >
+  Avatar Definition: "Copy From Other Avatar" > escolha o Avatar do cavaleiro sombrio > Apply.
+  (Para clipes do Mixamo use "Create From This Model", como na Opcao A.)
+
+TESTE DE PONTA A PONTA (ja feito com este rig)
+  Animacao feita no Blender so com os controles -> exportada como acima -> reimportada e
+  comparada com a original: mesmos 56 ossos, mesmos nomes do personagem, movimento identico
+  quadro a quadro (diferenca < 0,1 mm). Para repetir com outra animacao:
+    blender -b -P scripts/anim_verify.py -- cavaleiro_sombrio_rigged.fbx minha_animacao.fbx minha_animacao.blend
+
+VALIDACAO (para quem cuida dos rigs)
+  blender -b -P scripts/validate.py -- arquivo.fbx
+  Confere: ossos obrigatorios do Humanoid e hierarquia, sem leaf bones, sem ossos de controle,
+  todos os vertices com peso, max. 4 ossos por vertice, pesos normalizados, T-pose, escala,
+  pes no chao e total de triangulos. Sai com erro se algo reprovar.
+  Resultado deste rig: 0 FAIL, 0 WARN (APROVADO).
+
+REFAZER O RIG DO ZERO (para quem cuida dos rigs; precisa do FBX e das texturas originais)
+  blender -b -P scripts/step1_norm.py -- Knight_All.fbx norm.blend
+  blender -b norm.blend -P scripts/fingers.py -- scripts fingers.json
+  blender -b norm.blend -P scripts/build.py -- scripts fingers.json rig_a.blend
+  blender -b -P scripts/make_textures.py -- <pasta textures original> texturas_unity
+  blender -b rig_a.blend -P scripts/rig_b.py -- texturas_unity <pasta de saida>
+  Animacoes:
+  blender -b cavaleiro_sombrio_rig.blend -P scripts/locomotion.py -- scripts loco.blend
+  blender -b loco.blend -P scripts/retarget.py -- UAL2_Standard.fbx anim.blend Sword_Regular_A=Ataque_A ...
+  blender -b anim.blend -P scripts/fix_floor.py -- anim_fix.blend Ataque_A Ataque_B ...
+  blender -b anim_fix.blend -P scripts/export_anims.py -- animacoes
+  Etapas: endireita o modelo (estava girado 17 graus) -> acha as juntas dos dedos pelas plaquinhas
+  de metal da luva (uma por falange) -> pesos peca por peca (cada peca so usa os ossos da sua
+  regiao do corpo; pecas pequenas ficam rigidas) -> T-pose, espada, encaixes, controles e export.
+
+CUIDADOS
+- Tunica longa: cada lado segue a sua perna (a barra acompanha a canela), para a caneleira de metal
+  nao sair pela frente do pano ao andar/correr. A perna esquerda aparece pela fenda da frente (e do
+  modelo). Em passadas muito abertas o pano estica entre as pernas; em chutes altos pode atravessar.
+- Ombreiras: com o braco levantado acima da cabeca elas sobem junto e aparece a malha de aneis
+  por baixo (e do modelo).
+- A espada tem 1,7 m: cuidado com o chao e com as pernas em animacoes de outras armas.

@@ -1,0 +1,37 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 45772ae0587a59f2abfe47e73b6fe1b9, type: 3}
+  m_Name: 3_Personagem3
+  m_EditorClassIdentifier: Assembly-CSharp::FichaPersonagem
+  nome: Granito
+  descricao: "Criatura alada de coura\xE7a viva. Fecha as asas num escudo de energia que segura quase todo o dano, esmaga o que est\xE1 \xE0 frente com pancadas de escudo e sobe aos ares para atravessar o campo de batalha."
+  habilidades:
+  - "Escudo de energia: segura 90% do dano (bot\xE3o direito)"
+  - "Pancada de escudo em \xE1rea (clique esquerdo)"
+  - "Voo livre: F decola, Espa\xE7o sobe, C desce"
+  - 'Muita vida: aguenta a linha de frente'
+  corDestaque: {r: 0.35, g: 0.65, b: 1, a: 1}
+  retrato: {fileID: 0}
+  titulo: O Colosso de Pedra
+  fonteNome: {fileID: 12800000, guid: 5cb9fd40a4397df7e95b685423c93bc0, type: 3}
+  tamanhoNome: 78
+  corNome: {r: 0.78, g: 0.9, b: 1, a: 1}
+  forca: 6
+  defesa: 10
+  velocidade: 3
+  alcance: 3
+  modeloVisual: {fileID: 780780104295902370, guid: dd401283f763c8baeb2c53e027af573f, type: 3}
+  animacaoParado: {fileID: -619547186965265060, guid: b7e1fdbada33184b8a384c2044b5df2d, type: 3}
+  animacaoEntrada: {fileID: 5562112990743859121, guid: b372e0eec1bf404cf8d72485c654a288, type: 3}
+  animacaoAndar: {fileID: -1055766231766805323, guid: b97c896f5a875e896abde11e4641fefe, type: 3}
+  prefabJogador: {fileID: 9042936588447044564, guid: 27cea95004b975b748756771451c7f57, type: 3}
+  disponivel: 1

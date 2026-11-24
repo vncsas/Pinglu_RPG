@@ -1,0 +1,102 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!21 &2100000
+Material:
+  serializedVersion: 8
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_Name: Squirrel_Shell_URP
+  m_Shader: {fileID: 4800000, guid: 88f593447dfa9b240a6e8a578f06bdf7, type: 3}
+  m_Parent: {fileID: 0}
+  m_ModifiedSerializedProperties: 0
+  m_ValidKeywords:
+  - _CONTROL_UV1
+  - _NORMALMAP
+  m_InvalidKeywords:
+  - _ALPHAFLIPY_ON
+  - _ALPHALUM
+  m_LightmapFlags: 4
+  m_EnableInstancingVariants: 0
+  m_DoubleSidedGI: 0
+  m_CustomRenderQueue: -1
+  stringTagMap: {}
+  disabledShaderPasses: []
+  m_LockedProperties: 
+  m_SavedProperties:
+    serializedVersion: 3
+    m_TexEnvs:
+    - _BaseMap:
+        m_Texture: {fileID: 2800000, guid: 4c0d97ede7973b5499d353396fc3dbba, type: 3}
+        m_Scale: {x: 1, y: 1}
+        m_Offset: {x: 0, y: 0}
+    - _BumpMap:
+        m_Texture: {fileID: 2800000, guid: 2f820939194988d459f928cadbc7dfa9, type: 3}
+        m_Scale: {x: 1, y: 1}
+        m_Offset: {x: 0, y: 0}
+    - _FurAlpha:
+        m_Texture: {fileID: 0}
+        m_Scale: {x: 1, y: 1}
+        m_Offset: {x: 0, y: 0}
+    - _FurControlMap:
+        m_Texture: {fileID: 2800000, guid: 004780a8659ef874eb0a58a2f52b0d7c, type: 2}
+        m_Scale: {x: 1, y: 1}
+        m_Offset: {x: 0, y: 0}
+    - _FurWidthMap:
+        m_Texture: {fileID: 2800000, guid: 190e92c603834ad4292433e7b7b49c06, type: 2}
+        m_Scale: {x: 1, y: 1}
+        m_Offset: {x: 0, y: 0}
+    - _SmoothnessMap:
+        m_Texture: {fileID: 0}
+        m_Scale: {x: 1, y: 1}
+        m_Offset: {x: 0, y: 0}
+    m_Ints: []
+    m_Floats:
+    - _AlbedoInfluence: 1
+    - _AlbedoProjection: 1
+    - _AlphaDither: 0.5
+    - _AlphaFlipY: 1
+    - _AlphaFromLuminance: 1
+    - _AlphaMipBias: -2
+    - _AnisoSpecular: 0.059
+    - _CardBillboard: 0
+    - _CardStrands: 12
+    - _Clumping: 1
+    - _ColorVar: 0.3
+    - _CombJitter: 0
+    - _CombStrength: 1.2
+    - _CombSurfaceAdherence: 0.65
+    - _CombTipBend: 0.5
+    - _CombUprightness: 0.511
+    - _Cutoff: 0.6
+    - _Density: 1335
+    - _DiffuseWrap: 0.336
+    - _DirRandom: 0.1
+    - _EnableSilhouetteCorrection: 1
+    - _GravityStrength: 0.3
+    - _HasControlMap: 1
+    - _HasWidthMap: 1
+    - _LengthJitter: 0
+    - _LengthScale: 0.73
+    - _MaxLength: 0.05
+    - _ParallaxScale: 3.01
+    - _Rim: 0.316
+    - _RootAO: 0.5
+    - _RoughnessInput: 0
+    - _ShadowOpacity: 0.45
+    - _ShellCount: 16
+    - _SilhouetteStretch: 3.78
+    - _SilhouetteTilt: 0
+    - _Smoothness: 0.5
+    - _SmoothnessChannel: 3
+    - _Thinness: 0
+    - _UseAlphaTex: 0
+    - _UseNormalMap: 1
+    - _UseSmoothnessMap: 0
+    m_Colors:
+    - _BaseColor: {r: 0.9063317, g: 0.9063317, b: 0.9063317, a: 1}
+    - _Gravity: {r: 0, g: -1, b: 0, a: 0}
+    - _RootColor: {r: 1, g: 1, b: 1, a: 1}
+    - _TipColor: {r: 1, g: 1, b: 1, a: 1}
+  m_BuildTextureStacks: []

@@ -1,0 +1,17 @@
+fileFormatVersion: 2
+guid: a87840b89edd5f76b2e66d35c055e902
+labels:
+- Authored
+NativeFormatImporter:
+  externalObjects: {}
+  mainObjectFileID: 7400000
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 415578
+  packageName: WIld Boar - Free sample Ultrarealistic Forest Animals
+  packageVersion: 1.1
+  assetPath: Assets/Wild Boar/Animals/Wild_Boar/Animations/Attack_Bite_Forward_Lunge_Tear.anim
+  uploadId: 1040004

@@ -1,0 +1,3 @@
+Modelos e texturas do cemitério: Poly Haven (https://polyhaven.com), licença CC0 (domínio público).
+Modelos: gothic_statue, marble_bust_01, large_iron_gate, Lantern_01, dead_tree_trunk_02, dead_tree_trunk, tree_stump_01, tree_stump_02, root_cluster_01, rock_moss_set_01, rock_moss_set_02, dry_branches_medium_01
+Texturas: castle_brick_01, worn_rock_natural_01, rock_pitted_mossy, cobblestone_floor_04, monastery_stone_floor, roof_slates_02, bark_willow_02, bark_brown_01, mossy_brick

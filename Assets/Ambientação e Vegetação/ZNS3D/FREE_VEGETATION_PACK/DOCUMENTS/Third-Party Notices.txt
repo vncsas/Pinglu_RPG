@@ -1,0 +1,33 @@
+THIRD-PARTY NOTICES
+
+HDRI ENVIRONMENT
+----------------
+
+Asset: Meadow 2
+Creator: Sergej Majboroda
+Source: Poly Haven
+License: CC0 1.0 Universal
+
+Source:
+https://polyhaven.com/a/meadow_2
+
+License:
+https://creativecommons.org/publicdomain/zero/1.0/
+
+The "Meadow 2" HDRI environment included in this package
+was created by Sergej Majboroda and is provided by Poly Haven
+under the CC0 1.0 Universal license.
+
+CC0 permits the use, modification, reproduction,
+redistribution, and inclusion of the asset in commercial
+products without requiring attribution.
+
+Attribution is not legally required under CC0; however,
+the creator and source are provided here for transparency
+and acknowledgment.
+
+Poly Haven:
+https://polyhaven.com/
+
+License information:
+https://polyhaven.com/license

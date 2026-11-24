@@ -1,0 +1,14 @@
+fileFormatVersion: 2
+guid: c5e716e27dcad6e44a7e0c2b390256b0
+ShaderIncludeImporter:
+  externalObjects: {}
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 393316
+  packageName: Furry Squirrel - FurBrush Showcase (URP + HDRP)
+  packageVersion: 1.0
+  assetPath: Assets/Furry Squirrel/Fur/Shaders/FurCard.hlsl
+  uploadId: 953350

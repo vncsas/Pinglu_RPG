@@ -20,7 +20,7 @@ using UnityEditor;
 using UnityEditor.SceneManagement;
 using UnityEngine;
 
-public static class PingluVila
+public static partial class PingluVila
 {
     // ------------------------------------------------------------------
     //  AJUSTES
@@ -38,7 +38,8 @@ public static class PingluVila
     const string BACKUP = PASTA + "/Backup_Terreno_Vila.asset";
     const string NOME_RAIZ = "Vila_Gerada";
     const string PREFIXO_OCULTO = "[oculto pela vila] ";
-    const string CAMADA_ESTRADA = "Assets/TerrainSampleAssets/TerrainLayers/Soil_Rocks_TerrainLayer.terrainlayer";
+    const string CAMADA_ESTRADA_ANTIGA = "Assets/TerrainSampleAssets/TerrainLayers/Soil_Rocks_TerrainLayer.terrainlayer";
+    static string CAMADA_ESTRADA { get { return PingluTerreno.Ativo() ? PingluTerreno.CAMADA_CAMINHO : CAMADA_ESTRADA_ANTIGA; } }   // com o terreno novo (menu 54) as estradas usam o caminho novo
     const string CAMADA_PRACA = "Assets/TerrainSampleAssets/TerrainLayers/Pebbles_A_TerrainLayer.terrainlayer";
 
     // índices dos materiais
@@ -48,7 +49,9 @@ public static class PingluVila
               AGUA = 18, FOLHAGEM = 19, BRASA = 20, LANTERNA = 21,
               P_JANELA_ARCO = 22, P_VITRAL = 23, P_GRADE = 24, P_VENEZIANA = 25, P_PORTA_ARCO = 26,
               P_PORTA = 27, P_BRASAO = 28, P_ARCO_SINO = 29;
-    const int TOTAL_MATS = 30;
+    // materiais do cemitério (texturas realistas CC0 do Poly Haven)
+    const int CEM_TIJOLO = 30, CEM_PEDRA = 31, CEM_LAPIDE = 32, CEM_PISO = 33, CEM_PRACA = 34, CEM_TELHA = 35, CEM_CASCA = 36;
+    const int TOTAL_MATS = 37;
 
     // nome, textura, cor, lisura, metal, metros por repetição (0 = painel), veio no comprimento, recorte, emissão
     struct DefMat
@@ -101,7 +104,7 @@ public static class PingluVila
             "Pode construir", "Cancelar")) return;
 
         avisos.Clear(); formas.Clear(); luzesCriadas = 0; contadorMalhas = 0; temTreino = false;
-        malhaProp = new Mesh[8]; matsProp = new Material[8][];
+        malhaProp = new Mesh[8]; matsProp = new Material[8][]; pastaMalhas = PASTA_MALHAS; prefixoOculto = PREFIXO_OCULTO;
         rng = new System.Random(SEMENTE);
 
         try
@@ -291,7 +294,7 @@ public static class PingluVila
         d[AGUA] = D("Agua", null, new Color(0.05f, 0.10f, 0.12f), 0.95f, 1f);
         d[FOLHAGEM] = D("Folhagem", "palha", new Color(0.35f, 0.55f, 0.25f), 0.05f, 0.6f);
         d[BRASA] = D("Brasa", null, new Color(0.15f, 0.04f, 0.02f), 0.3f, 1f); d[BRASA].emis = new Color(1f, 0.35f, 0.08f) * 3f;
-        d[LANTERNA] = D("Lanterna", null, new Color(1f, 0.85f, 0.5f), 0.5f, 1f); d[LANTERNA].emis = new Color(1f, 0.65f, 0.28f) * 2.5f;
+        d[LANTERNA] = D("Lanterna", null, new Color(1f, 0.85f, 0.5f), 0.5f, 1f); d[LANTERNA].emis = new Color(1f, 0.65f, 0.28f) * 6f;
         d[P_JANELA_ARCO] = D("Janela_Arco", "p_janela_arco", Color.white, 0.6f, 0f); d[P_JANELA_ARCO].recorte = true; d[P_JANELA_ARCO].emisTex = "p_janela_arco_emissao"; d[P_JANELA_ARCO].emis = Color.white * 1.3f;
         d[P_VITRAL] = D("Vitral", "p_vitral", Color.white, 0.6f, 0f); d[P_VITRAL].emisTex = "p_vitral_emissao"; d[P_VITRAL].emis = Color.white * 1.3f;
         d[P_GRADE] = D("Janela_Grade", "p_grade", Color.white, 0.3f, 0f);
@@ -300,6 +303,13 @@ public static class PingluVila
         d[P_PORTA] = D("Porta", "p_porta", Color.white, 0.15f, 0f);
         d[P_BRASAO] = D("Brasao", "p_brasao", Color.white, 0.3f, 0f); d[P_BRASAO].recorte = true;
         d[P_ARCO_SINO] = D("Arco_Sino", "p_arco_sino", Color.white, 0.1f, 0f); d[P_ARCO_SINO].recorte = true;
+        d[CEM_TIJOLO] = D("Cem_Tijolo", "cem_tijolo", new Color(0.8f, 0.77f, 0.72f), 0.12f, 1.7f);
+        d[CEM_PEDRA] = D("Cem_Pedra", "cem_pedra", new Color(0.62f, 0.6f, 0.56f), 0.1f, 1.6f);
+        d[CEM_LAPIDE] = D("Cem_Lapide", "cem_lapide", new Color(0.52f, 0.54f, 0.52f), 0.1f, 1.3f);
+        d[CEM_PISO] = D("Cem_Piso", "cem_piso", new Color(0.7f, 0.7f, 0.68f), 0.1f, 2.2f);
+        d[CEM_PRACA] = D("Cem_Praca", "cem_praca", new Color(0.62f, 0.6f, 0.58f), 0.12f, 3.2f);
+        d[CEM_TELHA] = D("Cem_Telha", "cem_telha", new Color(0.78f, 0.62f, 0.56f), 0.15f, 1.6f);
+        d[CEM_CASCA] = D("Cem_Casca", "cem_casca", new Color(0.5f, 0.46f, 0.44f), 0.05f, 1.8f); d[CEM_CASCA].veio = true;
 
         Shader lit = Shader.Find("Universal Render Pipeline/Lit");
         if (lit == null) throw new System.Exception("Não achei o shader URP/Lit.");
@@ -656,12 +666,15 @@ public static class PingluVila
         foreach (Transform t in cen.GetComponentsInChildren<Transform>())
         {
             if (!PrefabUtility.IsAnyPrefabInstanceRoot(t.gameObject) && t.GetComponent<ParticleSystem>() == null) continue;
+            bool ehPortal = false;
+            for (Transform x = t; x != null; x = x.parent) if (x.name.ToLower().Contains("portal")) { ehPortal = true; break; }
+            if (ehPortal) continue;   // o portal de chegada nunca some
             Vector3 p = t.position;
             bool ocultar = Plano(p - c).magnitude < raio;
             if (!ocultar) foreach (Forma f in formas) if (Distancia(f, p) < f.raio + 1.5f) { ocultar = true; break; }
             if (!ocultar) continue;
             Undo.RecordObject(t.gameObject, "Construir vila");
-            t.gameObject.name = PREFIXO_OCULTO + t.gameObject.name;
+            t.gameObject.name = prefixoOculto + t.gameObject.name;
             t.gameObject.SetActive(false);
         }
     }
@@ -1396,6 +1409,8 @@ public static class PingluVila
     //  objetos repetidos (a malha é criada uma vez e reaproveitada)
     //  0 barril, 1 caixote, 2 feno, 3 baú, 4 escudo, 5 suporte de armas, 6 boneco de treino, 7 alvo
     // ------------------------------------------------------------------
+    static string pastaMalhas = PASTA_MALHAS;   // o script do mapa usa outra pasta
+    static string prefixoOculto = PREFIXO_OCULTO;
     static Mesh[] malhaProp = new Mesh[8];
     static Material[][] matsProp = new Material[8][];
     static readonly string[] nomesProp = { "Barril", "Caixote", "Feno", "Bau", "Escudo", "Suporte de Armas", "Boneco de Treino", "Alvo" };
@@ -1732,7 +1747,7 @@ public static class PingluVila
         {
             mesh = m.Gerar(nome + "_" + (++contadorMalhas).ToString("000"));
             ms = m.Materiais(mats);
-            AssetDatabase.CreateAsset(mesh, PASTA_MALHAS + "/" + mesh.name + ".asset");
+            AssetDatabase.CreateAsset(mesh, pastaMalhas + "/" + mesh.name + ".asset");
         }
         GameObject g = new GameObject(nome);
         g.transform.SetParent(pai, false);
@@ -1823,6 +1838,23 @@ public static class PingluVila
             Vector3 nrm = Vector3.Cross(b - a, c - a).normalized;
             Tri(a, b, c, nrm, mat);
             Tri(a, b, c, -nrm, mat);
+        }
+
+        // arranca as faces cujo centro cai em "remover" (telhados desabados, paredes quebradas)
+        public void Danificar(System.Func<Vector3, bool> remover)
+        {
+            List<int> chaves = new List<int>(tri.Keys);
+            foreach (int k in chaves)
+            {
+                List<int> l = tri[k];
+                List<int> nova = new List<int>(l.Count);
+                for (int i = 0; i + 2 < l.Count; i += 3)
+                {
+                    Vector3 c = (v[l[i]] + v[l[i + 1]] + v[l[i + 2]]) / 3f;
+                    if (!remover(c)) { nova.Add(l[i]); nova.Add(l[i + 1]); nova.Add(l[i + 2]); }
+                }
+                tri[k] = nova;
+            }
         }
 
         public void Caixa(Vector3 c, Vector3 s, int mat) { Caixa(c, s, Quaternion.identity, mat); }
@@ -1918,6 +1950,43 @@ public static class PingluVila
             { l.Add(i0); l.Add(i0 + 2); l.Add(i0 + 1); l.Add(i0); l.Add(i0 + 3); l.Add(i0 + 2); }
         }
 
+        // peça de revolução (urna, cabeça, túnica de estátua): anéis de raio/altura empilhados
+        public void Torno(Vector3 baseCentro, float[] raios, float[] alturas, int lados, int mat, Quaternion r, bool tampas = true)
+        {
+            Vector3 eixo = r * Vector3.up;
+            int n = raios.Length;
+            for (int i = 0; i + 1 < n; i++)
+            {
+                float h = alturas[i + 1] - alturas[i];
+                for (int j = 0; j < lados; j++)
+                {
+                    float a0 = j * Mathf.PI * 2f / lados, a1 = (j + 1) * Mathf.PI * 2f / lados;
+                    Vector3 d0 = r * new Vector3(Mathf.Cos(a0), 0f, Mathf.Sin(a0));
+                    Vector3 d1 = r * new Vector3(Mathf.Cos(a1), 0f, Mathf.Sin(a1));
+                    Vector3 p00 = baseCentro + eixo * alturas[i] + d0 * raios[i];
+                    Vector3 p01 = baseCentro + eixo * alturas[i] + d1 * raios[i];
+                    Vector3 p10 = baseCentro + eixo * alturas[i + 1] + d0 * raios[i + 1];
+                    Vector3 p11 = baseCentro + eixo * alturas[i + 1] + d1 * raios[i + 1];
+                    Vector3 nrm = ((d0 + d1).normalized * Mathf.Max(0.01f, h) + eixo * (raios[i] - raios[i + 1])).normalized;
+                    Quad(p00, p10, p11, p01, nrm, mat, eixo);
+                }
+            }
+            if (tampas && raios[n - 1] > 0.001f)
+                for (int j = 0; j < lados; j++)
+                {
+                    float a0 = j * Mathf.PI * 2f / lados, a1 = (j + 1) * Mathf.PI * 2f / lados;
+                    Vector3 topo = baseCentro + eixo * alturas[n - 1];
+                    Tri(topo, topo + r * new Vector3(Mathf.Cos(a0), 0f, Mathf.Sin(a0)) * raios[n - 1], topo + r * new Vector3(Mathf.Cos(a1), 0f, Mathf.Sin(a1)) * raios[n - 1], eixo, mat);
+                }
+            if (tampas && raios[0] > 0.001f)
+                for (int j = 0; j < lados; j++)
+                {
+                    float a0 = j * Mathf.PI * 2f / lados, a1 = (j + 1) * Mathf.PI * 2f / lados;
+                    Vector3 b0 = baseCentro + eixo * alturas[0];
+                    Tri(b0, b0 + r * new Vector3(Mathf.Cos(a1), 0f, Mathf.Sin(a1)) * raios[0], b0 + r * new Vector3(Mathf.Cos(a0), 0f, Mathf.Sin(a0)) * raios[0], -eixo, mat);
+                }
+        }
+
         public Mesh Gerar(string nome)
         {
             Mesh mesh = new Mesh();
@@ -1994,6 +2063,7 @@ public static class PingluVila
         bool achou = false;
         foreach (Renderer r in go.GetComponentsInChildren<Renderer>())
         {
+            if (r is ParticleSystemRenderer || r is TrailRenderer) continue;   // fumaça/fogo têm "caixa" enorme e distorcem as áreas protegidas
             if (!achou) { b = r.bounds; achou = true; } else b.Encapsulate(r.bounds);
         }
         return achou;

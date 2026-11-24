@@ -1,0 +1,22 @@
+# (parte, referência, deslocamento_s, texto)   referência: 'abs' = segundos no prólogo; 'ini' = início da parte; 'nome' = quando o nome do chefe aparece; 'fase2' = quando ele racha
+FALAS = [
+ ('prologo','abs',0.8,  "Sente-se, viajante... e escute uma história muito antiga. Valverde... uma pequena ilha, esquecida entre as brumas do mar."),
+ ('prologo','abs',15.6, "Há muito tempo, um dragão colossal despertou... e incendiou as vilas da ilha, uma por uma."),
+ ('prologo','abs',27.2, "Então, o poder da fera foi dividido em três cristais, e selado... bem longe uns dos outros."),
+ ('prologo','abs',38.6, "Séculos se passaram... até que uma magia maligna começou a corromper os cristais."),
+ ('prologo','abs',49.6, "Os mortos acordaram. E a vila prometeu uma grande recompensa, a quem trouxesse a paz de volta."),
+ ('prologo','abs',61.0, "E é aí que chegam alguns aventureiros... sem um tostão no bolso."),
+ ('guardiao','nome',0.2, "O Guardião das Lápides. O vigia dos mortos."),
+ ('guardiao','fase2',0.6,"Mas quando a pedra se parte... desperta a sua fúria."),
+ ('heroi0','ini',1.0, "O Cavaleiro. Sua lâmina corta até a escuridão."),
+ ('heroi1','ini',1.0, "Morgana. A feiticeira que acende a noite."),
+ ('heroi2','ini',1.0, "O Tanque. Uma muralha contra o mal."),
+ ('heroi3','ini',1.0, "O Curandeiro. Enquanto ele reza... ninguém cai."),
+ ('cavaleiro','nome',0.2,"O Cavaleiro Caído. Uma ronda que nunca termina."),
+ ('ladrao','nome',0.2,"Malakar, o Ladrão. O dono do último cristal."),
+ ('fera','nome',0.2,"A Fera do Pântano. Que desperta, sob as águas escuras."),
+ ('dragao','nome',0.2,"E acima de todos eles... Drakthar. O devastador."),
+ ('dragao','fase2',0.8,"Quando o céu escurece... até os deuses se calam."),
+ ('final','ini',1.5,  "Trial of the Forsaken."),
+ ('final','ini',5.2,  "Sem tostão no bolso. O prêmio? Um cabaré."),
+]

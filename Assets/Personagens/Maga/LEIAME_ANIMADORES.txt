@@ -1,0 +1,118 @@
+MAGA - PACOTE DO ESQUELETO (RIG)
+================================
+
+ARQUIVOS
+- maga_rigged.fbx     -> modelo + esqueleto + pesos (Unity, Maya, 3ds Max, Blender...)
+- maga_rig.blend      -> mesma coisa no Blender 5.2, COM controles de animacao (IK) e material pronto
+- texturas_unity/     -> texturas 2048: maga_BaseColor, maga_Normal, maga_MetallicSmoothness
+- renders/            -> imagens das poses de teste
+- scripts/            -> ferramentas do Blender (validacao, refazer o rig, gerar as animacoes)
+- animacoes/          -> 17 animacoes (um .fbx cada) + animacoes.blend + previas/
+- unity/              -> MagiaMaga.cs (bola de magia e raio do cajado), DemoMaga.cs (tela de teste),
+                         Editor/MontarMaga.cs (menu Maga > Montar tudo: configura tudo e cria a cena de teste)
+
+ESPECIFICACOES
+- Altura: ~1,77 m em T-pose (com salto e capuz), escala 1:1 (metros). Pes no chao. Olha para +Z no Unity.
+- Pose de repouso: T-POSE, com joelhos e cotovelos levemente dobrados (~7 graus) de proposito (IK estavel).
+- Malha: 66 mil triangulos (Body 60k + Staff 6k), 1 material ("Maga") para corpo e cajado.
+- Pesos: no maximo 4 ossos por vertice. O casaco longo abaixo da cintura segue a perna mais proxima
+  perto dela e o quadril nas pontas largas; o pano que fica mais perto do tronco do que do braco
+  segue o tronco (as mangas largas seguem os bracos).
+- Dedos: a mao ESQUERDA tem os 15 ossos de dedo do Humanoid (LeftThumbProximal ... LeftLittleDistal).
+  No Blender, gire cada osso de dedo no eixo X local: X POSITIVO FECHA, negativo abre.
+  A mao DIREITA nao tem dedos: e esculpida fechada no cajado (igual a espada do primeiro cavaleiro).
+  Os dedos foram achados pela geometria (pele separada do pano pela cor da textura; pontas dos dedos
+  pela distancia na superficie a partir do pulso) e os pesos deles calculados direto na malha.
+- O modelo original (Tripo) e uma peca so; o cajado foi recortado e vira um objeto rigido.
+
+IMPORTAR NO UNITY - PASSO A PASSO
+  Antes: Git LFS instalado e o projeto aberto no Unity 6000.6.1f1.
+  0. Arquivos .meta: so UMA pessoa abre primeiro e da commit dos .meta gerados (evita conflito).
+  1. Esqueleto: clique em maga_rigged > Inspector > aba Rig > Animation Type: Humanoid >
+     Avatar Definition: Create From This Model > Apply. Em Configure... os ossos ficam VERDES
+     (RightHandWeapon e *_Twist ficam fora do mapeamento; e o certo). Aba Left Hand: 15 dedos
+     preenchidos; aba Right Hand: vazia (a mao direita nao tem dedos).
+  2. Texturas e material (senao fica BRANCA):
+     a) maga_Normal > Texture Type: Normal map > Apply.
+     b) maga_MetallicSmoothness > desmarque "sRGB (Color Texture)" > Apply.
+     c) maga_rigged > aba Materials > Extract Materials... > escolha a pasta da maga. Aparece o
+        material "Maga". Clique nele e arraste:
+           maga_BaseColor          -> Base Map
+           maga_MetallicSmoothness -> Metallic Map  (Source: Metallic Alpha; Smoothness em 1)
+           maga_Normal             -> Normal Map    (se pedir, "Fix Now")
+  3. Arraste maga_rigged para a cena. O cajado fica em ... > RightHand > RightHandWeapon > Staff.
+  Animacoes: qualquer clipe Humanoid (Mixamo, as dos cavaleiros, etc.) toca nela; no FBX da
+  animacao use Rig > Humanoid > Copy From Other Avatar > maga_riggedAvatar (ou Create From This
+  Model para Mixamo).
+
+ESQUELETO (nomes padrao Humanoid do Unity - NAO renomear; iguais aos dos cavaleiros)
+  Hips
+   +- Spine > Chest > UpperChest > Neck > Head
+   |                  UpperChest > LeftShoulder  > LeftUpperArm  > LeftLowerArm  > LeftHand > dedos (Thumb/Index/
+   |                                                               Middle/Ring/Little x Proximal/Intermediate/Distal)
+   |                                                               LeftLowerArm  > LeftLowerArm_Twist
+   |                  UpperChest > RightShoulder > RightUpperArm > RightLowerArm > RightHand > RightHandWeapon (cajado)
+   |                                                               RightLowerArm > RightLowerArm_Twist
+   +- LeftUpperLeg  > LeftLowerLeg  > LeftFoot  > LeftToes
+   +- RightUpperLeg > RightLowerLeg > RightFoot > RightToes
+  Pes de salto alto: o osso Foot desce inclinado do tornozelo ate a base dos dedos (no chao).
+
+CAJADO (PROP)
+- Staff e um objeto rigido (MeshRenderer), filho do osso RightHandWeapon (eixo Y do encaixe aponta
+  para o cristal). Para esconder: desative o GameObject Staff.
+- *_Twist: no Unity, adicione um Rotation Constraint (fonte = Hand do mesmo lado, peso 0.5) se
+  quiser a torcao do antebraco com animacoes Humanoid.
+
+ANIMAR NO BLENDER (maga_rig.blend)
+  Mesmos controles dos cavaleiros: CTRL_Root, IK_Foot_* (+ RF_Ball_/RF_Toe_), POLE_Knee_*,
+  IK_Hand_* + POLE_Elbow_*, chaves ik_perna_* (padrao 1 = IK) e ik_braco_* (padrao 0 = FK) no
+  CTRL_Root. Exportar: Armature + Body + Staff, Apply Scalings "FBX All", Only Deform Bones ligado,
+  Add Leaf Bones desligado, Bake Animation ligado.
+
+VALIDACAO
+  blender -b -P scripts/validate.py -- maga_rigged.fbx      -> resultado: 0 FAIL, 0 WARN (APROVADO)
+
+REFAZER O RIG DO ZERO (precisa do FBX original do Tripo e das texturas)
+  blender -b -P scripts/step1_norm.py -- tripo.fbx norm.blend           (1,70 m, pes no chao, ~300k tris)
+  blender -b norm.blend -P scripts/fingers.py -- scripts scripts/fingers.json   (juntas dos dedos da mao esquerda)
+  blender -b norm.blend -P scripts/build.py -- scripts rig_a.blend      (cajado, pesos, casaco, dedos, 60k tris)
+  blender -b -P scripts/make_textures.py -- <textures> texturas_unity
+  blender -b rig_a.blend -P scripts/rig_b.py -- texturas_unity <saida>  (T-pose, cajado, controles, FBX)
+  Obs.: os pesos sao calculados numa copia "limpa" da malha (voxel remesh) e transferidos, porque o
+  calculo automatico do Blender falha na escultura fundida do Tripo.
+
+CUIDADOS
+- Casaco longo e mangas largas (pano esculpido, sem fisica): em poses extremas (bracos acima da
+  cabeca, agachar fundo) o pano estica. Para movimento de pano de verdade, da para adicionar ossos
+  de capa/manga ou fisica no Unity depois.
+
+ANIMACOES DA MAGA (pasta animacoes/, 30 quadros/s, no lugar)
+  No chao:
+    Parado            loop   de pe, cajado apoiado no chao, respirando (feita a mao)
+    Andar / Correr    loop   caminhada elegante / corrida leve, cajado em pe ao lado (mocap Quaternius)
+    Magia_Entrar      1 vez  entra na postura de feitico (corpo de lado, mao esquerda apontando)
+    Magia_Pronta      loop   segurando o feitico
+    Magia_Lancar      1 vez  dispara (puxa, empurra a mao, peito recua, palma abre) - DISPARO no quadro 7
+    Magia_Sair        1 vez  volta ao normal
+    Levar_Golpe, Morrer
+  No ar (feitas a mao; ~30 cm acima do chao, a altura ja vem no clipe):
+    Comecar_Flutuar   1 vez  agacha um pouco e sobe        Pousar   1 vez  desce e dobra os joelhos
+    Flutuar           loop   balanca devagar no ar          Flutuar_Frente loop  desliza pra frente inclinada
+    Flutuar_Magia_Pronta loop / Flutuar_Magia_Lancar 1 vez   feitico no ar (pernas do flutuar + corpo do feitico)
+  Raio do cajado (feitas a mao): Raio_Cajado (no chao) e Flutuar_Raio (no ar), 40 quadros: ergue o cajado,
+    desce apontando o cristal pro alvo - RAIO no quadro 16 (evento "SoltarRaio", sai do osso StaffTip).
+  Velocidade sem os pes escorregarem: Andar 0,88 m/s, Correr 1,33 m/s, Flutuar_Frente ~1,5 m/s.
+  Fonte do mocap: Universal Animation Library 1 (Quaternius, CC0 - uso livre), Spell_Simple_*,
+  Walk_Formal_Loop, Jog_Fwd_Loop, Hit_Chest, Death01.
+
+ENCAIXES DE MAGIA (ossos sem peso, para efeitos/projeteis)
+  MagicHand_L  na palma esquerda; o eixo Y (transform.up no Unity) aponta para fora da palma
+  StaffTip     no cristal do cajado
+  O evento de animacao "LancarMagia" (quadro 7 de Magia_Lancar e Flutuar_Magia_Lancar) chama o metodo
+  LancarMagia() de um script no personagem: unity/MagiaMaga.cs e um exemplo que solta uma bola de luz
+  da MagicHand_L. No jogo, troque pelo projetil/efeito de verdade.
+
+UNITY - JEITO RAPIDO
+  Com a pasta em Assets/Personagens/Maga, use o menu Maga > Montar tudo (Humanoid, material, clipes
+  com loop e evento, Animator com as sequencias Entrar->Pronta, Lancar->Pronta, Comecar_Flutuar->Flutuar
+  etc., e a cena Teste_Maga com botoes).
