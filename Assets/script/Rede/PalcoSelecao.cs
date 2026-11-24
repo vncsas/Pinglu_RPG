@@ -501,11 +501,14 @@ public class PalcoSelecao : MonoBehaviour
                 g.Evaluate(0f);
             }
             Transform cabeca = a != null && a.isHuman ? a.GetBoneTransform(HumanBodyBones.Head) : null;
+            foreach (Transform t in m.GetComponentsInChildren<Transform>(true)) if (t.name == "CC_Base_Head") { cabeca = t; break; }          // golem (Granito): esqueleto Generic, a cabeça tem outro nome
+            float afasta = cabeca != null && cabeca.name == "CC_Base_Head" ? 1.4f : 1f;
             // enquadra cabeça (com coroa/capuz) e ombros, com folga em cima
             Vector3 alvo = cabeca != null ? cabeca.position : m.transform.position + Vector3.up * 1.6f;
             Vector3 frente = m.transform.forward;
+            if (afasta > 1f) alvo += Vector3.up * 0.38f + frente * 0.15f;      // golem: o osso fica na base do crânio
             cr.fieldOfView = 26f;
-            cr.transform.position = alvo + frente * 1.55f + m.transform.right * -0.2f + Vector3.up * 0.06f;
+            cr.transform.position = alvo + frente * 1.55f * afasta + m.transform.right * -0.2f * afasta + Vector3.up * 0.06f;
             cr.transform.LookAt(alvo + Vector3.down * 0.18f);
             RenderTexture rt = new RenderTexture(300, 400, 16); // mesmo formato das cartas (3:4)
             cr.targetTexture = rt;

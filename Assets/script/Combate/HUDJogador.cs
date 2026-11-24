@@ -70,6 +70,7 @@ public class HUDJogador : MonoBehaviour
     {
         Animator a = GetComponentInChildren<Animator>();
         if (a != null && a.isHuman) cabeca = a.GetBoneTransform(HumanBodyBones.Head);
+        foreach (Transform t in GetComponentsInChildren<Transform>(true)) if (t.name == "CC_Base_Head" && t.GetComponentInParent<SkinProceduralGranito>() != null) { cabeca = t; break; }   // o Granito (golem) tem a cabeça no esqueleto dele, não no corpo antigo escondido
         foreach (Renderer r in GetComponentsInChildren<Renderer>(true)) r.gameObject.layer = CAMADA_RETRATO;
 
         rtRetrato = new RenderTexture(256, 256, 16);
@@ -90,7 +91,8 @@ public class HUDJogador : MonoBehaviour
         if (camRetrato == null) return;
         Vector3 alvo = cabeca != null ? cabeca.position : transform.position + Vector3.up * 1.65f;
         Vector3 frente = transform.forward; frente.y = 0f; frente.Normalize();
-        camRetrato.transform.position = alvo + frente * distanciaDaCamera + Vector3.up * 0.05f + transform.right * 0.12f;
+        if (cabeca != null && cabeca.name == "CC_Base_Head") alvo += Vector3.up * 0.38f + frente * 0.15f;      // golem: o osso fica na base do crânio, a cara está acima e à frente
+        camRetrato.transform.position = alvo + frente * distanciaDaCamera * (cabeca != null && cabeca.name == "CC_Base_Head" ? 1.4f : 1f) + Vector3.up * 0.05f + transform.right * 0.12f;
         camRetrato.transform.LookAt(alvo - Vector3.up * 0.04f);
     }
 

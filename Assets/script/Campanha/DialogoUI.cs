@@ -123,7 +123,7 @@ public class DialogoUI : MonoBehaviour
             if (l == null || !l.enabled) continue;
             string n = h.gameObject.name.ToLowerInvariant();
             if (n.Contains("maga") || n.Contains("morgana")) return "Morgana";
-            if (n.Contains("tanque")) return "Auric";
+            if (n.Contains("tanque")) return "Granito";
             if (n.Contains("curandeiro")) return "Ossian";
             if (n.Contains("cavaleiro")) return "Cavaleiro Sombrio";
         }

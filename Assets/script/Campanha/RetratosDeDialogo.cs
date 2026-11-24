@@ -55,7 +55,7 @@ public class EstiloDeFala
         if (q.Contains("caio")) return "caio";
         if (q.Contains("sombrio")) return "cavaleirosombrio";
         if (q.Contains("morgana") || q.Contains("maga")) return "morgana";
-        if (q.Contains("tanque") || q.Contains("auric")) return "tanque";
+        if (q.Contains("tanque") || q.Contains("auric") || q.Contains("granito")) return "tanque";
         if (q.Contains("curandeiro") || q.Contains("ossian")) return "curandeiro";
         if (q.Contains("lad")) return "ladrao";
         if (q.Contains("cav")) return "cavaleiro";

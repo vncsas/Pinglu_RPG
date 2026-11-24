@@ -1,0 +1,22 @@
+GOLEM DE PEDRA (tanque) - esqueleto + animacoes basicas
+=======================================================
+Modelo original: "Character Free Golem Rock" (Oscar Creativo). TODAS as 15 pecas de pedra foram mantidas (nada foi removido ou unido).
+O esqueleto que ja vinha no modelo (89 ossos, padrao Character Creator "CC_Base_*") foi mantido e usado.
+
+O que foi feito
+ - escala corrigida para metros (o original estava em cm com escala 0.01 no esqueleto); altura 2,5 m, pes no chao, frente = +Z na Unity
+ - 15 pecas separadas, com os pesos originais (nenhum vertice sem peso); nomes limpos (Golem_Rig, Golem_Peito, Golem_Pies...)
+ - esqueleto Generic (sem T-pose: ele fica na pose esculpida, de gorila)
+ - 11 clipes procedurais, 30 quadros/s, no lugar: Idle, Walk, Run (loop); Attack_Pancada (soco lateral pesado), Attack_Martelada (as duas maos por
+   cima), Provocar (bate no peito), Levar_Golpe, Morrer; Defender_Entrar > Defender_Segurar (loop) > Defender_Sair
+ - o corpo nao afunda no chao: o quadril sobe sozinho quando uma pose atravessaria o chao
+ - TEXTURA: o pacote gratis so trouxe a telha UDIM do peito (as outras 14 pecas ficariam esticadas). Foi gerada uma textura de pedra escura
+   com rachaduras de lava (cor, normal, emissivo, suavidade) e as UVs das pecas de pedra foram refeitas por projecao em caixa
+   (2,4 m por repeticao). Os OLHOS usam as texturas originais.
+
+Na Unity
+ 1. Copie a pasta para Assets/Personagens/GolemRocha (a Unity cria os .meta).
+ 2. Menu  Golem Rocha > Montar tudo   (Generic, materiais, prefab com colisor).
+ 3. Menu  Golem Rocha > Cena de teste, Play, teclas 1-9 e 0.
+Limites: as maos sao uma peca so (dedos nao se mexem separados); as pecas deformam como pedras rigidas, entao aparecem pequenas frestas entre elas
+nos movimentos largos (normal num golem). O colisor do prefab e de teste (Rigidbody kinematic); no jogo use o CharacterController do jogador.

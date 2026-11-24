@@ -1,0 +1,99 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!1001 &7045196613274235095
+PrefabInstance:
+  m_ObjectHideFlags: 0
+  serializedVersion: 2
+  m_Modification:
+    serializedVersion: 3
+    m_TransformParent: {fileID: 0}
+    m_Modifications:
+    - target: {fileID: 2271094088445564268, guid: d57b3b03f0439ddb3b730000aae1c614, type: 3}
+      propertyPath: m_Controller
+      value: 
+      objectReference: {fileID: 9100000, guid: 3d3229bf899179183a4487ed961ff902, type: 2}
+    - target: {fileID: 6943322524678702799, guid: d57b3b03f0439ddb3b730000aae1c614, type: 3}
+      propertyPath: m_LocalPosition.x
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 6943322524678702799, guid: d57b3b03f0439ddb3b730000aae1c614, type: 3}
+      propertyPath: m_LocalPosition.y
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 6943322524678702799, guid: d57b3b03f0439ddb3b730000aae1c614, type: 3}
+      propertyPath: m_LocalPosition.z
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 6943322524678702799, guid: d57b3b03f0439ddb3b730000aae1c614, type: 3}
+      propertyPath: m_LocalRotation.w
+      value: 1
+      objectReference: {fileID: 0}
+    - target: {fileID: 6943322524678702799, guid: d57b3b03f0439ddb3b730000aae1c614, type: 3}
+      propertyPath: m_LocalRotation.x
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 6943322524678702799, guid: d57b3b03f0439ddb3b730000aae1c614, type: 3}
+      propertyPath: m_LocalRotation.y
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 6943322524678702799, guid: d57b3b03f0439ddb3b730000aae1c614, type: 3}
+      propertyPath: m_LocalRotation.z
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 6943322524678702799, guid: d57b3b03f0439ddb3b730000aae1c614, type: 3}
+      propertyPath: m_LocalEulerAnglesHint.x
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 6943322524678702799, guid: d57b3b03f0439ddb3b730000aae1c614, type: 3}
+      propertyPath: m_LocalEulerAnglesHint.y
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 6943322524678702799, guid: d57b3b03f0439ddb3b730000aae1c614, type: 3}
+      propertyPath: m_LocalEulerAnglesHint.z
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 7714793293233593461, guid: d57b3b03f0439ddb3b730000aae1c614, type: 3}
+      propertyPath: m_Name
+      value: Granito_Skin
+      objectReference: {fileID: 0}
+    m_RemovedComponents:
+    - {fileID: 1422065909988140144, guid: d57b3b03f0439ddb3b730000aae1c614, type: 3}
+    - {fileID: 4401245592080309322, guid: d57b3b03f0439ddb3b730000aae1c614, type: 3}
+    - {fileID: 2294047616948833348, guid: d57b3b03f0439ddb3b730000aae1c614, type: 3}
+    - {fileID: 5211866630188155592, guid: d57b3b03f0439ddb3b730000aae1c614, type: 3}
+    m_RemovedGameObjects:
+    - {fileID: 3745313451799507453, guid: d57b3b03f0439ddb3b730000aae1c614, type: 3}
+    m_AddedGameObjects: []
+    m_AddedComponents:
+    - targetCorrespondingSourceObject: {fileID: 7714793293233593461, guid: d57b3b03f0439ddb3b730000aae1c614, type: 3}
+      insertIndex: -1
+      addedObject: {fileID: 2632669109987241063}
+  m_SourcePrefab: {fileID: 100100000, guid: d57b3b03f0439ddb3b730000aae1c614, type: 3}
+--- !u!1 &780780104295902370 stripped
+GameObject:
+  m_CorrespondingSourceObject: {fileID: 7714793293233593461, guid: d57b3b03f0439ddb3b730000aae1c614, type: 3}
+  m_PrefabInstance: {fileID: 7045196613274235095}
+  m_PrefabAsset: {fileID: 0}
+--- !u!114 &2632669109987241063
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 780780104295902370}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: f1943ca14ad10d121ad65527b45e6de7, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::SkinProceduralGranito
+  inclinaCintura: 10
+  inclinaColuna1: 12
+  inclinaColuna2: 10
+  cabecaPescoco: -12
+  cabecaCabeca: -14
+  bracosFrente: -6
+  balancoBracos: 24
+  coxaFrente: -7
+  canelaTras: 12
+  peAjuste: -5
+  baixaQuadril: 0.08
